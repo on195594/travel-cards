@@ -59,12 +59,12 @@ const clarificationSchema = z.strictObject({
 const modelGuideSchema = z.strictObject({ ...aiGuideFields, sources: z.array(z.unknown()).max(50).optional() }).superRefine(checkDays);
 const modelAnswerSchema = z.strictObject({ answer: z.string().trim().min(1).max(10_000), sources: z.array(z.unknown()).max(50).optional() });
 
-export const modelGuideResultSchema = z.discriminatedUnion("kind", [
+export const modelGuideResultSchema = z.union([
   z.strictObject({ kind: z.literal("candidate"), data: modelGuideSchema }),
   clarificationSchema,
 ]);
 
-export const modelAnswerResultSchema = z.discriminatedUnion("kind", [
+export const modelAnswerResultSchema = z.union([
   z.strictObject({ kind: z.literal("candidate"), data: modelAnswerSchema }),
   clarificationSchema,
 ]);

@@ -73,6 +73,8 @@ describe("grounded Gemini assistant", () => {
     expect(mocks.create).toHaveBeenCalledTimes(3);
     for (const [params, options] of mocks.create.mock.calls) {
       expect(params).toMatchObject({ model: "gemini-test-model", store: false, tools: [{ type: "google_search" }], response_format: { type: "text", mime_type: "application/json" } });
+      expect(params.response_format.schema).toHaveProperty("anyOf");
+      expect(params.response_format.schema).not.toHaveProperty("oneOf");
       expect(options).toEqual({ timeout: 20_000, maxRetries: 0 });
     }
     const answerPrompt = JSON.stringify(mocks.create.mock.calls[2][0].input);
