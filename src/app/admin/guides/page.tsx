@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { requireAdmin, signOut } from "@/auth";
+import { requireAdminPage, signOut } from "@/auth";
 import { listAdminGuides } from "@/lib/guides";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminGuidesPage() {
-  await requireAdmin();
+  await requireAdminPage();
   const guides = await listAdminGuides();
   return (
     <main className="container admin">

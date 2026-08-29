@@ -1,9 +1,9 @@
-import { requireAdmin } from "@/auth";
+import { requireAdminPage } from "@/auth";
 import { GuideEditor } from "@/components/guide-editor";
 
 export const dynamic = "force-dynamic";
 
 export default async function NewGuidePage() {
-  await requireAdmin();
+  await requireAdminPage();
   return <main className="container admin"><GuideEditor /></main>;
 }

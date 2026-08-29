@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/auth";
-import { jsonError, HttpError } from "@/lib/http";
+import { assertSameOrigin, jsonError, HttpError } from "@/lib/http";
 import { MAX_MULTIPART_BYTES, uploadImage } from "@/lib/storage/r2";
 
 export const runtime = "nodejs";
@@ -31,6 +31,7 @@ async function boundedBody(request: Request): Promise<Uint8Array> {
 export async function POST(request: Request) {
   try {
     await requireAdmin();
+    assertSameOrigin(request);
 
     const encoding = request.headers.get("content-encoding");
     if (encoding && encoding.toLowerCase() !== "identity") throw new HttpError(400, "UNSUPPORTED_ENCODING", "上传请求不支持压缩编码");

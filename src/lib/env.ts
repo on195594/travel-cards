@@ -9,7 +9,11 @@ export function getAuthEnv() {
   if (secret.length < 32) throw new Error("AUTH_SECRET must be at least 32 characters");
   const email = required("ADMIN_EMAIL").toLowerCase();
   if (!/^\S+@\S+\.\S+$/.test(email)) throw new Error("ADMIN_EMAIL is invalid");
-  return { secret, email, passwordHash: required("ADMIN_PASSWORD_HASH") };
+  const authUrl = new URL(required("AUTH_URL"));
+  if (!["http:", "https:"].includes(authUrl.protocol) || authUrl.username || authUrl.password || authUrl.search || authUrl.hash || authUrl.pathname !== "/") {
+    throw new Error("AUTH_URL must be an HTTP(S) origin");
+  }
+  return { secret, email, passwordHash: required("ADMIN_PASSWORD_HASH"), authOrigin: authUrl.origin };
 }
 
 export function getMongoUri(): string {

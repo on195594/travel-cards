@@ -76,7 +76,15 @@ describe("Guide aggregate", () => {
     await expect(updateGuide(draft.id, { expectedRevision: published.revision, slug: "changed-slug" })).rejects.toMatchObject({ code: "PUBLISHED_SLUG_IMMUTABLE" });
     const unpublished = await unpublishGuide(draft.id, { expectedRevision: published.revision });
     expect(unpublished).toMatchObject({ status: "draft", revision: 3, publishedAt: undefined });
+    await expect(updateGuide(draft.id, { expectedRevision: unpublished.revision, slug: "changed-after-unpublish" })).rejects.toMatchObject({ code: "PUBLISHED_SLUG_IMMUTABLE" });
     await expect(getPublishedGuideBySlug(draft.slug!)).resolves.toBeNull();
+  });
+
+  it("keeps every published edit publishable", async () => {
+    const draft = await createGuide(threeDayGuide("published-invariant"));
+    const published = await publishGuide(draft.id, { expectedRevision: draft.revision });
+    await expect(updateGuide(draft.id, { expectedRevision: published.revision, title: "" })).rejects.toMatchObject({ code: "PUBLISH_REQUIREMENTS" });
+    await expect(getPublishedGuideBySlug("published-invariant")).resolves.toMatchObject({ title: draft.title, revision: published.revision });
   });
 
   it("atomically rejects a stale edit while preserving the winner", async () => {

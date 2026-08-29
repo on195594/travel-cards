@@ -73,7 +73,18 @@ export const guideSchema = draftGuideObject.extend({
   updatedAt: z.string().datetime(),
 }).superRefine(checkDayNumbers);
 
-export const guidePatchSchema = draftGuideObject.partial().extend({ expectedRevision: z.number().int().min(1) });
+export const guidePatchSchema = z.object({
+  expectedRevision: z.number().int().min(1),
+  title: z.string().trim().max(200).optional(),
+  slug: optionalSlug,
+  destination: z.string().trim().max(200).optional(),
+  excerpt: z.string().trim().max(1000).optional(),
+  days: z.number().int().min(1).max(365).optional(),
+  coverImage: draftGuideObject.shape.coverImage.optional(),
+  itinerary: z.array(itineraryDaySchema).optional(),
+  sections: z.array(sectionSchema).optional(),
+  sources: z.array(sourceRefSchema).optional(),
+});
 export const expectedRevisionSchema = z.object({ expectedRevision: z.number().int().min(1) });
 
 export type Guide = z.infer<typeof guideSchema>;
@@ -105,6 +116,7 @@ const guideMongooseSchema = new Schema({
   status: { type: String, enum: ["draft", "published"], default: "draft" },
   revision: { type: Number, default: 1 },
   publishedAt: Date,
+  slugLocked: { type: Boolean, default: false, select: false },
 }, { timestamps: true, versionKey: false });
 guideMongooseSchema.index({ slug: 1 }, { unique: true, partialFilterExpression: { slug: { $type: "string" } } });
 
@@ -156,8 +168,8 @@ async function conflictOrMissing(id: string): Promise<never> {
 }
 
 export async function createGuide(input: unknown): Promise<Guide> {
-  await ready();
   const values = guideDraftInputSchema.parse(input);
+  await ready();
   const record = await GuideModel.create({ ...values, slug: values.slug || undefined, status: "draft", revision: 1 });
   return serialized(record.toObject() as Record<string, unknown>);
 }
@@ -189,7 +201,9 @@ export async function updateGuide(id: string, input: unknown): Promise<Guide> {
   const current = await findByIdOrThrow(id);
   if (current.revision !== expectedRevision) await conflictOrMissing(id);
   const merged = guideDraftInputSchema.parse({ ...contentOf(current), ...patch });
-  if (current.status === "published" && merged.slug !== current.slug) throw new HttpError(400, "PUBLISHED_SLUG_IMMUTABLE", "已发布攻略的 slug 不可修改");
+  const slugLocked = current.status === "published" || Boolean(await GuideModel.exists({ _id: objectId(id), slugLocked: true }));
+  if (slugLocked && merged.slug !== current.slug) throw new HttpError(400, "PUBLISHED_SLUG_IMMUTABLE", "已发布攻略的 slug 不可修改");
+  if (current.status === "published") validatePublish(merged);
 
   const setValues: Record<string, unknown> = { ...merged };
   const unsetValues: Record<string, 1> = {};
@@ -204,7 +218,7 @@ export async function updateGuide(id: string, input: unknown): Promise<Guide> {
   return serialized(record as Record<string, unknown>);
 }
 
-function validatePublish(guide: Guide) {
+function validatePublish(guide: Pick<GuideDraftInput, "title" | "slug" | "destination" | "excerpt" | "coverImage" | "itinerary">) {
   if (!guide.title || !guide.slug || !guide.destination || !guide.excerpt || !guide.coverImage?.alt || !guide.coverImage.publicUrl || guide.itinerary.length < 1) {
     throw new HttpError(400, "PUBLISH_REQUIREMENTS", "发布前需填写标题、slug、目的地、简介、封面与 alt，并至少包含一天行程");
   }
@@ -217,7 +231,7 @@ export async function publishGuide(id: string, input: unknown): Promise<Guide> {
   validatePublish(current);
   const record = await GuideModel.findOneAndUpdate(
     { _id: objectId(id), revision: expectedRevision },
-    { $set: { status: "published", publishedAt: new Date() }, $inc: { revision: 1 } },
+    { $set: { status: "published", publishedAt: new Date(), slugLocked: true }, $inc: { revision: 1 } },
     { returnDocument: "after", runValidators: true },
   ).lean();
   if (!record) return conflictOrMissing(id);
@@ -229,7 +243,7 @@ export async function unpublishGuide(id: string, input: unknown): Promise<Guide>
   await ready();
   const record = await GuideModel.findOneAndUpdate(
     { _id: objectId(id), revision: expectedRevision },
-    { $set: { status: "draft" }, $unset: { publishedAt: 1 }, $inc: { revision: 1 } },
+    { $set: { status: "draft", slugLocked: true }, $unset: { publishedAt: 1 }, $inc: { revision: 1 } },
     { returnDocument: "after", runValidators: true },
   ).lean();
   if (!record) return conflictOrMissing(id);

@@ -65,12 +65,17 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
   }
 
   async function transition(action: "publish" | "unpublish") {
-    const current = await save();
+    const current = action === "publish" ? await save() : saved;
     if (!current) return;
     setBusy(true); setMessage("");
     try {
       const guide = await request(`/api/guides/${current.id}/${action}`, { method: "POST", body: JSON.stringify({ expectedRevision: current.revision }) });
-      if (guide) { setSaved(guide); setDraft(contentOf(guide)); setMessage(action === "publish" ? "已发布。" : "已撤回为草稿。"); router.refresh(); }
+      if (guide) {
+        setSaved(guide);
+        if (action === "publish") setDraft(contentOf(guide));
+        setMessage(action === "publish" ? "已发布。" : "已撤回为草稿；表单中的未保存内容仍保留。");
+        router.refresh();
+      }
     } finally { setBusy(false); }
   }
 

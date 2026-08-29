@@ -43,6 +43,7 @@ describe("POST /api/uploads", () => {
       body,
       duplex: "half",
       headers: {
+        origin: "http://localhost:3000",
         "content-type": "multipart/form-data; boundary=test",
         "content-length": String(10 * 1024 * 1024 + 64 * 1024 + 1),
       },
@@ -58,7 +59,7 @@ describe("POST /api/uploads", () => {
   it("accepts exactly one file and returns only object metadata", async () => {
     const form = new FormData();
     form.append("file", new File([Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])], "ignored.png", { type: "image/png" }));
-    const source = new Request("http://localhost/api/uploads", { method: "POST", body: form });
+    const source = new Request("http://localhost/api/uploads", { method: "POST", headers: { origin: "http://localhost:3000" }, body: form });
     const request = new Request(source.url, { method: "POST", headers: source.headers, body: source.body, duplex: "half" } as RequestInit);
     const response = await POST(request);
     expect(response.status).toBe(201);
@@ -71,7 +72,7 @@ describe("POST /api/uploads", () => {
     const form = new FormData();
     form.append("file", new File([Uint8Array.from([0xff, 0xd8, 0xff])], "ignored.jpg", { type: "image/jpeg" }));
     form.append("path", "client/chosen.jpg");
-    const source = new Request("http://localhost/api/uploads", { method: "POST", body: form });
+    const source = new Request("http://localhost/api/uploads", { method: "POST", headers: { origin: "http://localhost:3000" }, body: form });
     const request = new Request(source.url, { method: "POST", headers: source.headers, body: source.body, duplex: "half" } as RequestInit);
     const response = await POST(request);
     expect(response.status).toBe(400);

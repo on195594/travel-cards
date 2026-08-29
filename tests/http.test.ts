@@ -9,13 +9,19 @@ describe("stable HTTP errors", () => {
   });
 
   it("redacts unknown internal errors", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const response = jsonError(new Error("mongodb://user:secret@private/db"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const response = jsonError(new Error("mongodb://user:super-secret@private/db"));
     expect(response.status).toBe(500);
     expect(JSON.stringify(await response.json())).not.toContain("secret");
+    expect(JSON.stringify(log.mock.calls)).not.toContain("super-secret");
   });
 
   it("rejects malformed JSON with a stable 400", async () => {
-    await expect(readJson(new Request("http://test/api", { method: "POST", body: "{" }))).rejects.toMatchObject({ status: 400, code: "INVALID_JSON" });
+    await expect(readJson(new Request("http://localhost:3000/api", { method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json" }, body: "{" }))).rejects.toMatchObject({ status: 400, code: "INVALID_JSON" });
+  });
+
+  it("rejects cross-origin and non-JSON writes", async () => {
+    await expect(readJson(new Request("http://localhost:3000/api", { method: "POST", headers: { origin: "http://localhost:3001", "content-type": "application/json" }, body: "{}" }))).rejects.toMatchObject({ status: 403, code: "CROSS_ORIGIN" });
+    await expect(readJson(new Request("http://localhost:3000/api", { method: "POST", headers: { origin: "http://localhost:3000", "content-type": "text/plain" }, body: "{}" }))).rejects.toMatchObject({ status: 415, code: "UNSUPPORTED_MEDIA_TYPE" });
   });
 });

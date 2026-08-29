@@ -1,5 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { redirect } from "next/navigation";
 import { assertAdmin } from "@/lib/admin";
 import { getAuthEnv } from "@/lib/env";
 import { verifyPassword } from "@/lib/password";
@@ -32,5 +33,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 export async function requireAdmin() {
   const session = await auth();
   assertAdmin(session);
+  return session;
+}
+
+export async function requireAdminPage() {
+  const session = await auth();
+  try {
+    assertAdmin(session);
+  } catch {
+    redirect("/admin/login");
+  }
   return session;
 }
