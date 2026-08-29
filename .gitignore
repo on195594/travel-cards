@@ -4,9 +4,7 @@ node_modules/
 coverage/
 
 # Environment and credentials
-.env
-.env.local
-.env.*.local
+.env*
 !.env.example
 
 # Logs and local state

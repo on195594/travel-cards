@@ -227,7 +227,7 @@ Rollback with `git revert` in reverse order. Drop only the exact disposable test
 Implement the production route once:
 
 - `storage/r2.ts`: real `S3Client`, R2 endpoint, region `auto`, configured bucket, `PutObjectCommand`.
-- `POST /api/uploads`: require admin before body work; reject missing/declared oversize; perform bounded read; reject actual size over 10 MiB.
+- `POST /api/uploads`: require admin before inspecting or consuming the body. Define `MAX_FILE_BYTES = 10 * 1024 * 1024` and `MAX_MULTIPART_BYTES = MAX_FILE_BYTES + 64 * 1024`; reject malformed or declared-over-envelope `Content-Length`, but still stream-read absent or dishonest lengths and cancel immediately above the envelope bound. Parse multipart only from the bounded copy, then independently reject empty files or actual file size over 10 MiB.
 - Allow only `image/jpeg`, `image/png`, and `image/webp` and require matching JPEG/PNG/WebP magic bytes.
 - Generate `guides/<uuid>.<ext>` server-side; never accept a client path.
 - Return only `objectKey` and public URL; never expose access keys/provider details.

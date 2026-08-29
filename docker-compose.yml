@@ -1,0 +1,33 @@
+services:
+  mongodb:
+    image: mongo:8
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  web:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - path: .env.example
+      - path: .env.local
+        required: false
+        format: raw
+    environment:
+      AUTH_URL: http://localhost:${APP_PORT:-3100}
+      MONGODB_URI: mongodb://mongodb:27017/travel_cards
+    ports:
+      - "127.0.0.1:${APP_PORT:-3100}:3000"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+volumes:
+  mongodb_data:

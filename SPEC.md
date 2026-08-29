@@ -184,7 +184,7 @@ type AiResult<T> =
 - **认证**：Auth.js 单管理员 Credentials 流；密码使用不可逆哈希校验，session cookie 采用安全默认值。
 - **AI**：Google Gemini Interactions API；具体稳定模型由 `GEMINI_MODEL` 配置，默认值在实现时依据官方支持列表确定并由测试覆盖。
 - **联网来源**：Gemini Google Search grounding；UI 展示官方响应中的 grounding 来源。
-- **图片**：Cloudflare R2 S3-compatible API。首版采用同源、服务端中转上传：Next.js Route Handler 先验证管理员、声明 MIME、文件签名与实际字节数，再以服务端凭证写入 R2。上限为 10 MiB，只允许 `image/jpeg`、`image/png`、`image/webp`；object key 由服务端生成。单管理员小图片场景不引入 presigned URL、R2 CORS 或 Worker 上传代理。
+- **图片**：Cloudflare R2 S3-compatible API。首版采用同源、服务端中转上传：Next.js Route Handler 先验证管理员、声明 MIME、文件签名与实际字节数，再以服务端凭证写入 R2。单个图片文件上限为 10 MiB，multipart 请求总包络上限为 `10 MiB + 64 KiB`，只允许 `image/jpeg`、`image/png`、`image/webp`；object key 由服务端生成。单管理员小图片场景不引入 presigned URL、R2 CORS 或 Worker 上传代理。
 - **运行目标**：本地 Docker Compose 同时启动 Web 与 MongoDB。R2 和 Gemini 使用真实远端服务，但测试默认使用 fake transport。
 
 ## 7. 服务端接口边界
@@ -207,7 +207,7 @@ type AiResult<T> =
 
 - 环境变量至少包括 Auth secret、管理员身份/密码哈希、MongoDB URI、Gemini API key、Gemini model、R2 endpoint/bucket/access keys 和 public base URL。
 - `.env*`（示例文件除外）不得提交 Git。
-- 上传 Route Handler 必须在读 body 前拒绝已声明超过 10 MiB 的请求，并在有界读取后再次校验实际字节数；同时校验 MIME 与文件签名一致。object key 由服务端生成，不接受任意路径。
+- 上传 Route Handler 必须在读 body 前拒绝已声明超过 `10 MiB + 64 KiB` multipart 包络上限的请求；对缺失或不可信的长度仍执行有界流式读取，并在解析后独立拒绝实际图片文件超过 10 MiB 的请求。同时校验 MIME 与文件签名一致。object key 由服务端生成，不接受任意路径。
 - Markdown 或结构化正文渲染必须防止脚本注入；不允许未经净化的 HTML。
 - AI 请求不得接收任意系统提示词或工具定义；用户内容作为不可信数据处理。
 - 公开页面不得泄露草稿、内部错误、模型提示词、凭证或原始供应商响应。
