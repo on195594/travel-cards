@@ -3,6 +3,7 @@ import {
   MAX_FILE_BYTES,
   createImageObjectKey,
   detectImageMime,
+  uploadImage,
   validateImage,
 } from "@/lib/storage/r2";
 
@@ -29,5 +30,9 @@ describe("R2 image validation", () => {
     expect(createImageObjectKey("jpg")).toMatch(/^guides\/[0-9a-f-]{36}\.jpg$/);
     expect(createImageObjectKey("png")).toMatch(/^guides\/[0-9a-f-]{36}\.png$/);
     expect(createImageObjectKey("webp")).toMatch(/^guides\/[0-9a-f-]{36}\.webp$/);
+  });
+
+  it("reports missing R2 configuration without attempting a fake upload", async () => {
+    await expect(uploadImage(signatures["image/png"], "image/png")).rejects.toMatchObject({ status: 500, code: "R2_CONFIGURATION_ERROR" });
   });
 });

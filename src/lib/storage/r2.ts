@@ -52,7 +52,12 @@ function r2Client(endpoint: string, accessKeyId: string, secretAccessKey: string
 
 export async function uploadImage(bytes: Uint8Array, declaredMime: string): Promise<{ objectKey: string; publicUrl: string }> {
   const { mime, extension } = validateImage(bytes, declaredMime);
-  const env = getR2Env();
+  let env: ReturnType<typeof getR2Env>;
+  try {
+    env = getR2Env();
+  } catch {
+    throw new HttpError(500, "R2_CONFIGURATION_ERROR", "图片存储尚未配置");
+  }
   const objectKey = createImageObjectKey(extension);
   try {
     await r2Client(env.endpoint, env.accessKeyId, env.secretAccessKey).send(new PutObjectCommand({
