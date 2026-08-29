@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+.next/
+coverage/
+
+# Environment and credentials
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs and local state
+*.log
+.DS_Store
+
+# Local uploads/test artifacts
+tmp/
