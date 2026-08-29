@@ -4,8 +4,10 @@
 
 ## 当前状态
 
-- Next.js 16、Auth.js、MongoDB、Guide CRUD/发布/撤回和 Cloudflare R2 上传代码已落地。
-- Gemini 本地实现与离线测试正在收尾；真实 Gemini/R2 smoke 未运行，仍需单独确认和凭证。
+- Next.js 16、Auth.js、MongoDB、Guide CRUD/发布/撤回、Cloudflare R2 上传和 Gemini grounded assistant 已落地。
+- 默认离线测试、lint、production build、Docker 构建与本地 HTTP 验收均通过。
+- 真实 Gemini/R2 smoke 未运行：两者需要单独确认、真实凭证，并可能产生费用或外部写入。
+- 最终独立 AGY 审查对候选 `6a090353b452dc06188d82d53b3317f4d097f0db` 返回 `APPROVE`，且审查前后 `NO_DRIFT`。
 - 权威需求：[SPEC.md](./SPEC.md)
 - 项目约束：[AGENTS.md](./AGENTS.md)
 
