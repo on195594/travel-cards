@@ -18,3 +18,24 @@ export function getMongoUri(): string {
   if (!database) throw new Error("MONGODB_URI must include a database name");
   return uri;
 }
+
+function httpsUrl(name: string, allowPath: boolean): URL {
+  const value = new URL(required(name));
+  if (value.protocol !== "https:" || value.username || value.password || value.search || value.hash || (!allowPath && value.pathname !== "/")) {
+    throw new Error(`${name} must be a safe HTTPS URL`);
+  }
+  return value;
+}
+
+export function getR2Env() {
+  const endpoint = httpsUrl("R2_ENDPOINT", false).toString().replace(/\/$/, "");
+  const publicBase = httpsUrl("R2_PUBLIC_BASE_URL", true);
+  if (!publicBase.pathname.endsWith("/")) publicBase.pathname += "/";
+  return {
+    endpoint,
+    bucket: required("R2_BUCKET"),
+    accessKeyId: required("R2_ACCESS_KEY_ID"),
+    secretAccessKey: required("R2_SECRET_ACCESS_KEY"),
+    publicBaseUrl: publicBase.toString(),
+  };
+}
