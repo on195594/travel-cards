@@ -5,9 +5,10 @@
 ## 当前状态
 
 - Next.js 16、Auth.js、MongoDB、Guide CRUD/发布/撤回、Cloudflare R2 上传和 Gemini grounded assistant 已落地。
-- 默认离线测试、lint、production build、Docker 构建与本地 HTTP 验收均通过。
+- 当前运行时代码基线为 `e025b9e`；45 项测试、lint、production build 和 `docker compose config` 均通过。
 - 真实 Gemini/R2 smoke 未运行：两者需要单独确认、真实凭证，并可能产生费用或外部写入。
 - 最终独立 AGY 审查对候选 `6a090353b452dc06188d82d53b3317f4d097f0db` 返回 `APPROVE`，且审查前后 `NO_DRIFT`。
+- 后续对 `38946a8` 的限定范围 AGY 代码审查发现 Gemini `oneOf` 兼容性问题，同时误报了 `google_search` 工具形状；父级依据官方 Interactions 文档与已安装 SDK 驳回误报，仅在 `e025b9e` 将面向模型的 schema 改为 `anyOf`，并增加精确请求 payload 回归断言。
 - 权威需求：[SPEC.md](./SPEC.md)
 - 项目约束：[AGENTS.md](./AGENTS.md)
 
@@ -61,14 +62,18 @@ npm run dev
 
 ## 验证
 
+测试需要 MongoDB；先只启动 `mongodb` 服务，全部检查完成后停止 Compose：
+
 ```bash
+docker compose up -d mongodb
 npm test
 npm run lint
 npm run build
 docker compose config
+docker compose down
 ```
 
-默认测试不会调用 Gemini 或 R2。真实 provider smoke 是手动、显式且可能计费的操作；未获得确认时不得运行。
+测试不会调用真实 Gemini 或 R2，但并非完全自包含：它依赖上面启动的 MongoDB。真实 provider smoke 是手动、显式且可能计费的操作；未获得确认时不得运行。
 
 ## 主要入口
 

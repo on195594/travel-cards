@@ -19,3 +19,9 @@ Parent verification before review:
 - Real Gemini and R2 smoke: not run; separately gated because they require credentials and may produce cost/external writes
 
 No blocking AGY finding was accepted because the final verdict contained none. The later README/closeout-only commit does not alter the reviewed runtime candidate.
+
+## Post-closeout alignment
+
+A later bounded AGY code review on `38946a8` correctly found a Gemini `oneOf` compatibility issue, but also made a false-positive claim about the `google_search` tool shape. Parent verification against the official Interactions documentation and the installed SDK rejected the tool-shape claim. The only runtime fix, at `e025b9e`, changed the model-facing schema to emit `anyOf` and added exact request-payload regression assertions.
+
+The post-review runtime fix is `e025b9e`. All 45 tests, lint, production build, and `docker compose config` passed. Real Gemini and R2 smoke remain separately gated.
