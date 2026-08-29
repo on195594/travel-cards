@@ -87,6 +87,12 @@ describe("Guide aggregate", () => {
     await expect(getPublishedGuideBySlug("published-invariant")).resolves.toMatchObject({ title: draft.title, revision: published.revision });
   });
 
+  it("does not lock a never-published draft when unpublish is called", async () => {
+    const draft = await createGuide(threeDayGuide("never-published"));
+    const stillDraft = await unpublishGuide(draft.id, { expectedRevision: draft.revision });
+    await expect(updateGuide(draft.id, { expectedRevision: stillDraft.revision, slug: "still-editable" })).resolves.toMatchObject({ slug: "still-editable" });
+  });
+
   it("atomically rejects a stale edit while preserving the winner", async () => {
     const draft = await createGuide(threeDayGuide());
     const winner = await updateGuide(draft.id, { expectedRevision: draft.revision, excerpt: "先保存的内容" });

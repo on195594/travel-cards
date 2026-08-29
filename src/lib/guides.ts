@@ -240,10 +240,11 @@ export async function publishGuide(id: string, input: unknown): Promise<Guide> {
 
 export async function unpublishGuide(id: string, input: unknown): Promise<Guide> {
   const { expectedRevision } = expectedRevisionSchema.parse(input);
-  await ready();
+  const current = await findByIdOrThrow(id);
+  if (current.revision !== expectedRevision) await conflictOrMissing(id);
   const record = await GuideModel.findOneAndUpdate(
     { _id: objectId(id), revision: expectedRevision },
-    { $set: { status: "draft", slugLocked: true }, $unset: { publishedAt: 1 }, $inc: { revision: 1 } },
+    { $set: { status: "draft", ...(current.status === "published" ? { slugLocked: true } : {}) }, $unset: { publishedAt: 1 }, $inc: { revision: 1 } },
     { returnDocument: "after", runValidators: true },
   ).lean();
   if (!record) return conflictOrMissing(id);
