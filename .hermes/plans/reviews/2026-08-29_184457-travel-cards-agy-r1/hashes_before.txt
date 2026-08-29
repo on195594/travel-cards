@@ -1,0 +1,4 @@
+25a24a8ab98015339a68a0c7c10a64597b610e998e45ad60afab52f205e5de8e  .hermes/plans/2026-08-29_183912-travel-cards-spec-execution.md
+9a370c8c750decbc0c35fa3ff5ec628206a5a21fe530ea51deecbed682f791a7  SPEC.md
+3d72ea2edda7909874388a21bdf3e8e140cc5722d7b57add0bb54ed8228abf50  AGENTS.md
+3a4db783528fdf2dde53ed3b758d70be45a744ee8efea454778aa9df9a32068d  README.md
