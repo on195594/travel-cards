@@ -23,6 +23,10 @@ export function getMongoUri(): string {
   return uri;
 }
 
+export function getGeminiEnv() {
+  return { apiKey: required("GEMINI_API_KEY"), model: process.env.GEMINI_MODEL?.trim() || "gemini-3.7-flash" };
+}
+
 function httpsUrl(name: string, allowPath: boolean): URL {
   const value = new URL(required(name));
   if (value.protocol !== "https:" || value.username || value.password || value.search || value.hash || (!allowPath && value.pathname !== "/")) {

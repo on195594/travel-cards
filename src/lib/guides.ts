@@ -89,6 +89,8 @@ export const expectedRevisionSchema = z.object({ expectedRevision: z.number().in
 
 export type Guide = z.infer<typeof guideSchema>;
 export type GuideDraftInput = z.infer<typeof guideDraftInputSchema>;
+export type GuideCandidate = z.infer<typeof guideCandidateSchema>;
+export type GuideAnswer = z.infer<typeof guideAnswerSchema>;
 
 const itemMongooseSchema = new Schema({
   time: String, place: { type: String, required: true }, description: { type: String, required: true }, tips: String,

@@ -8,7 +8,10 @@ export class HttpError extends Error {
 }
 
 export function jsonError(error: unknown): Response {
-  if (error instanceof HttpError) return Response.json({ error: { code: error.code, message: error.message } }, { status: error.status });
+  if (error instanceof HttpError) {
+    const retryable = "retryable" in error && typeof error.retryable === "boolean" ? { retryable: error.retryable } : {};
+    return Response.json({ error: { code: error.code, message: error.message, ...retryable } }, { status: error.status });
+  }
   if (error instanceof ZodError) return Response.json({ error: { code: "VALIDATION_ERROR", message: "请求数据无效", issues: error.issues } }, { status: 400 });
   if (typeof error === "object" && error && "code" in error && error.code === 11000) return Response.json({ error: { code: "SLUG_CONFLICT", message: "该 slug 已被使用" } }, { status: 409 });
   console.error("Request failed", error instanceof Error ? error.name : "UnknownError");

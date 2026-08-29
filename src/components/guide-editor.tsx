@@ -4,12 +4,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { Guide, GuideDraftInput } from "@/lib/guides";
+import type { Guide, GuideAnswer, GuideCandidate, GuideDraftInput } from "@/lib/guides";
 
 const blank: GuideDraftInput = { title: "", destination: "", excerpt: "", days: 1, itinerary: [{ day: 1, title: "", items: [{ place: "", description: "" }] }], sections: [], sources: [] };
 
 function contentOf(guide: Guide): GuideDraftInput {
   return { title: guide.title, slug: guide.slug, destination: guide.destination, excerpt: guide.excerpt, days: guide.days, coverImage: guide.coverImage, itinerary: guide.itinerary, sections: guide.sections, sources: guide.sources };
+}
+
+function aiContentOf(guide: GuideDraftInput): GuideCandidate {
+  return { title: guide.title, destination: guide.destination, excerpt: guide.excerpt, days: guide.days, itinerary: guide.itinerary, sections: guide.sections, sources: guide.sources };
 }
 
 export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
@@ -18,6 +22,15 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
   const [draft, setDraft] = useState<GuideDraftInput>(initialGuide ? contentOf(initialGuide) : blank);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [candidate, setCandidate] = useState<GuideCandidate>();
+  const [answer, setAnswer] = useState<GuideAnswer>();
+  const [questions, setQuestions] = useState<string[]>([]);
+  const [travelTime, setTravelTime] = useState("");
+  const [budget, setBudget] = useState("");
+  const [travelers, setTravelers] = useState("");
+  const [preferences, setPreferences] = useState("");
+  const [instruction, setInstruction] = useState("");
+  const [question, setQuestion] = useState("");
 
   function field<K extends keyof GuideDraftInput>(key: K, value: GuideDraftInput[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -93,6 +106,27 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
     } finally { setBusy(false); }
   }
 
+  async function runAi(action: "generate" | "revise" | "answer", body: unknown) {
+    setBusy(true); setMessage(""); setQuestions([]);
+    try {
+      const response = await fetch(`/api/ai/${action}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+      const data = await response.json();
+      if (!response.ok) { setMessage(data?.error?.message ?? "AI 请求失败，请重试。"); return; }
+      if (data.result.kind === "clarification") { setQuestions(data.result.questions); setCandidate(undefined); setAnswer(undefined); return; }
+      if (action === "answer") { setAnswer(data.result.data); setCandidate(undefined); }
+      else { setCandidate(data.result.data); setAnswer(undefined); }
+    } catch {
+      setMessage("AI 请求失败，请重试。");
+    } finally { setBusy(false); }
+  }
+
+  function adoptCandidate() {
+    if (!candidate) return;
+    setDraft((current) => ({ ...current, ...candidate, slug: current.slug, coverImage: current.coverImage }));
+    setCandidate(undefined);
+    setMessage("候选内容已复制到编辑器，尚未保存。");
+  }
+
   async function remove() {
     if (!saved || !window.confirm("确定删除这篇攻略？此操作无法撤销。")) return;
     setBusy(true);
@@ -109,6 +143,7 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
       {message && <p className={message.includes("冲突") || message.includes("失败") || message.includes("需填写") ? "error" : "success"} role="status">{message}</p>}
       <div className="editor-layout">
         <form className="panel editor" onSubmit={(event) => { event.preventDefault(); void save(); }}>
+          <section><h2>AI 旅行助手</h2><p className="hint">AI 只生成候选内容，不会自动保存或发布。</p><div className="form-grid"><label>出行日期或季节<input value={travelTime} onChange={(event) => setTravelTime(event.target.value)} /></label><label>预算<input value={budget} onChange={(event) => setBudget(event.target.value)} /></label><label>同行人群<input value={travelers} onChange={(event) => setTravelers(event.target.value)} /></label><label>偏好（逗号分隔）<input value={preferences} onChange={(event) => setPreferences(event.target.value)} /></label><button type="button" disabled={busy} onClick={() => runAi("generate", { destination: draft.destination || undefined, days: draft.days, travelDateOrSeason: travelTime || undefined, budget: budget || undefined, travelers: travelers || undefined, preferences: preferences.split(/[,，]/).map((value) => value.trim()).filter(Boolean) })}>生成候选攻略</button><label className="wide">调整要求<textarea value={instruction} onChange={(event) => setInstruction(event.target.value)} /></label><button type="button" disabled={busy || !instruction.trim()} onClick={() => runAi("revise", { existingGuide: aiContentOf(draft), instruction })}>生成调整候选</button><label className="wide">攻略问答<input value={question} onChange={(event) => setQuestion(event.target.value)} /></label><button type="button" disabled={busy || !question.trim()} onClick={() => runAi("answer", { existingGuide: aiContentOf(draft), question })}>询问 AI</button></div>{questions.length > 0 && <div role="status"><strong>还需要：</strong><ul>{questions.map((item) => <li key={item}>{item}</li>)}</ul></div>}{candidate && <div className="panel"><h3>AI 候选：{candidate.title}</h3><p>{candidate.destination} · {candidate.days} 天</p><p>{candidate.excerpt}</p><p>{candidate.sources.length ? `含 ${candidate.sources.length} 个联网来源` : "未取得联网来源，请人工复核"}</p><button type="button" onClick={adoptCandidate}>采纳到编辑器（不保存）</button></div>}{answer && <div className="panel"><h3>AI 回答</h3><p className="preline">{answer.answer}</p>{answer.sources.length > 0 && <ul className="sources">{answer.sources.map((source) => <li key={`${source.url}-${source.citedText ?? ""}`}><a href={source.url} target="_blank" rel="noreferrer">{source.title}</a>{source.citedText && <p>{source.citedText}</p>}</li>)}</ul>}</div>}</section>
           <section><h2>基本信息</h2><div className="form-grid"><label className="wide">标题<input value={draft.title} onChange={(event) => field("title", event.target.value)} /></label><label>Slug<input value={draft.slug ?? ""} onChange={(event) => field("slug", event.target.value)} placeholder="hangzhou-weekend" /></label><label>目的地<input value={draft.destination} onChange={(event) => field("destination", event.target.value)} /></label><label>天数<input type="number" min="1" max="365" value={draft.days} onChange={(event) => setDays(Number(event.target.value))} /></label><label className="wide">简介<textarea value={draft.excerpt} onChange={(event) => field("excerpt", event.target.value)} /></label></div></section>
           <section><h2>封面图片</h2><div className="form-grid"><label className="wide">上传 JPEG、PNG 或 WebP（最大 10 MiB）<input type="file" accept="image/jpeg,image/png,image/webp" disabled={busy} onChange={(event) => { void uploadCover(event.target.files?.[0]); event.currentTarget.value = ""; }} /></label>{draft.coverImage && <><p className="wide hint">已上传：{draft.coverImage.objectKey}</p><label className="wide">替代文本（发布必填）<input value={draft.coverImage.alt} onChange={(event) => field("coverImage", { ...draft.coverImage!, alt: event.target.value })} /></label></>}</div></section>
           <section><h2>逐日行程</h2>{draft.itinerary.map((day, dayIndex) => <fieldset key={day.day}><legend>第 {day.day} 天</legend><label>当日标题<input value={day.title} onChange={(event) => setDay(dayIndex, "title", event.target.value)} /></label>{day.items.map((item, itemIndex) => <div className="item-grid" key={itemIndex}><label>时间<input value={item.time ?? ""} onChange={(event) => setItem(dayIndex, itemIndex, "time", event.target.value)} /></label><label>地点<input value={item.place} onChange={(event) => setItem(dayIndex, itemIndex, "place", event.target.value)} /></label><label className="wide">说明<textarea value={item.description} onChange={(event) => setItem(dayIndex, itemIndex, "description", event.target.value)} /></label><label className="wide">提示<input value={item.tips ?? ""} onChange={(event) => setItem(dayIndex, itemIndex, "tips", event.target.value)} /></label>{day.items.length > 1 && <button className="text-button" type="button" onClick={() => field("itinerary", draft.itinerary.map((entry, index) => index === dayIndex ? { ...entry, items: entry.items.filter((_, inner) => inner !== itemIndex) } : entry))}>移除此项</button>}</div>)}<button className="secondary" type="button" onClick={() => field("itinerary", draft.itinerary.map((entry, index) => index === dayIndex ? { ...entry, items: [...entry.items, { place: "", description: "" }] } : entry))}>添加地点</button></fieldset>)}</section>

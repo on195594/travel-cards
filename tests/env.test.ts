@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getAuthEnv, getMongoUri, getR2Env } from "@/lib/env";
+import { getAuthEnv, getGeminiEnv, getMongoUri, getR2Env } from "@/lib/env";
 
 const baseline = { ...process.env };
 afterEach(() => {
@@ -27,5 +27,11 @@ describe("environment validation", () => {
     expect(getR2Env()).toMatchObject({ publicBaseUrl: "https://images.example.test/travel/" });
     vi.stubEnv("R2_ENDPOINT", "http://account.r2.cloudflarestorage.com");
     expect(() => getR2Env()).toThrow("safe HTTPS URL");
+  });
+
+  it("uses the supported stable Gemini model when none is configured", () => {
+    vi.stubEnv("GEMINI_API_KEY", "test-key");
+    vi.stubEnv("GEMINI_MODEL", "");
+    expect(getGeminiEnv()).toEqual({ apiKey: "test-key", model: "gemini-3.7-flash" });
   });
 });
