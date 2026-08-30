@@ -5,10 +5,10 @@
 ## 当前状态
 
 - Next.js 16、Auth.js、MongoDB、Guide CRUD/发布/撤回、Cloudflare R2 上传和 Gemini grounded assistant 已落地。
-- 当前运行时代码基线为 `e025b9e`；45 项测试、lint、production build 和 `docker compose config` 均通过。
-- 真实 Gemini/R2 smoke 未运行：两者需要单独确认、真实凭证，并可能产生费用或外部写入。
+- 当前运行时代码基线为 `149b103`；45 项测试、lint、production build 和 `docker compose config` 均通过。
+- 真实 Gemini grounded structured-output smoke 与 R2 S3 上传/读回/删除 smoke 均已通过；R2 使用现有私有备份 bucket 验证传输，旅行图片专用 bucket/public base 仍需部署时配置。
 - 最终独立 AGY 审查对候选 `6a090353b452dc06188d82d53b3317f4d097f0db` 返回 `APPROVE`，且审查前后 `NO_DRIFT`。
-- 后续对 `38946a8` 的限定范围 AGY 代码审查发现 Gemini `oneOf` 兼容性问题，同时误报了 `google_search` 工具形状；父级依据官方 Interactions 文档与已安装 SDK 驳回误报，仅在 `e025b9e` 将面向模型的 schema 改为 `anyOf`，并增加精确请求 payload 回归断言。
+- 后续真实 smoke 发现 Zod 输出仍含 Interactions 后端拒绝的 schema 关键字；`149b103` 在唯一 provider seam 过滤这些重复约束，运行时 Zod 校验保持不变。
 - 权威需求：[SPEC.md](./SPEC.md)
 - 项目约束：[AGENTS.md](./AGENTS.md)
 
