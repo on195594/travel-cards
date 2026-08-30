@@ -75,6 +75,11 @@ describe("grounded Gemini assistant", () => {
       expect(params).toMatchObject({ model: "gemini-test-model", store: false, tools: [{ type: "google_search" }], response_format: { type: "text", mime_type: "application/json" } });
       expect(params.response_format.schema).toHaveProperty("anyOf");
       expect(params.response_format.schema).not.toHaveProperty("oneOf");
+      const serializedSchema = JSON.stringify(params.response_format.schema);
+      expect(serializedSchema).not.toMatch(/\"(?:\$schema|minLength|maxLength|minimum|maximum|minItems|maxItems|const)\"/);
+      expect(serializedSchema).not.toContain('\"items\":{}');
+      expect(serializedSchema).toContain('\"enum\":[\"candidate\"]');
+      expect(serializedSchema).toContain('\"enum\":[\"clarification\"]');
       expect(options).toEqual({ timeout: 20_000, maxRetries: 0 });
     }
     const answerPrompt = JSON.stringify(mocks.create.mock.calls[2][0].input);
