@@ -21,13 +21,22 @@ services:
         required: false
         format: raw
     environment:
-      AUTH_URL: http://localhost:${APP_PORT:-3100}
       MONGODB_URI: mongodb://mongodb:27017/travel_cards
     ports:
       - "127.0.0.1:${APP_PORT:-3100}:3000"
     depends_on:
       mongodb:
         condition: service_healthy
+    networks:
+      default:
+      edge:
+        aliases:
+          - travel-cards-web
 
 volumes:
   mongodb_data:
+
+networks:
+  edge:
+    external: true
+    name: nginx-network
