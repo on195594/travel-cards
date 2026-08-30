@@ -1,6 +1,6 @@
 # Travel Cards MVP Specification
 
-- **状态**：Implementation-ready / AGY review notes applied / implementation not started
+- **状态**：Implemented and locally accepted / real Gemini and R2 smoke pending separate authorization
 - **日期**：2026-08-29
 - **项目根目录**：`/home/lin/.hermes/projects/travel-cards`
 - **产品语言**：首版中文界面与中文内容
