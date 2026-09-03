@@ -174,9 +174,22 @@ export async function createGuide(input: unknown): Promise<Guide> {
   return serialized(record.toObject() as Record<string, unknown>);
 }
 
-export async function listPublishedGuides(limit = 100): Promise<Guide[]> {
+function escapeRegex(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export type GuideListOptions = { q?: string; limit?: number };
+
+export async function listPublishedGuides(options: GuideListOptions | number = {}): Promise<Guide[]> {
+  const limit = typeof options === "number" ? options : (options.limit ?? 100);
+  const q = typeof options === "number" ? undefined : options.q?.trim();
   await ready();
-  const records = await GuideModel.find({ status: "published" })
+  const filter: Record<string, unknown> = { status: "published" };
+  if (q) {
+    const regex = new RegExp(escapeRegex(q), "i");
+    filter.$or = [{ title: regex }, { destination: regex }, { excerpt: regex }];
+  }
+  const records = await GuideModel.find(filter)
     .select("-sections -sources -itinerary")
     .sort({ publishedAt: -1 })
     .limit(limit)
@@ -184,9 +197,16 @@ export async function listPublishedGuides(limit = 100): Promise<Guide[]> {
   return records.map((record) => serialized(record as Record<string, unknown>));
 }
 
-export async function listAdminGuides(limit = 100): Promise<Guide[]> {
+export async function listAdminGuides(options: GuideListOptions | number = {}): Promise<Guide[]> {
+  const limit = typeof options === "number" ? options : (options.limit ?? 100);
+  const q = typeof options === "number" ? undefined : options.q?.trim();
   await ready();
-  const records = await GuideModel.find({})
+  const filter: Record<string, unknown> = {};
+  if (q) {
+    const regex = new RegExp(escapeRegex(q), "i");
+    filter.$or = [{ title: regex }, { destination: regex }, { excerpt: regex }, { slug: regex }];
+  }
+  const records = await GuideModel.find(filter)
     .select("-sections -sources -itinerary")
     .sort({ updatedAt: -1 })
     .limit(limit)

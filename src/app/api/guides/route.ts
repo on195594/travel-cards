@@ -4,9 +4,11 @@ import { jsonError, readJson } from "@/lib/http";
 
 export async function GET(request: Request) {
   try {
-    const admin = new URL(request.url).searchParams.get("scope") === "admin";
+    const url = new URL(request.url);
+    const admin = url.searchParams.get("scope") === "admin";
+    const q = url.searchParams.get("q") ?? undefined;
     if (admin) await requireAdmin();
-    const guides = admin ? await listAdminGuides() : await listPublishedGuides();
+    const guides = admin ? await listAdminGuides({ q }) : await listPublishedGuides({ q });
     const headers = admin ? undefined : { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" };
     return Response.json({ guides }, { headers });
   } catch (error) {

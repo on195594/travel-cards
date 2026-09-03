@@ -99,4 +99,23 @@ describe("Guide aggregate", () => {
     await expect(updateGuide(draft.id, { expectedRevision: draft.revision, excerpt: "过期标签页内容" })).rejects.toMatchObject({ status: 409, code: "REVISION_CONFLICT" });
     await expect(getGuideById(draft.id)).resolves.toMatchObject({ excerpt: "先保存的内容", revision: winner.revision });
   });
+
+  it("searches published guides by title, destination, and excerpt with safe regex escaping", async () => {
+    const draft1 = await createGuide({ ...threeDayGuide("search-test-1"), title: "西安出发王朗大熊猫探秘", destination: "四川绵阳" });
+    const draft2 = await createGuide({ ...threeDayGuide("search-test-2"), title: "青海湖环线自驾", destination: "青海西宁" });
+    await publishGuide(draft1.id, { expectedRevision: draft1.revision });
+    await publishGuide(draft2.id, { expectedRevision: draft2.revision });
+
+    const titleMatch = await listPublishedGuides({ q: "大熊猫" });
+    expect(titleMatch.some((g) => g.title.includes("大熊猫"))).toBe(true);
+
+    const destMatch = await listPublishedGuides({ q: "西宁" });
+    expect(destMatch.some((g) => g.destination.includes("西宁"))).toBe(true);
+
+    const regexMatch = await listPublishedGuides({ q: ".*+?^${}()" });
+    expect(regexMatch).toEqual([]);
+
+    const emptyMatch = await listPublishedGuides({ q: "不存在的火星地点" });
+    expect(emptyMatch).toEqual([]);
+  });
 });
