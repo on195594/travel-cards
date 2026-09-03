@@ -1,7 +1,7 @@
 # Travel Cards MVP Specification
 
-- **状态**：Implemented and locally accepted / real Gemini and R2 transport smoke passed
-- **日期**：2026-08-29
+- **状态**：Implemented and locally accepted / production configuration and first content pending
+- **日期**：2026-08-31
 - **项目根目录**：`/home/lin/.hermes/projects/travel-cards`
 - **产品语言**：首版中文界面与中文内容
 
@@ -19,7 +19,7 @@ AI 输出永远是候选内容，不自动发布。
 
 采用新的独立项目 `travel-cards`。
 
-- **拒绝直接扩展现有项目**：当前 `~/.hermes/projects/` 没有同时拥有旅行内容、公开页面、管理员 CMS、R2 图片和 Gemini Agent 生命周期的应用。
+- **拒绝直接扩展既有项目**：立项时 `~/.hermes/projects/` 没有同时拥有旅行内容、公开页面、管理员 CMS、R2 图片和 Gemini Agent 生命周期的应用。
 - **拒绝复用文章总结项目**：`article-workflow` 与 `hermes-gsummary-workflow` 的 owner 分别是博客内容流和摘要后端，扩展会造成持久语义混乱。
 - **复用范围**：只复用成熟模式和上游 SDK，不共享运行时状态、数据库或 active Hermes 配置。
 
@@ -305,4 +305,4 @@ docker compose config
 
 ## 14. 后续授权边界
 
-本 spec 批准需求边界，不等同于批准安装依赖、创建远端 R2 资源、调用付费 Gemini API、部署或写入外部服务。下一阶段应先生成最小 Next.js 脚手架与本地测试，再单独配置真实凭证和外部资源。
+本 spec 的工程实现与真实 Gemini/R2 传输 smoke 已完成。上线收尾仅包括运行完整验证、配置专用 R2 bucket/public base 与正式域名、通过正常管理员流程发布经人工审核的首篇攻略；创建远端资源、修改凭证、部署、付费调用和外部写入仍需对应操作的明确授权。任何新增产品功能都必须先修订本 spec。

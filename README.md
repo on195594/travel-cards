@@ -5,10 +5,9 @@
 ## 当前状态
 
 - Next.js 16、Auth.js、MongoDB、Guide CRUD/发布/撤回、Cloudflare R2 上传和 Gemini grounded assistant 已落地。
-- 当前运行时代码基线为 `149b103`；45 项测试、lint、production build 和 `docker compose config` 均通过。
+- 当前代码状态以本仓库 HEAD 和下方验证命令为准；历史实现审查、测试及 provider smoke 证据见 [`docs/reviews/agy-final-implementation/closeout.md`](./docs/reviews/agy-final-implementation/closeout.md)。
 - 真实 Gemini grounded structured-output smoke 与 R2 S3 上传/读回/删除 smoke 均已通过；R2 使用现有私有备份 bucket 验证传输，旅行图片专用 bucket/public base 仍需部署时配置。
-- 最终独立 AGY 审查对候选 `6a090353b452dc06188d82d53b3317f4d097f0db` 返回 `APPROVE`，且审查前后 `NO_DRIFT`。
-- 后续真实 smoke 发现 Zod 输出仍含 Interactions 后端拒绝的 schema 关键字；`149b103` 在唯一 provider seam 过滤这些重复约束，运行时 Zod 校验保持不变。
+- 最终独立 AGY 审查返回 `APPROVE`；后续真实 smoke 暴露并验证修复了 Gemini schema 兼容问题。
 - 权威需求：[SPEC.md](./SPEC.md)
 - 项目约束：[AGENTS.md](./AGENTS.md)
 
@@ -31,7 +30,10 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 
 ## Docker 运行
 
+Compose 会把 Web 接入现有边缘代理使用的外部 `nginx-network`。新环境先创建一次该网络：
+
 ```bash
+docker network inspect nginx-network >/dev/null 2>&1 || docker network create nginx-network
 docker compose config
 docker compose up -d --build
 docker compose ps

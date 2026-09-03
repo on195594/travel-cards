@@ -59,10 +59,6 @@ function checkDayNumbers(value: { days: number; itinerary: Array<{ day: number }
 export const guideDraftInputSchema = draftGuideObject.superRefine(checkDayNumbers);
 export const guideCandidateSchema = draftGuideObject.omit({ slug: true, coverImage: true }).required().superRefine(checkDayNumbers);
 export const guideAnswerSchema = z.object({ answer: z.string().trim().min(1), sources: z.array(sourceRefSchema) });
-export const aiResultSchema = <T extends z.ZodType>(data: T) => z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("candidate"), data }),
-  z.object({ kind: z.literal("clarification"), questions: z.array(z.string().trim().min(1)).min(1) }),
-]);
 
 export const guideSchema = draftGuideObject.extend({
   id: z.string(),
