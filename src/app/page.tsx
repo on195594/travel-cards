@@ -11,7 +11,7 @@ type Props = {
 
 export default async function Home({ searchParams }: Props) {
   const { q } = (await searchParams) ?? {};
-  const guides = await listPublishedGuides({ q });
+  const guides = await listPublishedGuides();
   return (
     <main className="home-page">
       <header className="hero">
@@ -29,7 +29,7 @@ export default async function Home({ searchParams }: Props) {
         </div>
       </header>
 
-      <GuideSearch initialGuides={guides} initialQuery={q ?? ""} />
+      <GuideSearch key={q ?? "all"} initialGuides={guides} initialQuery={q ?? ""} />
 
       <footer className="site-footer container">
         <span>旅行卡片 · 让攻略更清晰</span>

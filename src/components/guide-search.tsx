@@ -84,6 +84,8 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
             <GuideCard key={guide.id} guide={guide} />
           ))}
         </div>
+      ) : !initialGuides.length ? (
+        <p className="empty">暂时没有已发布攻略。</p>
       ) : (
         <div className="empty search-empty">
           <p>未找到与“<strong>{query}</strong>”相关的旅行攻略。</p>
