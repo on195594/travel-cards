@@ -69,7 +69,9 @@ export default async function GuidePage({ params }: Props) {
         <section className="itinerary-section">
           <div className="section-header-row">
             <div>
-              <p className="eyebrow">DAY BY DAY</p>
+              <div className="section-badge-wrapper">
+                <span className="kind-badge kind-itinerary">路线安排 · ITINERARY</span>
+              </div>
               <h2>逐日行程</h2>
             </div>
             {guide.itinerary.length > 1 && (
@@ -83,11 +85,15 @@ export default async function GuidePage({ params }: Props) {
               </nav>
             )}
           </div>
-          {guide.itinerary.map((day) => (
-            <div className="day" id={`day-${day.day}`} key={day.day}>
-              <div className="day-number">{String(day.day).padStart(2, "0")}</div>
-              <div>
-                <h3>{day.title}</h3>
+          <div className="days-stack">
+            {guide.itinerary.map((day) => (
+              <div className="day-card panel" id={`day-${day.day}`} key={day.day}>
+                <div className="section-badge-wrapper">
+                  <span className="kind-badge kind-day">
+                    第 {day.day} 天 · DAY {String(day.day).padStart(2, "0")}
+                  </span>
+                </div>
+                <h3 className="day-title">{day.title}</h3>
                 <ol className="timeline-list">
                   {day.items.map((item, index) => (
                     <li className="timeline-item" key={`${item.place}-${index}`}>
@@ -95,14 +101,14 @@ export default async function GuidePage({ params }: Props) {
                         {item.time && <span className="time-badge">{item.time}</span>}
                         <strong className="place-name">{item.place}</strong>
                       </div>
-                      <p>{item.description}</p>
+                      <p className="item-desc">{item.description}</p>
                       {item.tips && <p className="tip">提示：{item.tips}</p>}
                     </li>
                   ))}
                 </ol>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </section>
 
         {guide.sections.map((section, index) => (
