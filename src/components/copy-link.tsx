@@ -13,13 +13,23 @@ export function CopyLink() {
   }, []);
 
   async function copy() {
+    let success = false;
     try {
       await navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => setCopied(false), 2000);
+      success = true;
     } catch {
-      // Fallback if clipboard API is not permitted
+      try {
+        const input = document.createElement("input");
+        input.value = window.location.href;
+        document.body.appendChild(input);
+        input.select();
+        success = document.execCommand("copy");
+        document.body.removeChild(input);
+      } catch {
+        success = false;
+      }
+    }
+    if (success) {
       setCopied(true);
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => setCopied(false), 2000);

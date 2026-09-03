@@ -29,8 +29,9 @@ export async function PATCH(request: Request, context: Context) {
 export async function DELETE(request: Request, context: Context) {
   try {
     await requireAdmin();
-    await deleteGuide((await context.params).id, await readJson(request));
+    const deleted = await deleteGuide((await context.params).id, await readJson(request));
     revalidatePath("/");
+    if (deleted?.slug) revalidatePath(`/guides/${deleted.slug}`);
     return new Response(null, { status: 204 });
   } catch (error) {
     return jsonError(error);

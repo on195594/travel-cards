@@ -177,7 +177,7 @@ export async function createGuide(input: unknown): Promise<Guide> {
 export async function listPublishedGuides(limit = 100): Promise<Guide[]> {
   await ready();
   const records = await GuideModel.find({ status: "published" })
-    .select("-sections -sources")
+    .select("-sections -sources -itinerary")
     .sort({ publishedAt: -1 })
     .limit(limit)
     .lean();
@@ -187,7 +187,7 @@ export async function listPublishedGuides(limit = 100): Promise<Guide[]> {
 export async function listAdminGuides(limit = 100): Promise<Guide[]> {
   await ready();
   const records = await GuideModel.find({})
-    .select("-sections -sources")
+    .select("-sections -sources -itinerary")
     .sort({ updatedAt: -1 })
     .limit(limit)
     .lean();
@@ -259,9 +259,10 @@ export async function unpublishGuide(id: string, input: unknown): Promise<Guide>
   return serialized(record as Record<string, unknown>);
 }
 
-export async function deleteGuide(id: string, input: unknown): Promise<void> {
+export async function deleteGuide(id: string, input: unknown): Promise<{ slug?: string }> {
   const { expectedRevision } = expectedRevisionSchema.parse(input);
   await ready();
   const record = await GuideModel.findOneAndDelete({ _id: objectId(id), revision: expectedRevision });
   if (!record) await conflictOrMissing(id);
+  return { slug: record.slug || undefined };
 }
