@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { CopyLink } from "@/components/copy-link";
 import { getPublishedGuideBySlug } from "@/lib/guides";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
 
