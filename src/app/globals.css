@@ -77,13 +77,13 @@ html[data-theme="dark"] .show-when-dark { display: inline; }
 .nav-link span { color: var(--accent); font-size: 1.1rem; }
 .hero-copy { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(260px, .75fr); align-items: end; gap: clamp(1.5rem, 4vw, 4rem); padding-block: 3.25rem 2.75rem; }
 .eyebrow { margin: 0 0 .75rem; color: var(--accent); font-size: .72rem; font-weight: 850; letter-spacing: .16em; line-height: 1.3; text-transform: uppercase; }
-.hero h1, .detail-hero h1 { max-width: 900px; margin: .2rem 0 0; font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: clamp(2.35rem, 4.8vw, 4rem); line-height: 1.08; letter-spacing: -.045em; text-wrap: balance; }
+.hero h1 { max-width: 860px; margin: .2rem 0 0; font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: clamp(1.75rem, 3.2vw, 2.5rem); line-height: 1.2; letter-spacing: -.03em; text-wrap: balance; }
 .hero h1 em { color: var(--green); font-style: normal; }
 .hero-lede { max-width: 380px; margin: 0 0 .35rem; border-left: 2px solid var(--accent); padding-left: 1.1rem; color: var(--ink-soft); font-size: .95rem; }
 .guide-section { padding-top: 2.75rem; }
 .section-heading { display: flex; align-items: end; justify-content: space-between; gap: 1rem; margin-bottom: 2rem; border-bottom: 1px solid var(--line); padding-bottom: 1.2rem; }
-h2 { margin-block: .4rem 1rem; font-size: 1.85rem; line-height: 1.2; letter-spacing: -.035em; }
-.section-heading h2 { margin: 0; font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: clamp(1.9rem, 3.5vw, 2.7rem); }
+h2 { margin-block: .4rem 1rem; font-size: 1.45rem; line-height: 1.3; letter-spacing: -.02em; }
+.section-heading h2 { margin: 0; font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: clamp(1.35rem, 2.4vw, 1.8rem); }
 .section-count { margin: 0; color: var(--muted); font-size: .85rem; font-weight: 700; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 380px)); gap: 1.8rem; }
 .card, .panel { overflow: hidden; border: 1px solid var(--line); border-radius: 1.2rem; background: var(--surface); box-shadow: var(--shadow); }
@@ -99,7 +99,7 @@ h2 { margin-block: .4rem 1rem; font-size: 1.85rem; line-height: 1.2; letter-spac
 .card-meta { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .card-meta .eyebrow { margin: 0; }
 .card-meta > span { color: var(--muted); font-size: .78rem; font-weight: 750; }
-.card h2 { margin: .7rem 0 .65rem; font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: 1.55rem; }
+.card h2 { margin: .55rem 0 .5rem; font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: 1.2rem; line-height: 1.4; letter-spacing: -.01em; }
 .card h2 a { text-decoration: none; }
 .card h2 a:hover { color: var(--green); }
 .card-body > p:not(.eyebrow) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; min-height: 4.8em; margin: 0 0 1.2rem; color: var(--muted); font-size: .95rem; line-height: 1.6; }
@@ -110,17 +110,17 @@ h2 { margin-block: .4rem 1rem; font-size: 1.85rem; line-height: 1.2; letter-spac
 
 .detail-hero { padding: 1.35rem max(1rem, calc((100% - 1180px) / 2)) 4rem; background: var(--detail-bg); }
 .detail-heading { max-width: 840px; padding-top: 4rem; }
-.detail-hero h1 { font-size: clamp(2.15rem, 4.5vw, 3.8rem); line-height: 1.12; }
+.detail-hero h1 { max-width: 860px; margin: .35rem 0 0; font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: clamp(1.45rem, 2.6vw, 2.1rem); line-height: 1.35; letter-spacing: -.02em; text-wrap: balance; }
 .detail-heading .hero-lede { max-width: 700px; }
 .article { max-width: 940px; padding-top: 3rem; }
 .article > .cover { margin-bottom: 1rem; }
 .cover { display: block; width: 100%; max-height: 560px; object-fit: cover; border-radius: 1.2rem; box-shadow: var(--shadow); }
 .article section { margin-block: 4rem; }
-.article section > h2 { font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: clamp(1.9rem, 4vw, 2.7rem); }
+.article section > h2 { font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: clamp(1.3rem, 2.2vw, 1.65rem); line-height: 1.3; }
 .day { display: grid; grid-template-columns: 4rem minmax(0, 1fr); gap: 1rem; border-top: 1px solid var(--line); padding: 1.5rem 0 0; }
 .day + .day { margin-top: 1.5rem; }
-.day-number { color: var(--accent); font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: 2.2rem; line-height: 1; }
-.day h3 { margin: 0 0 .8rem; font-size: 1.35rem; }
+.day-number { color: var(--accent); font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: 1.65rem; line-height: 1.1; }
+.day h3 { margin: 0 0 .6rem; font-size: 1.15rem; line-height: 1.35; }
 
 .timeline-list { position: relative; margin: 0; padding-left: 1.2rem; border-left: 2px solid var(--line); list-style: none; }
 .timeline-item { position: relative; margin-bottom: 1.6rem; padding-left: .5rem; }
@@ -159,7 +159,7 @@ html[data-theme="dark"] .kind-badge.kind-other { background: var(--accent-soft);
 
 .login-shell { display: grid; min-height: 100vh; place-items: center; padding: 1rem; background: var(--accent-soft); }
 .login-form { width: min(100%, 430px); padding: clamp(1.4rem, 5vw, 2.5rem); }
-.login-form h1, .admin h1 { margin-top: .5rem; font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: clamp(2rem, 5vw, 3.2rem); letter-spacing: -.04em; }
+.login-form h1, .admin h1 { margin-top: .5rem; font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: clamp(1.5rem, 3vw, 2.1rem); letter-spacing: -.02em; }
 .back-link { display: inline-block; margin-bottom: 2rem; color: var(--ink-soft); font-size: .9rem; font-weight: 750; text-decoration: none; }
 label { display: grid; gap: .35rem; margin-block: .8rem; color: var(--muted); font-size: .9rem; font-weight: 700; }
 input, textarea, select { width: 100%; border: 1px solid var(--field-border); border-radius: .7rem; background: var(--surface); color: var(--ink); padding: .7rem .8rem; font: inherit; }
