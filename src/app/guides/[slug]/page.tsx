@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { CopyLink } from "@/components/copy-link";
 import { getPublishedGuideBySlug } from "@/lib/guides";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -64,7 +64,7 @@ export default async function GuidePage({ params }: Props) {
       <article className="article container">
         {/* Admin-configured R2/custom domains cannot be enumerated at build time. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {guide.coverImage && <img className="cover" src={guide.coverImage.publicUrl} alt={guide.coverImage.alt} />}
+        {guide.coverImage && <img className="cover" src={guide.coverImage.publicUrl} alt={guide.coverImage.alt} fetchPriority="high" decoding="async" />}
 
         <section className="itinerary-section">
           <div className="section-header-row">

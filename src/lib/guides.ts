@@ -117,6 +117,8 @@ const guideMongooseSchema = new Schema({
   slugLocked: { type: Boolean, default: false, select: false },
 }, { timestamps: true, versionKey: false });
 guideMongooseSchema.index({ slug: 1 }, { unique: true, partialFilterExpression: { slug: { $type: "string" } } });
+guideMongooseSchema.index({ status: 1, publishedAt: -1 });
+guideMongooseSchema.index({ updatedAt: -1 });
 
 const GuideModel = mongoose.models.Guide || mongoose.model("Guide", guideMongooseSchema);
 
@@ -172,15 +174,23 @@ export async function createGuide(input: unknown): Promise<Guide> {
   return serialized(record.toObject() as Record<string, unknown>);
 }
 
-export async function listPublishedGuides(): Promise<Guide[]> {
+export async function listPublishedGuides(limit = 100): Promise<Guide[]> {
   await ready();
-  const records = await GuideModel.find({ status: "published" }).sort({ publishedAt: -1 }).lean();
+  const records = await GuideModel.find({ status: "published" })
+    .select("-sections -sources")
+    .sort({ publishedAt: -1 })
+    .limit(limit)
+    .lean();
   return records.map((record) => serialized(record as Record<string, unknown>));
 }
 
-export async function listAdminGuides(): Promise<Guide[]> {
+export async function listAdminGuides(limit = 100): Promise<Guide[]> {
   await ready();
-  const records = await GuideModel.find({}).sort({ updatedAt: -1 }).lean();
+  const records = await GuideModel.find({})
+    .select("-sections -sources")
+    .sort({ updatedAt: -1 })
+    .limit(limit)
+    .lean();
   return records.map((record) => serialized(record as Record<string, unknown>));
 }
 

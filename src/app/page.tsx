@@ -3,7 +3,7 @@ import { listPublishedGuides } from "@/lib/guides";
 import Image from "next/image";
 import Link from "next/link";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export default async function Home() {
   const guides = await listPublishedGuides();

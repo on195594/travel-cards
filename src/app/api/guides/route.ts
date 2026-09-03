@@ -6,7 +6,9 @@ export async function GET(request: Request) {
   try {
     const admin = new URL(request.url).searchParams.get("scope") === "admin";
     if (admin) await requireAdmin();
-    return Response.json({ guides: admin ? await listAdminGuides() : await listPublishedGuides() });
+    const guides = admin ? await listAdminGuides() : await listPublishedGuides();
+    const headers = admin ? undefined : { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" };
+    return Response.json({ guides }, { headers });
   } catch (error) {
     return jsonError(error);
   }
