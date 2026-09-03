@@ -1,9 +1,16 @@
+import type { Metadata } from "next";
 import { GuideSearch } from "@/components/guide-search";
 import { listPublishedGuides } from "@/lib/guides";
 import Image from "next/image";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: "/",
+  },
+};
 
 type Props = {
   searchParams?: Promise<{ q?: string }>;

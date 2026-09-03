@@ -21,12 +21,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const guide = await getPublishedGuideBySlug((await params).slug);
   if (!guide) return { title: "攻略不存在" };
   const images = guide.coverImage ? [{ url: guide.coverImage.publicUrl, alt: guide.coverImage.alt }] : [];
+  const canonicalPath = `/guides/${guide.slug}`;
   return {
     title: guide.title,
     description: guide.excerpt,
+    alternates: {
+      canonical: canonicalPath,
+    },
     openGraph: {
       title: guide.title,
       description: guide.excerpt,
+      url: canonicalPath,
       type: "article",
       publishedTime: guide.publishedAt,
       images,
@@ -45,8 +50,30 @@ export default async function GuidePage({ params }: Props) {
   if (!guide) notFound();
   const totalStops = guide.itinerary.reduce((sum, day) => sum + day.items.length, 0);
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: guide.title,
+    description: guide.excerpt,
+    image: guide.coverImage ? [guide.coverImage.publicUrl] : undefined,
+    datePublished: guide.publishedAt,
+    dateModified: guide.updatedAt,
+    mainEntityOfPage: {
+      "@type": "WebPage",
+      "@id": `/guides/${guide.slug}`,
+    },
+    about: {
+      "@type": "TouristDestination",
+      name: guide.destination,
+    },
+  };
+
   return (
     <main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <header className="detail-hero">
         <nav className="site-nav" aria-label="详情页导航"><Link className="brand" href="/">旅行卡片 <span>TRAVEL CARDS</span></Link><Link className="nav-link" href="/">← 返回路线</Link></nav>
         <div className="detail-heading">

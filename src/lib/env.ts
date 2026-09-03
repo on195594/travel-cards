@@ -16,6 +16,16 @@ export function getAuthEnv() {
   return { secret, email, passwordHash: required("ADMIN_PASSWORD_HASH"), authOrigin: authUrl.origin };
 }
 
+export function getSiteOrigin(): string {
+  const authUrl = process.env.AUTH_URL?.trim();
+  if (authUrl) {
+    try {
+      return new URL(authUrl).origin;
+    } catch {}
+  }
+  return "https://travel.keyi.win";
+}
+
 export function getMongoUri(): string {
   const uri = required("MONGODB_URI");
   const database = new URL(uri).pathname.slice(1);
