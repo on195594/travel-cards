@@ -7,7 +7,7 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const admin = url.searchParams.get("scope") === "admin";
     const q = url.searchParams.get("q") ?? undefined;
-    if (admin) await requireAdmin();
+    if (admin) await requireAdmin(request);
     const guides = admin ? await listAdminGuides({ q }) : await listPublishedGuides({ q });
     const headers = admin ? undefined : { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" };
     return Response.json({ guides }, { headers });
@@ -18,7 +18,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
+    await requireAdmin(request);
     const guide = await createGuide(await readJson(request));
     return Response.json({ guide }, { status: 201 });
   } catch (error) {

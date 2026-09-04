@@ -24,4 +24,18 @@ describe("stable HTTP errors", () => {
     await expect(readJson(new Request("http://localhost:3000/api", { method: "POST", headers: { origin: "http://localhost:3001", "content-type": "application/json" }, body: "{}" }))).rejects.toMatchObject({ status: 403, code: "CROSS_ORIGIN" });
     await expect(readJson(new Request("http://localhost:3000/api", { method: "POST", headers: { origin: "http://localhost:3000", "content-type": "text/plain" }, body: "{}" }))).rejects.toMatchObject({ status: 415, code: "UNSUPPORTED_MEDIA_TYPE" });
   });
+
+  it("allows requests without origin when authenticated with valid API Token", async () => {
+    vi.stubEnv("HERMES_API_TOKEN", "test-valid-token-12345");
+    const parsed = await readJson(new Request("http://localhost:3000/api", {
+      method: "POST",
+      headers: {
+        authorization: "Bearer test-valid-token-12345",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ hello: "world" }),
+    }));
+    expect(parsed).toEqual({ hello: "world" });
+    vi.unstubAllEnvs();
+  });
 });

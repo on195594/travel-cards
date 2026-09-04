@@ -1,4 +1,5 @@
 import { ZodError } from "zod";
+import { isValidApiToken } from "@/lib/admin";
 import { getAuthEnv } from "@/lib/env";
 
 export class HttpError extends Error {
@@ -31,5 +32,6 @@ export async function readJson(request: Request): Promise<unknown> {
 }
 
 export function assertSameOrigin(request: Request): void {
+  if (isValidApiToken(request.headers.get("authorization"))) return;
   if (request.headers.get("origin") !== getAuthEnv().authOrigin) throw new HttpError(403, "CROSS_ORIGIN", "拒绝跨来源写请求");
 }

@@ -1,7 +1,8 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { assertAdmin } from "@/lib/admin";
+import { assertAdmin, assertAdminOrToken } from "@/lib/admin";
 import { getAuthEnv } from "@/lib/env";
 import { verifyPassword } from "@/lib/password";
 
@@ -30,10 +31,22 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 });
 
-export async function requireAdmin() {
+async function getHeaderAuthorization(): Promise<string | null> {
+  try {
+    const h = await headers();
+    return h.get("authorization");
+  } catch {
+    return null;
+  }
+}
+
+export async function requireAdmin(request?: Request) {
+  const authHeader = request?.headers.get("authorization") ?? (await getHeaderAuthorization());
+  if (authHeader) {
+    return assertAdminOrToken(null, authHeader);
+  }
   const session = await auth();
-  assertAdmin(session);
-  return session;
+  return assertAdminOrToken(session, null);
 }
 
 export async function requireAdminPage() {

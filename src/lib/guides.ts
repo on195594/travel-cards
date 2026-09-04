@@ -57,6 +57,10 @@ function checkDayNumbers(value: { days: number; itinerary: Array<{ day: number }
 }
 
 export const guideDraftInputSchema = draftGuideObject.superRefine(checkDayNumbers);
+export const guideCreateInputSchema = draftGuideObject.extend({
+  publish: z.boolean().optional(),
+  status: z.enum(["draft", "published"]).optional(),
+}).superRefine(checkDayNumbers);
 export const guideCandidateSchema = draftGuideObject.omit({ slug: true, coverImage: true }).required().superRefine(checkDayNumbers);
 export const guideAnswerSchema = z.object({ answer: z.string().trim().min(1), sources: z.array(sourceRefSchema) });
 
@@ -85,6 +89,7 @@ export const expectedRevisionSchema = z.object({ expectedRevision: z.number().in
 
 export type Guide = z.infer<typeof guideSchema>;
 export type GuideDraftInput = z.infer<typeof guideDraftInputSchema>;
+export type GuideCreateInput = z.infer<typeof guideCreateInputSchema>;
 export type GuideCandidate = z.infer<typeof guideCandidateSchema>;
 export type GuideAnswer = z.infer<typeof guideAnswerSchema>;
 
@@ -168,9 +173,21 @@ async function conflictOrMissing(id: string): Promise<never> {
 }
 
 export async function createGuide(input: unknown): Promise<Guide> {
-  const values = guideDraftInputSchema.parse(input);
+  const values = guideCreateInputSchema.parse(input);
+  const shouldPublish = values.publish === true || values.status === "published";
+  if (shouldPublish) {
+    validatePublish(values);
+  }
   await ready();
-  const record = await GuideModel.create({ ...values, slug: values.slug || undefined, status: "draft", revision: 1 });
+  const now = new Date();
+  const record = await GuideModel.create({
+    ...values,
+    slug: values.slug || undefined,
+    status: shouldPublish ? "published" : "draft",
+    revision: 1,
+    publishedAt: shouldPublish ? now : undefined,
+    slugLocked: shouldPublish ? true : undefined,
+  });
   return serialized(record.toObject() as Record<string, unknown>);
 }
 

@@ -16,6 +16,13 @@ export function getAuthEnv() {
   return { secret, email, passwordHash: required("ADMIN_PASSWORD_HASH"), authOrigin: authUrl.origin };
 }
 
+export function getApiToken(): string | null {
+  const token = (process.env.HERMES_API_TOKEN || process.env.API_TOKEN)?.trim();
+  if (!token) return null;
+  if (token.length < 16) throw new Error("HERMES_API_TOKEN must be at least 16 characters");
+  return token;
+}
+
 export function getSiteOrigin(): string {
   const authUrl = process.env.AUTH_URL?.trim();
   if (authUrl) {

@@ -118,4 +118,36 @@ describe("Guide aggregate", () => {
     const emptyMatch = await listPublishedGuides({ q: "不存在的火星地点" });
     expect(emptyMatch).toEqual([]);
   });
+
+  it("supports direct publishing on creation when publish requirements are satisfied", async () => {
+    const published = await createGuide({ ...threeDayGuide("direct-publish-test"), publish: true });
+    expect(published).toMatchObject({
+      status: "published",
+      revision: 1,
+      slug: "direct-publish-test",
+    });
+    expect(published.publishedAt).toBeTruthy();
+
+    const fromSlug = await getPublishedGuideBySlug("direct-publish-test");
+    expect(fromSlug).toMatchObject({ id: published.id, title: published.title });
+
+    // Slug is locked upon publishing
+    await expect(updateGuide(published.id, { expectedRevision: published.revision, slug: "different-slug" })).rejects.toMatchObject({
+      code: "PUBLISHED_SLUG_IMMUTABLE",
+    });
+
+    // Also works with status: "published" directly
+    const statusPublished = await createGuide({ ...threeDayGuide("direct-status-published"), status: "published" });
+    expect(statusPublished.status).toBe("published");
+    expect(statusPublished.publishedAt).toBeTruthy();
+  });
+
+  it("rejects direct publishing on creation if publish requirements are not met", async () => {
+    await expect(createGuide({ ...threeDayGuide("fail-no-cover"), publish: true, coverImage: undefined })).rejects.toMatchObject({
+      code: "PUBLISH_REQUIREMENTS",
+    });
+    await expect(createGuide({ ...threeDayGuide("fail-no-title"), publish: true, title: "" })).rejects.toMatchObject({
+      code: "PUBLISH_REQUIREMENTS",
+    });
+  });
 });

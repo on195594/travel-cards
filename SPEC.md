@@ -13,7 +13,7 @@
 2. 基于已有攻略回答问题并给出可选择采纳的行程调整建议；
 3. 使用 Google Search 检索公开资料，生成带可点击来源的建议。
 
-AI 输出永远是候选内容，不自动发布。
+AI 输出永远是候选内容，不自动发布。同时支持外部自动化内容流水线（如 Hermes）通过配置的 API Token 直接创建、发布与更新攻略。
 
 ## 2. 项目载体决定
 
@@ -35,18 +35,21 @@ AI 输出永远是候选内容，不自动发布。
 
 访客不得访问草稿、管理 API、AI Agent 或上传接口。
 
-### 3.2 管理员
+### 3.2 管理员与自动化凭证
 
-首版只有一个管理员，通过 Auth.js 登录。管理员账号与密码校验材料从环境变量读取；仓库不保存明文密码。
+首版由单一管理员控制，支持两种身份校验渠道：
 
-管理员可以：
+1. **Web 管理后台**：通过 Auth.js 账号密码登录，基于 JWT Session Cookie；
+2. **自动化/M2M 调用（Hermes）**：通过请求头 `Authorization: Bearer <API_TOKEN>` 进行身份校验。API Token 从环境变量 `HERMES_API_TOKEN`（或 `API_TOKEN`）读取，使用常数时间比对（timing-safe equal）。
+
+管理员与持有有效 Token 的自动化客户端可以：
 
 - 新建、编辑、预览、发布、撤回和删除攻略；
 - 上传攻略图片至 Cloudflare R2；
 - 调用 AI Agent 生成草稿、问答和调整建议；
 - 审核后显式采纳 AI 建议。
 
-每个管理端页面和每个写 API 都必须在服务端校验管理员 session。
+每个管理端页面校验管理员 session；每个写 API 校验管理员 session 或有效 API Token。有效 Token 写请求不受针对浏览器的同源 CSRF 拦截。
 
 ## 4. MVP 功能范围
 
@@ -66,7 +69,7 @@ AI 输出永远是候选内容，不自动发布。
 - 状态：`draft` 或 `published`；
 - 创建、更新和发布时间。
 
-管理员可预览草稿。只有显式发布后，公开 URL 才可访问。
+管理员与持有有效 Token 的调用方可预览草稿。只有显式发布或在创建时满足完整性校验并声明直接发布后，公开 URL 才可访问。
 
 ### 4.2 分享卡片
 
@@ -200,27 +203,28 @@ type AiResult<T> =
 
 接口命名可在实现时按 Next.js 约定调整，但行为必须覆盖：
 
-- `GET /api/guides`：公开请求只返回已发布条目；管理员可显式查看草稿；
-- `POST /api/guides`：管理员新建草稿；
-- `GET/PATCH/DELETE /api/guides/[id]`：管理员读取和修改草稿或删除攻略；PATCH 需要 expected revision，冲突返回 409；
-- `POST /api/guides/[id]/publish`：管理员显式发布；
-- `POST /api/guides/[id]/unpublish`：管理员显式撤回为草稿，并清空 publishedAt；
-- `POST /api/uploads`：管理员通过同源 multipart 请求上传一张受限图片，服务端校验后写入 R2；
+- `GET /api/guides`：公开请求只返回已发布条目；管理员或携带有效 Token 请求可显式查看草稿（`?scope=admin`）；
+- `POST /api/guides`：管理员或携带有效 Token 请求新建草稿；若携带 `publish: true` 或 `status: "published"` 且满足发布完整性要求，直接发布；
+- `GET/PATCH/DELETE /api/guides/[id]`：管理员或携带有效 Token 请求读取和修改攻略或删除攻略；PATCH 需要 expected revision，冲突返回 409；
+- `POST /api/guides/[id]/publish`：管理员或携带有效 Token 请求显式发布；
+- `POST /api/guides/[id]/unpublish`：管理员或携带有效 Token 请求显式撤回为草稿，并清空 publishedAt；
+- `POST /api/uploads`：管理员或携带有效 Token 请求上传一张受限图片，服务端校验后写入 R2；
 - `POST /api/ai/generate`：生成攻略候选；
 - `POST /api/ai/revise`：生成调整候选；
 - `POST /api/ai/answer`：基于攻略问答。
 
-所有写接口均校验请求体，返回稳定错误结构，且不得依赖客户端传入的“管理员”标志。
+所有写接口均校验请求体，返回稳定错误结构，支持管理员 Session 或 `Authorization: Bearer <TOKEN>` 鉴权，且不得依赖客户端传入的无凭证“管理员”标志。
 
 ## 8. 安全与数据保护
 
-- 环境变量至少包括 Auth secret、管理员身份/密码哈希、MongoDB URI、Gemini API key、Gemini model、R2 endpoint/bucket/access keys 和 public base URL。
+- 环境变量至少包括 Auth secret、管理员身份/密码哈希、MongoDB URI、Gemini API key、Gemini model、R2 endpoint/bucket/access keys、public base URL 以及可选的 `HERMES_API_TOKEN`。
+- API Token 长度不得少于 16 个字符，校验采用常数时间比较防范时序攻击。
 - `.env*`（示例文件除外）不得提交 Git。
 - 上传 Route Handler 必须在读 body 前拒绝已声明超过 `10 MiB + 64 KiB` multipart 包络上限的请求；对缺失或不可信的长度仍执行有界流式读取，并在解析后独立拒绝实际图片文件超过 10 MiB 的请求。同时校验 MIME 与文件签名一致。object key 由服务端生成，不接受任意路径。
 - Markdown 或结构化正文渲染必须防止脚本注入；不允许未经净化的 HTML。
 - AI 请求不得接收任意系统提示词或工具定义；用户内容作为不可信数据处理。
 - 公开页面不得泄露草稿、内部错误、模型提示词、凭证或原始供应商响应。
-- 删除、发布、撤回属于显式管理员操作；AI 无权调用。
+- 删除、发布、撤回属于显式管理员操作（或持有有效 Token 的显式调用）；AI 无权调用。
 
 ## 9. 非目标
 
@@ -247,22 +251,23 @@ type AiResult<T> =
 ### 10.2 权限
 
 - 未登录访客可打开已发布攻略；
-- 未登录请求所有管理、AI、上传和写接口均返回 401/403；
+- 无有效管理员 Session 且无有效 API Token 的请求访问所有管理、AI、上传和写接口均返回 401/403；
+- 携带有效 Bearer API Token 的请求可正常调用管理端写 API、AI 接口和上传接口，且不受针对浏览器的同源限制；
 - 草稿不能通过公开列表、公开 slug 或静态 metadata 泄露；
 - 管理员可登录、退出并完成完整 CRUD 与发布/撤回流程。
-- 两个管理标签页基于同一 revision 编辑时，后提交者收到 409 和可恢复提示，不会覆盖先提交内容。
+- 两个管理端操作基于同一 revision 编辑时，后提交者收到 409 和可恢复提示，不会覆盖先提交内容。
 
 ### 10.3 内容
 
-- 管理员可创建至少三天的结构化攻略，保存后重新加载内容不丢失；
+- 管理员或持有有效 Token 的调用方可创建至少三天的结构化攻略（支持草稿创建与满足发布要求时的直接发布），保存后重新加载内容不丢失；
 - 同一 slug 不能重复；
 - 删除科目式级联逻辑不适用于本项目：攻略作为单一聚合一次写入，避免跨集合残留；
 - 公开详情页具有标题、描述、图片 alt 和基础 Open Graph metadata。
 
 ### 10.4 图片
 
-- 管理员可通过同源上传接口把允许的图片写入 R2；
-- 非管理员、超过 10 MiB、错误 MIME 或文件签名不匹配的上传在写入 R2 前失败；
+- 管理员或持有有效 API Token 的调用方可通过上传接口把允许的图片写入 R2；
+- 无有效认证、超过 10 MiB、错误 MIME 或文件签名不匹配的上传在写入 R2 前失败；
 - MongoDB 只保存对象元数据，公开页面可正确显示 R2 图片。
 
 ### 10.5 AI Agent

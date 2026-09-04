@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
+    await requireAdmin(request);
     const input = answerGuideInputSchema.parse(await readJson(request));
     return Response.json({ result: await answerGuideQuestion(input.existingGuide, input.question) });
   } catch (error) {

@@ -30,7 +30,7 @@ async function boundedBody(request: Request): Promise<Uint8Array> {
 
 export async function POST(request: Request) {
   try {
-    await requireAdmin();
+    await requireAdmin(request);
     assertSameOrigin(request);
 
     const encoding = request.headers.get("content-encoding");

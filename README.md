@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-- Next.js 16、Auth.js、MongoDB、Guide CRUD/发布/撤回、Cloudflare R2 上传和 Gemini grounded assistant 已落地。
+- Next.js 16、Auth.js（支持管理后台 Session 与外部流程 Bearer API Token）、MongoDB、Guide CRUD/发布/撤回、Cloudflare R2 上传和 Gemini grounded assistant 已落地。
 - 当前代码状态以本仓库 HEAD 和下方验证命令为准；历史实现审查、测试及 provider smoke 证据见 [`docs/reviews/agy-final-implementation/closeout.md`](./docs/reviews/agy-final-implementation/closeout.md)。
 - 真实 Gemini grounded structured-output smoke 与 R2 S3 上传/读回/删除 smoke 均已通过；R2 使用现有私有备份 bucket 验证传输，旅行图片专用 bucket/public base 仍需部署时配置。
 - 最终独立 AGY 审查返回 `APPROVE`；后续真实 smoke 暴露并验证修复了 Gemini schema 兼容问题。
@@ -23,10 +23,15 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 - `AUTH_URL`：默认 `http://localhost:3100`
 - `AUTH_SECRET`：至少 32 个字符
 - `ADMIN_EMAIL`
+- `HERMES_API_TOKEN`：Hermes 等外部流程调用 API 的 Bearer Token（至少 16 字符，可选）
 - `MONGODB_URI`（Compose 会覆盖为容器内地址）
 - R2 与 Gemini 变量；未配置时只有对应操作不可用，已有攻略浏览不受影响
 
 不要把 `.env.local` 提交到 Git，也不要把明文密码放进命令参数。
+
+### 自动化调用（API Token）
+
+配置 `HERMES_API_TOKEN`（至少 16 字符）后，外部自动化流水线（如 Hermes）可通过 HTTP 请求头携带 `Authorization: Bearer <TOKEN>` 调用管理接口（如 `GET /api/guides?scope=admin`、`POST /api/guides`、`PATCH /api/guides/[id]`、发布/撤回与图片上传），无需浏览器 Cookie 且豁免同源限制；创建攻略时若指定 `publish: true` 且满足完整性校验可直接发布。
 
 ## Docker 运行
 

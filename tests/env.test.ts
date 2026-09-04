@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getAuthEnv, getGeminiEnv, getMongoUri, getR2Env, getSiteOrigin } from "@/lib/env";
+import { getApiToken, getAuthEnv, getGeminiEnv, getMongoUri, getR2Env, getSiteOrigin } from "@/lib/env";
 
 const baseline = { ...process.env };
 afterEach(() => {
@@ -11,6 +11,22 @@ describe("environment validation", () => {
   it("rejects a short Auth secret", () => {
     vi.stubEnv("AUTH_SECRET", "short");
     expect(() => getAuthEnv()).toThrow("at least 32");
+  });
+
+  it("validates API token length and fallback", () => {
+    vi.stubEnv("HERMES_API_TOKEN", "");
+    vi.stubEnv("API_TOKEN", "");
+    expect(getApiToken()).toBeNull();
+
+    vi.stubEnv("HERMES_API_TOKEN", "short-token");
+    expect(() => getApiToken()).toThrow("at least 16 characters");
+
+    vi.stubEnv("HERMES_API_TOKEN", "super-secret-token-12345");
+    expect(getApiToken()).toBe("super-secret-token-12345");
+
+    vi.stubEnv("HERMES_API_TOKEN", "");
+    vi.stubEnv("API_TOKEN", "fallback-secret-token-9999");
+    expect(getApiToken()).toBe("fallback-secret-token-9999");
   });
 
   it("requires a named Mongo database", () => {
