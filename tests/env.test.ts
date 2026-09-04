@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getAuthEnv, getGeminiEnv, getMongoUri, getR2Env } from "@/lib/env";
+import { getAuthEnv, getGeminiEnv, getMongoUri, getR2Env, getSiteOrigin } from "@/lib/env";
 
 const baseline = { ...process.env };
 afterEach(() => {
@@ -33,5 +33,16 @@ describe("environment validation", () => {
     vi.stubEnv("GEMINI_API_KEY", "test-key");
     vi.stubEnv("GEMINI_MODEL", "");
     expect(getGeminiEnv()).toEqual({ apiKey: "test-key", model: "gemini-3.7-flash" });
+  });
+
+  it("resolves site origin from AUTH_URL or falls back to production domain", () => {
+    vi.stubEnv("AUTH_URL", "http://localhost:3100/nested/path");
+    expect(getSiteOrigin()).toBe("http://localhost:3100");
+
+    vi.stubEnv("AUTH_URL", "");
+    expect(getSiteOrigin()).toBe("https://travel.keyi.win");
+
+    vi.stubEnv("AUTH_URL", "not-a-valid-url");
+    expect(getSiteOrigin()).toBe("https://travel.keyi.win");
   });
 });

@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = getSiteOrigin();
-  const guides = await listPublishedGuides();
+  const guides = await listPublishedGuides({ limit: 1000 });
 
   const guideEntries: MetadataRoute.Sitemap = guides
     .filter((guide) => Boolean(guide.slug))

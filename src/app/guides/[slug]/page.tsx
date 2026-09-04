@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CopyLink } from "@/components/copy-link";
+import { getSiteOrigin } from "@/lib/env";
 import { getPublishedGuideBySlug } from "@/lib/guides";
 
 export const dynamic = "force-dynamic";
@@ -50,6 +51,7 @@ export default async function GuidePage({ params }: Props) {
   if (!guide) notFound();
   const totalStops = guide.itinerary.reduce((sum, day) => sum + day.items.length, 0);
 
+  const origin = getSiteOrigin();
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -60,7 +62,7 @@ export default async function GuidePage({ params }: Props) {
     dateModified: guide.updatedAt,
     mainEntityOfPage: {
       "@type": "WebPage",
-      "@id": `/guides/${guide.slug}`,
+      "@id": `${origin}/guides/${guide.slug}`,
     },
     about: {
       "@type": "TouristDestination",
@@ -72,7 +74,7 @@ export default async function GuidePage({ params }: Props) {
     <main>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }}
       />
       <header className="detail-hero">
         <nav className="site-nav" aria-label="详情页导航"><Link className="brand" href="/">旅行卡片 <span>TRAVEL CARDS</span></Link><Link className="nav-link" href="/">← 返回路线</Link></nav>
