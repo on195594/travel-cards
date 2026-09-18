@@ -192,12 +192,12 @@ type AiResult<T> =
 ## 6. 技术边界
 
 - **Web**：Next.js App Router、TypeScript、Tailwind CSS；页面与 Route Handlers 位于同一应用。
-- **数据库**：MongoDB + Mongoose；开发环境使用 Docker Volume 保留数据。
+- **数据库**：MongoDB + Mongoose；与 Meemo 项目共用其 `mongodb` 服务、`meemo_backend` Docker 网络和数据卷，Travel Cards 不创建或管理第二个 MongoDB 服务。
 - **认证**：Auth.js 单管理员 Credentials 流；密码使用不可逆哈希校验，session cookie 采用安全默认值。
 - **AI**：Google Gemini Interactions API；具体稳定模型由 `GEMINI_MODEL` 配置，默认值在实现时依据官方支持列表确定并由测试覆盖。
 - **联网来源**：Gemini Google Search grounding；UI 展示官方响应中的 grounding 来源。
 - **图片**：Cloudflare R2 S3-compatible API。首版采用同源、服务端中转上传：Next.js Route Handler 先验证管理员、声明 MIME、文件签名与实际字节数，再以服务端凭证写入 R2。单个图片文件上限为 10 MiB，multipart 请求总包络上限为 `10 MiB + 64 KiB`，只允许 `image/jpeg`、`image/png`、`image/webp`；object key 由服务端生成。单管理员小图片场景不引入 presigned URL、R2 CORS 或 Worker 上传代理。
-- **运行目标**：本地 Docker Compose 同时启动 Web 与 MongoDB。R2 和 Gemini 使用真实远端服务，但测试默认使用 fake transport。
+- **运行目标**：本地 Docker Compose 只启动 Web，并接入 Meemo 已运行的 MongoDB。R2 和 Gemini 使用真实远端服务，但测试默认使用 fake transport。
 
 ## 7. 服务端接口边界
 
@@ -244,7 +244,7 @@ type AiResult<T> =
 
 ### 10.1 项目与运行
 
-- 新环境复制示例变量后，可通过文档化命令启动 Web 与 MongoDB；
+- 新环境复制示例变量并准备 Meemo 的 MongoDB 服务及 `meemo_backend` 网络后，可通过文档化命令启动 Web；
 - `docker compose config`、lint、测试和 production build 均通过；
 - 无凭证时应用给出明确配置错误，不以假成功降级。
 

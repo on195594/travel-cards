@@ -78,15 +78,15 @@ export default async function GuidePage({ params }: Props) {
       />
       <header className="detail-hero">
         <nav className="site-nav" aria-label="详情页导航"><Link className="brand" href="/">旅行卡片 <span>TRAVEL CARDS</span></Link><Link className="nav-link" href="/">← 返回路线</Link></nav>
-        <div className="detail-heading">
+        <div id="main-content" className="detail-heading" tabIndex={-1}>
           <p className="eyebrow">{guide.destination} <span aria-hidden="true">·</span> {guide.days} 天</p>
           <h1>{guide.title}</h1>
           <p className="hero-lede">{guide.excerpt}</p>
           <div className="detail-meta-actions">
             <CopyLink />
             <span className="meta-pill">{guide.days} 日行程</span>
-            {totalStops > 0 && <span className="meta-pill">{totalStops} 处节点</span>}
-            {guide.sources.length > 0 && <span className="meta-pill">{guide.sources.length} 处核实来源</span>}
+            {totalStops > 0 && <span className="meta-pill">{totalStops} 个行程地点</span>}
+            {guide.sources.length > 0 && <span className="meta-pill">{guide.sources.length} 条参考来源</span>}
           </div>
         </div>
       </header>
@@ -99,7 +99,7 @@ export default async function GuidePage({ params }: Props) {
           <div className="section-header-row">
             <div>
               <div className="section-badge-wrapper">
-                <span className="kind-badge kind-itinerary">路线安排 · ITINERARY</span>
+                <span className="kind-badge kind-itinerary">行程安排</span>
               </div>
               <h2>逐日行程</h2>
             </div>
@@ -119,7 +119,7 @@ export default async function GuidePage({ params }: Props) {
               <div className="day-card panel" id={`day-${day.day}`} key={day.day}>
                 <div className="section-badge-wrapper">
                   <span className="kind-badge kind-day">
-                    第 {day.day} 天 · DAY {String(day.day).padStart(2, "0")}
+                    第 {day.day} 天
                   </span>
                 </div>
                 <h3 className="day-title">{day.title}</h3>
@@ -154,7 +154,7 @@ export default async function GuidePage({ params }: Props) {
 
         <section className="section-block panel">
           <div className="section-badge-wrapper"><span className="kind-badge">参考来源</span></div>
-          <h2>参考资料与官方来源</h2>
+          <h2>出行参考资料</h2>
           {guide.sources.length ? (
             <ul className="sources-list">
               {guide.sources.map((source, index) => (
@@ -184,4 +184,3 @@ export default async function GuidePage({ params }: Props) {
     </main>
   );
 }
-

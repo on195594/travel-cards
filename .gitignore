@@ -2,6 +2,7 @@
 node_modules/
 .next/
 coverage/
+*.tsbuildinfo
 
 # Environment and credentials
 .env*
@@ -10,6 +11,9 @@ coverage/
 # Logs and local state
 *.log
 .DS_Store
+
+# Local rollback backups
+backups/
 
 # Local uploads/test artifacts
 tmp/

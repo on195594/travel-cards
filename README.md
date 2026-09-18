@@ -24,7 +24,7 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 - `AUTH_SECRET`：至少 32 个字符
 - `ADMIN_EMAIL`
 - `HERMES_API_TOKEN`：Hermes 等外部流程调用 API 的 Bearer Token（至少 16 字符，可选）
-- `MONGODB_URI`（Compose 会覆盖为容器内地址）
+- `MONGODB_URI`（Compose 使用 Meemo 共用的 `mongodb` 服务）
 - R2 与 Gemini 变量；未配置时只有对应操作不可用，已有攻略浏览不受影响
 
 不要把 `.env.local` 提交到 Git，也不要把明文密码放进命令参数。
@@ -35,10 +35,12 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 
 ## Docker 运行
 
-Compose 会把 Web 接入现有边缘代理使用的外部 `nginx-network`。新环境先创建一次该网络：
+Compose 只启动 Web，并接入 Meemo 已提供的 `mongodb` 服务及现有边缘代理网络。先确保 Meemo 的 `mongodb` 容器和 `meemo_backend` 网络已运行；新环境只需创建边缘网络：
 
 ```bash
 docker network inspect nginx-network >/dev/null 2>&1 || docker network create nginx-network
+docker inspect mongodb >/dev/null
+docker network inspect meemo_backend >/dev/null
 docker compose config
 docker compose up -d --build
 docker compose ps
@@ -48,11 +50,11 @@ docker compose ps
 
 - 公开页面：<http://localhost:3100>
 - 管理页面：<http://localhost:3100/admin/guides>
-- MongoDB：仅监听 `127.0.0.1:27017`
+- MongoDB：复用 Meemo 的 `mongodb` 服务，由 Meemo 项目负责生命周期和数据卷
 
 如 3100 被占用，可在 shell 中设置 `APP_PORT`，并让 `.env.local` 中的 `AUTH_URL` 使用同一端口。
 
-停止服务但保留 MongoDB volume：
+停止 Travel Cards Web（不会停止或删除共用 MongoDB）：
 
 ```bash
 docker compose down
@@ -69,10 +71,10 @@ npm run dev
 
 ## 验证
 
-测试需要 MongoDB；先只启动 `mongodb` 服务，全部检查完成后停止 Compose：
+测试需要正在运行的共用 MongoDB；测试配置使用宿主机的 `127.0.0.1:27017`：
 
 ```bash
-docker compose up -d mongodb
+docker inspect mongodb >/dev/null
 npm test
 npm run lint
 npm run build
@@ -87,4 +89,4 @@ docker compose down
 - `src/app/`：页面和 Route Handlers
 - `src/lib/guides.ts`：Guide 聚合、验证和 MongoDB 操作
 - `src/lib/storage/r2.ts`：受限图片上传
-- `docker-compose.yml`：Web + MongoDB 本地栈
+- `docker-compose.yml`：接入 Meemo 共用 MongoDB 的 Web 服务

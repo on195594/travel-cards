@@ -1,17 +1,4 @@
 services:
-  mongodb:
-    image: mongo:8
-    restart: unless-stopped
-    ports:
-      - "127.0.0.1:27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
-
   web:
     build: .
     restart: unless-stopped
@@ -24,19 +11,16 @@ services:
       MONGODB_URI: mongodb://mongodb:27017/travel_cards
     ports:
       - "127.0.0.1:${APP_PORT:-3100}:3000"
-    depends_on:
-      mongodb:
-        condition: service_healthy
     networks:
-      default:
+      meemo:
       edge:
         aliases:
           - travel-cards-web
 
-volumes:
-  mongodb_data:
-
 networks:
+  meemo:
+    external: true
+    name: meemo_backend
   edge:
     external: true
     name: nginx-network

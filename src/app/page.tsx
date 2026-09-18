@@ -27,10 +27,6 @@ export default async function Home({ searchParams }: Props) {
             <span>TRAVEL CARDS</span>
           </Link>
           <nav className="header-nav" aria-label="快捷导航">
-            <span className="header-stat-badge">
-              <span className="stat-dot" aria-hidden="true" />
-              {guides.length} 篇攻略已核验
-            </span>
             <Link className="nav-link" href="/admin/guides">
               管理内容 <span aria-hidden="true">↗</span>
             </Link>
@@ -38,7 +34,7 @@ export default async function Home({ searchParams }: Props) {
         </div>
       </header>
 
-      <main className="container home-main">
+      <main id="main-content" className="container home-main">
         <GuideSearch key={q ?? "all"} initialGuides={guides} initialQuery={q ?? ""} />
       </main>
 

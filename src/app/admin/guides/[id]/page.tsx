@@ -7,5 +7,5 @@ export const dynamic = "force-dynamic";
 export default async function EditGuidePage({ params }: { params: Promise<{ id: string }> }) {
   await requireAdminPage();
   const guide = await getGuideById((await params).id);
-  return <main className="container admin"><GuideEditor initialGuide={guide} /></main>;
+  return <main id="main-content" className="container admin"><GuideEditor initialGuide={guide} /></main>;
 }

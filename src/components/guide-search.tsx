@@ -25,10 +25,6 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
     return list;
   }, [initialGuides]);
 
-  const totalDays = useMemo(() => {
-    return initialGuides.reduce((sum, g) => sum + (g.days || 1), 0);
-  }, [initialGuides]);
-
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return initialGuides;
@@ -62,41 +58,29 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
       <section className="home-hero-compact" aria-labelledby="home-hero-title">
         <div className="hero-compact-header">
           <div className="hero-text-col">
-            <p className="eyebrow">结构化中文旅行指南 · 官方核验</p>
+            <p className="eyebrow">旅行灵感 · 实用攻略</p>
             <h1 id="home-hero-title" className="hero-compact-title">
-              把下一段旅程，<em>装进一张卡片。</em>
+              下一站，<em>去哪里？</em>
             </h1>
             <p className="hero-compact-lede">
-              逐日行程节点、官方核验来源与实用建议，拒绝冗长种草流水账。
+              从目的地出发，找到清晰的逐日行程与实用建议。
             </p>
           </div>
 
-          <div className="hero-stats-panel" aria-label="数据概览">
-            <div className="stat-card">
-              <span className="stat-value">{initialGuides.length.toString().padStart(2, "0")}</span>
-              <span className="stat-name">精编路线</span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-value">{destinations.length.toString().padStart(2, "0")}</span>
-              <span className="stat-name">收录地区</span>
-            </div>
-            <div className="stat-card">
-              <span className="stat-value">{totalDays.toString().padStart(2, "0")}</span>
-              <span className="stat-name">规划天数</span>
-            </div>
-          </div>
+          <p className="collection-note">{destinations.length} 个目的地 · 慢慢探索</p>
         </div>
 
         <div className="search-filter-dock">
-          <div className="search-box">
-            <span className="search-icon" aria-hidden="true">🔍</span>
+          <div className="search-box" role="search" aria-label="攻略搜索">
+            <svg className="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></svg>
             <input
               className="search-input"
               type="search"
               value={query}
               onChange={(e) => handleQueryChange(e.target.value)}
-              placeholder="搜索目的地、路线标题或关键词（如：王朗、中秋、3天）..."
+              placeholder="搜索目的地或关键词"
               aria-label="搜索攻略"
+              aria-controls="guide-results"
             />
             {query && (
               <button
@@ -111,12 +95,12 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
           </div>
 
           {destinations.length > 0 && (
-            <div className="destination-chips" role="group" aria-label="目的地快速筛选">
-              <span className="chips-label">快速筛选：</span>
+            <div className="destination-chips" role="group" aria-label="目的地快捷搜索">
               <button
                 type="button"
                 className={`chip ${!query.trim() ? "active" : ""}`}
                 onClick={handleClear}
+                aria-pressed={!query.trim()}
               >
                 全部路线
               </button>
@@ -128,6 +112,7 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
                     type="button"
                     className={`chip ${isActive ? "active" : ""}`}
                     onClick={() => handleQueryChange(isActive ? "" : dest)}
+                    aria-pressed={isActive}
                   >
                     {dest}
                   </button>
@@ -138,13 +123,13 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
         </div>
       </section>
 
-      <section className="guide-feed-section" aria-labelledby="guide-list-title">
+      <section className="guide-feed-section" id="guide-results" aria-labelledby="guide-list-title">
         <div className="feed-meta-row">
-          <h2 id="guide-list-title" className="feed-title">探索精选路线</h2>
-          <span className="section-count">
+          <h2 id="guide-list-title" className="feed-title">{query.trim() ? "搜索结果" : "发现旅行攻略"}</h2>
+          <span className="section-count" role="status" aria-atomic="true">
             {query.trim()
-              ? `找到 ${filtered.length.toString().padStart(2, "0")} 篇匹配`
-              : `${initialGuides.length.toString().padStart(2, "0")} 篇可阅读`}
+              ? `找到 ${filtered.length} 篇攻略`
+              : `共 ${initialGuides.length} 篇攻略`}
           </span>
         </div>
 
@@ -155,10 +140,11 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
             ))}
           </div>
         ) : !initialGuides.length ? (
-          <p className="empty">暂时没有已发布攻略。</p>
+          <div className="empty"><h3>旅程正在准备中</h3><p>暂时没有已发布攻略，稍后再来发现新的目的地。</p></div>
         ) : (
           <div className="empty search-empty">
             <p>未找到与“<strong>{query}</strong>”相关的旅行攻略。</p>
+            <p className="hint">试试城市名称，或换一个简短的关键词。</p>
             <button className="button secondary" type="button" onClick={handleClear}>
               清除搜索关键词
             </button>
