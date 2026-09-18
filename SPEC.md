@@ -2,7 +2,7 @@
 
 - **状态**：Implemented and locally accepted / production configuration and first content pending
 - **日期**：2026-08-31
-- **项目根目录**：`/home/lin/.hermes/projects/travel-cards`
+- **项目根目录**：`/home/lin/travel-cards`
 - **产品语言**：首版中文界面与中文内容
 
 ## 1. 目标

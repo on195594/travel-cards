@@ -8,6 +8,7 @@
 - 当前代码状态以本仓库 HEAD 和下方验证命令为准；历史实现审查、测试及 provider smoke 证据见 [`docs/reviews/agy-final-implementation/closeout.md`](./docs/reviews/agy-final-implementation/closeout.md)。
 - 真实 Gemini grounded structured-output smoke 与 R2 S3 上传/读回/删除 smoke 均已通过；R2 使用现有私有备份 bucket 验证传输，旅行图片专用 bucket/public base 仍需部署时配置。
 - 最终独立 AGY 审查返回 `APPROVE`；后续真实 smoke 暴露并验证修复了 Gemini schema 兼容问题。
+- 当前开发目录：`/home/lin/travel-cards`
 - 权威需求：[SPEC.md](./SPEC.md)
 - 项目约束：[AGENTS.md](./AGENTS.md)
 
