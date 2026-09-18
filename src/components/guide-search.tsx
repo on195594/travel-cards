@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { Guide } from "@/lib/guides";
 import { GuideCard } from "@/components/guide-card";
 
@@ -9,8 +9,32 @@ type Props = {
   initialQuery?: string;
 };
 
+function filterGuides(guides: Guide[], query: string): Guide[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return guides;
+  return guides.filter((guide) => guide.title.toLowerCase().includes(q) || guide.destination.toLowerCase().includes(q) || guide.excerpt.toLowerCase().includes(q));
+}
+
 export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
   const [query, setQuery] = useState(initialQuery);
+  const [remoteSearch, setRemoteSearch] = useState<{ query: string; guides: Guide[] }>();
+
+  useEffect(() => {
+    const q = query.trim();
+    if (!q) return;
+    const controller = new AbortController();
+    fetch(`/api/guides?q=${encodeURIComponent(q)}`, { signal: controller.signal })
+      .then((response) => {
+        if (!response.ok) throw new Error("search failed");
+        return response.json() as Promise<{ guides?: Guide[] }>;
+      })
+      .then((data) => setRemoteSearch({ query: q, guides: Array.isArray(data.guides) ? data.guides : [] }))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setRemoteSearch({ query: q, guides: filterGuides(initialGuides, q) });
+      });
+    return () => controller.abort();
+  }, [initialGuides, query]);
 
   const destinations = useMemo(() => {
     const list: string[] = [];
@@ -25,16 +49,7 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
     return list;
   }, [initialGuides]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return initialGuides;
-    return initialGuides.filter((guide) => {
-      const title = guide.title.toLowerCase();
-      const dest = guide.destination.toLowerCase();
-      const excerpt = guide.excerpt.toLowerCase();
-      return title.includes(q) || dest.includes(q) || excerpt.includes(q);
-    });
-  }, [initialGuides, query]);
+  const filtered = useMemo(() => remoteSearch?.query === query.trim() ? remoteSearch.guides : filterGuides(initialGuides, query), [initialGuides, query, remoteSearch]);
 
   function handleQueryChange(value: string) {
     setQuery(value);
@@ -81,6 +96,7 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
               placeholder="搜索目的地或关键词"
               aria-label="搜索攻略"
               aria-controls="guide-results"
+              maxLength={200}
             />
             {query && (
               <button

@@ -35,8 +35,15 @@ export function getSiteOrigin(): string {
 
 export function getMongoUri(): string {
   const uri = required("MONGODB_URI");
-  const database = new URL(uri).pathname.slice(1);
-  if (!database) throw new Error("MONGODB_URI must include a database name");
+  let parsed: URL;
+  try {
+    parsed = new URL(uri);
+  } catch {
+    throw new Error("MONGODB_URI must be a valid MongoDB URL");
+  }
+  if (!["mongodb:", "mongodb+srv:"].includes(parsed.protocol) || !parsed.pathname.slice(1)) {
+    throw new Error("MONGODB_URI must be a MongoDB URL with a database name");
+  }
   return uri;
 }
 

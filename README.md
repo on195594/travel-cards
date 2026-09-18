@@ -41,7 +41,7 @@ Compose 只启动 Web，并接入 Meemo 已提供的 `mongodb` 服务及现有�
 docker network inspect nginx-network >/dev/null 2>&1 || docker network create nginx-network
 docker inspect mongodb >/dev/null
 docker network inspect meemo_backend >/dev/null
-docker compose config
+docker compose config >/dev/null
 docker compose up -d --build
 docker compose ps
 ```
@@ -78,7 +78,7 @@ docker inspect mongodb >/dev/null
 npm test
 npm run lint
 npm run build
-docker compose config
+docker compose config >/dev/null
 docker compose down
 ```
 

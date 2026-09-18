@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { HttpError, jsonError, readJson } from "@/lib/http";
+import { HttpError, jsonError, MAX_JSON_BYTES, readJson } from "@/lib/http";
 
 describe("stable HTTP errors", () => {
   it("maps known errors without leaking details", async () => {
@@ -20,9 +20,12 @@ describe("stable HTTP errors", () => {
     await expect(readJson(new Request("http://localhost:3000/api", { method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json" }, body: "{" }))).rejects.toMatchObject({ status: 400, code: "INVALID_JSON" });
   });
 
-  it("rejects cross-origin and non-JSON writes", async () => {
+  it("rejects cross-origin, non-JSON, and oversized writes", async () => {
     await expect(readJson(new Request("http://localhost:3000/api", { method: "POST", headers: { origin: "http://localhost:3001", "content-type": "application/json" }, body: "{}" }))).rejects.toMatchObject({ status: 403, code: "CROSS_ORIGIN" });
     await expect(readJson(new Request("http://localhost:3000/api", { method: "POST", headers: { origin: "http://localhost:3000", "content-type": "text/plain" }, body: "{}" }))).rejects.toMatchObject({ status: 415, code: "UNSUPPORTED_MEDIA_TYPE" });
+    await expect(readJson(new Request("http://localhost:3000/api", { method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json", "content-length": String(MAX_JSON_BYTES + 1) }, body: "{}" }))).rejects.toMatchObject({ status: 413, code: "REQUEST_TOO_LARGE" });
+    const body = new ReadableStream({ start(controller) { controller.enqueue(new Uint8Array(MAX_JSON_BYTES + 1)); controller.close(); } });
+    await expect(readJson(new Request("http://localhost:3000/api", { method: "POST", headers: { origin: "http://localhost:3000", "content-type": "application/json" }, body, duplex: "half" } as RequestInit))).rejects.toMatchObject({ status: 413, code: "REQUEST_TOO_LARGE" });
   });
 
   it("allows requests without origin when authenticated with valid API Token", async () => {

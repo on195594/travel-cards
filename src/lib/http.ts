@@ -2,9 +2,40 @@ import { ZodError } from "zod";
 import { isValidApiToken } from "@/lib/admin";
 import { getAuthEnv } from "@/lib/env";
 
+export const MAX_JSON_BYTES = 2 * 1024 * 1024;
+
 export class HttpError extends Error {
   constructor(public status: number, public code: string, message: string) {
     super(message);
+  }
+}
+
+async function boundedText(request: Request): Promise<string> {
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (!value) continue;
+    total += value.byteLength;
+    if (total > MAX_JSON_BYTES) {
+      await reader.cancel();
+      throw new HttpError(413, "REQUEST_TOO_LARGE", "请求体不能超过 2 MiB");
+    }
+    chunks.push(value);
+  }
+  const body = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(body);
+  } catch {
+    throw new HttpError(400, "INVALID_JSON", "请求体必须是有效 JSON");
   }
 }
 
@@ -24,8 +55,14 @@ export async function readJson(request: Request): Promise<unknown> {
   if (request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() !== "application/json") {
     throw new HttpError(415, "UNSUPPORTED_MEDIA_TYPE", "请求体必须使用 application/json");
   }
+  const contentLength = request.headers.get("content-length");
+  if (contentLength !== null) {
+    if (!/^\d+$/.test(contentLength)) throw new HttpError(400, "INVALID_CONTENT_LENGTH", "Content-Length 无效");
+    if (Number(contentLength) > MAX_JSON_BYTES) throw new HttpError(413, "REQUEST_TOO_LARGE", "请求体不能超过 2 MiB");
+  }
+  const body = await boundedText(request);
   try {
-    return await request.json();
+    return JSON.parse(body);
   } catch {
     throw new HttpError(400, "INVALID_JSON", "请求体必须是有效 JSON");
   }

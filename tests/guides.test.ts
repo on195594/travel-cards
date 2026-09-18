@@ -100,6 +100,10 @@ describe("Guide aggregate", () => {
     await expect(getGuideById(draft.id)).resolves.toMatchObject({ excerpt: "先保存的内容", revision: winner.revision });
   });
 
+  it("rejects unbounded search queries before touching MongoDB", async () => {
+    await expect(listPublishedGuides({ q: "x".repeat(201) })).rejects.toMatchObject({ code: "SEARCH_QUERY_TOO_LONG", status: 400 });
+  });
+
   it("searches published guides by title, destination, and excerpt with safe regex escaping", async () => {
     const draft1 = await createGuide({ ...threeDayGuide("search-test-1"), title: "西安出发王朗大熊猫探秘", destination: "四川绵阳" });
     const draft2 = await createGuide({ ...threeDayGuide("search-test-2"), title: "青海湖环线自驾", destination: "青海西宁" });

@@ -195,11 +195,18 @@ function escapeRegex(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+export const MAX_SEARCH_QUERY_LENGTH = 200;
 export type GuideListOptions = { q?: string; limit?: number };
+
+function searchQuery(options: GuideListOptions | number): string | undefined {
+  const q = typeof options === "number" ? undefined : options.q?.trim();
+  if (q && q.length > MAX_SEARCH_QUERY_LENGTH) throw new HttpError(400, "SEARCH_QUERY_TOO_LONG", "搜索关键词不能超过 200 个字符");
+  return q || undefined;
+}
 
 export async function listPublishedGuides(options: GuideListOptions | number = {}): Promise<Guide[]> {
   const limit = typeof options === "number" ? options : (options.limit ?? 100);
-  const q = typeof options === "number" ? undefined : options.q?.trim();
+  const q = searchQuery(options);
   await ready();
   const filter: Record<string, unknown> = { status: "published" };
   if (q) {
@@ -216,7 +223,7 @@ export async function listPublishedGuides(options: GuideListOptions | number = {
 
 export async function listAdminGuides(options: GuideListOptions | number = {}): Promise<Guide[]> {
   const limit = typeof options === "number" ? options : (options.limit ?? 100);
-  const q = typeof options === "number" ? undefined : options.q?.trim();
+  const q = searchQuery(options);
   await ready();
   const filter: Record<string, unknown> = {};
   if (q) {

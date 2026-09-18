@@ -29,9 +29,15 @@ describe("environment validation", () => {
     expect(getApiToken()).toBe("fallback-secret-token-9999");
   });
 
-  it("requires a named Mongo database", () => {
+  it("requires a MongoDB URL with a named database", () => {
     vi.stubEnv("MONGODB_URI", "mongodb://localhost:27017");
     expect(() => getMongoUri()).toThrow("database name");
+
+    vi.stubEnv("MONGODB_URI", "https://localhost/travel_cards");
+    expect(() => getMongoUri()).toThrow("MongoDB URL");
+
+    vi.stubEnv("MONGODB_URI", "mongodb://localhost:27017/travel_cards");
+    expect(getMongoUri()).toBe("mongodb://localhost:27017/travel_cards");
   });
 
   it("accepts only safe HTTPS R2 URLs and normalizes the public base", () => {
