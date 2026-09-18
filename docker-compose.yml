@@ -7,8 +7,6 @@ services:
       - path: .env.local
         required: false
         format: raw
-    environment:
-      MONGODB_URI: mongodb://mongodb:27017/travel_cards
     ports:
       - "127.0.0.1:${APP_PORT:-3100}:3000"
     networks:
@@ -20,7 +18,7 @@ services:
 networks:
   meemo:
     external: true
-    name: meemo_backend
+    name: ${MEEMO_NETWORK:-meemo_backend}
   edge:
     external: true
-    name: nginx-network
+    name: ${EDGE_NETWORK:-nginx-network}

@@ -11,7 +11,11 @@ import {
   updateGuide,
 } from "@/lib/guides";
 
-const databaseName = "travel_cards_phase1_test";
+const testRunId = process.env.TRAVEL_CARDS_TEST_RUN_ID;
+if (!testRunId || !/^[a-z0-9_]+$/.test(testRunId)) {
+  throw new Error("Run database tests through `npm test` so each run owns an isolated MongoDB database");
+}
+const databaseName = `travel_cards_test_${testRunId}`;
 
 function threeDayGuide(slug = "hangzhou-weekend") {
   return {
@@ -112,6 +116,9 @@ describe("Guide aggregate", () => {
 
     const titleMatch = await listPublishedGuides({ q: "大熊猫" });
     expect(titleMatch.some((g) => g.title.includes("大熊猫"))).toBe(true);
+    expect(titleMatch[0]).not.toHaveProperty("itinerary");
+    expect(titleMatch[0]).not.toHaveProperty("sections");
+    expect(titleMatch[0]).not.toHaveProperty("sources");
 
     const destMatch = await listPublishedGuides({ q: "西宁" });
     expect(destMatch.some((g) => g.destination.includes("西宁"))).toBe(true);

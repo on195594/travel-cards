@@ -153,6 +153,7 @@ describe("Guide Route Handlers with API Token", () => {
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.guides).toHaveLength(1);
+    expect(data.guides[0]).toMatchObject({ itinerary: [], sections: [], sources: [] });
     expect(mocks.listAdminGuides).toHaveBeenCalled();
   });
 });

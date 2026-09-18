@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Guide } from "@/lib/guides";
+import type { GuideSummary } from "@/lib/guides/schema";
 import { GuideCard } from "@/components/guide-card";
 
 type Props = {
-  initialGuides: Guide[];
+  initialGuides: GuideSummary[];
   initialQuery?: string;
 };
 
-function filterGuides(guides: Guide[], query: string): Guide[] {
+function filterGuides(guides: GuideSummary[], query: string): GuideSummary[] {
   const q = query.trim().toLowerCase();
   if (!q) return guides;
   return guides.filter((guide) => guide.title.toLowerCase().includes(q) || guide.destination.toLowerCase().includes(q) || guide.excerpt.toLowerCase().includes(q));
@@ -17,7 +17,7 @@ function filterGuides(guides: Guide[], query: string): Guide[] {
 
 export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
   const [query, setQuery] = useState(initialQuery);
-  const [remoteSearch, setRemoteSearch] = useState<{ query: string; guides: Guide[] }>();
+  const [remoteSearch, setRemoteSearch] = useState<{ query: string; guides: GuideSummary[] }>();
 
   useEffect(() => {
     const q = query.trim();
@@ -26,7 +26,7 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
     fetch(`/api/guides?q=${encodeURIComponent(q)}`, { signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error("search failed");
-        return response.json() as Promise<{ guides?: Guide[] }>;
+        return response.json() as Promise<{ guides?: GuideSummary[] }>;
       })
       .then((data) => setRemoteSearch({ query: q, guides: Array.isArray(data.guides) ? data.guides : [] }))
       .catch((error: unknown) => {

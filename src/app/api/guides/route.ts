@@ -8,7 +8,9 @@ export async function GET(request: Request) {
     const admin = url.searchParams.get("scope") === "admin";
     const q = url.searchParams.get("q") ?? undefined;
     if (admin) await requireAdmin(request);
-    const guides = admin ? await listAdminGuides({ q }) : await listPublishedGuides({ q });
+    const summaries = admin ? await listAdminGuides({ q }) : await listPublishedGuides({ q });
+    // Preserve the existing HTTP list shape while internal consumers use GuideSummary.
+    const guides = summaries.map((guide) => ({ ...guide, itinerary: [], sections: [], sources: [] }));
     const headers = admin ? undefined : { "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600" };
     return Response.json({ guides }, { headers });
   } catch (error) {

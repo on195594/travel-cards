@@ -1,7 +1,7 @@
 import Link from "next/link";
-import type { Guide } from "@/lib/guides";
+import type { GuideSummary } from "@/lib/guides/schema";
 
-export function GuideCard({ guide }: { guide: Guide }) {
+export function GuideCard({ guide }: { guide: GuideSummary }) {
   const href = `/guides/${guide.slug}`;
   return (
     <article className="card">
