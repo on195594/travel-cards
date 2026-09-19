@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { getApiToken, getAuthEnv } from "@/lib/env";
 import { HttpError } from "@/lib/http";
 
@@ -22,7 +22,7 @@ export function isValidApiToken(authHeader: string | null | undefined): boolean 
 }
 
 export function verifyApiToken(authHeader: string | null | undefined): void {
-  if (!authHeader) throw new HttpError(401, "UNAUTHORIZED", "缺少 Authorization 请求头");
+  if (authHeader === null || authHeader === undefined) throw new HttpError(401, "UNAUTHORIZED", "缺少 Authorization 请求头");
   const match = authHeader.match(/^Bearer\s+(\S+)$/i);
   if (!match) throw new HttpError(401, "UNAUTHORIZED", "Authorization 格式需为 Bearer <TOKEN>");
   const configured = getApiToken();
@@ -35,15 +35,46 @@ export function assertAdmin(session: { user?: { id?: string; email?: string | nu
   if (session?.user?.id !== "admin" || session.user.email?.toLowerCase() !== configuredEmail) throw new HttpError(401, "UNAUTHORIZED", "需要管理员登录");
 }
 
+export type AdminActor = {
+  user: { id: string; email: string; name?: string };
+  authKind: "session" | "token";
+  actorLabel: string;
+};
+
 export function assertAdminOrToken(
   session: { user?: { id?: string; email?: string | null } } | null,
   authHeader?: string | null,
-): { user: { id: string; email: string; name?: string } } {
-  if (authHeader) {
+): AdminActor {
+  if (authHeader !== undefined && authHeader !== null) {
     verifyApiToken(authHeader);
     const { email } = getAuthEnv();
-    return { user: { id: "admin", email, name: "API Token" } };
+    return { user: { id: "admin", email, name: "API Token" }, authKind: "token", actorLabel: "api-token" };
   }
   assertAdmin(session);
-  return session as { user: { id: string; email: string; name?: string } };
+  const admin = session as { user: { id: string; email: string; name?: string } };
+  return { ...admin, authKind: "session", actorLabel: admin.user.email.toLowerCase() };
+}
+
+export function logAdminAction(
+  actor: AdminActor,
+  action: string,
+  guideId: string | null,
+  beforeRevision: number | null,
+  afterRevision: number | null,
+  result: "success" | "failure" = "success"
+): void {
+  try {
+    console.info("admin_action", {
+      requestId: randomUUID(),
+      action,
+      authKind: actor.authKind,
+      actorLabel: actor.actorLabel,
+      guideId,
+      beforeRevision,
+      afterRevision,
+      result,
+    });
+  } catch {
+    // A logging failure must not turn an already committed mutation into an unknown result.
+  }
 }

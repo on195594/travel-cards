@@ -41,8 +41,8 @@ async function getHeaderAuthorization(): Promise<string | null> {
 }
 
 export async function requireAdmin(request?: Request) {
-  const authHeader = request?.headers.get("authorization") ?? (await getHeaderAuthorization());
-  if (authHeader) {
+  const authHeader = request ? request.headers.get("authorization") : await getHeaderAuthorization();
+  if (authHeader !== null) {
     return assertAdminOrToken(null, authHeader);
   }
   const session = await auth();

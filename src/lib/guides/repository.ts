@@ -254,10 +254,10 @@ export async function setGuideUnpublished(
 export async function deleteGuideRecord(
   id: string,
   expectedRevision: number
-): Promise<{ slug?: string } | null> {
+): Promise<{ id: string; slug?: string; revision: number } | null> {
   const _id = objectId(id);
   if (!_id) return null;
   await ready();
   const record = await GuideModel.findOneAndDelete({ _id, revision: expectedRevision }).lean();
-  return record ? { slug: record.slug || undefined } : null;
+  return record ? { id: String(record._id), slug: record.slug || undefined, revision: record.revision } : null;
 }

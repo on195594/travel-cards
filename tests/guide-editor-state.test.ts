@@ -1,11 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { Guide, GuideDraftInput } from "@/lib/guides/schema";
 import {
   claimGuideWrite,
   markGuideWriteUnknown,
   mergeSavedSnapshot,
+  requestJson,
   saveThenPublish,
 } from "@/components/guide-editor";
+
+afterEach(() => vi.unstubAllGlobals());
 
 function draft(title: string): GuideDraftInput {
   return {
@@ -83,5 +86,40 @@ describe("guide editor save timing", () => {
     finishSave(savedGuide(draft("已保存")));
     await operation;
     expect(calls).toEqual(["save", "publish:2"]);
+  });
+});
+
+describe("guide editor requests", () => {
+  it("distinguishes server errors, valid responses, and unknown outcomes", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(
+        JSON.stringify({ error: { message: "具体错误" } }),
+        { status: 400, headers: { "content-type": "application/json" } }
+      ))
+      .mockResolvedValueOnce(Response.json({ value: "ok" }))
+      .mockRejectedValueOnce(new Error("network failed"));
+    vi.stubGlobal("fetch", fetchMock);
+    const isValue = (value: unknown): value is { value: string } =>
+      Boolean(value) && typeof value === "object" && typeof (value as { value?: unknown }).value === "string";
+
+    await expect(requestJson("/error", {}, isValue)).resolves.toEqual({
+      kind: "error",
+      status: 400,
+      message: "具体错误",
+    });
+    await expect(requestJson("/ok", {}, isValue)).resolves.toEqual({
+      kind: "ok",
+      data: { value: "ok" },
+    });
+    await expect(requestJson("/unknown", {}, isValue)).resolves.toEqual({ kind: "unknown" });
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/error", expect.objectContaining({ cache: "no-store" }));
+  });
+
+  it.each([502, 504])("treats a %i mutation response as indeterminate", async (status) => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status })));
+    const isValue = (value: unknown): value is { value: string } => Boolean(value);
+
+    await expect(requestJson("/write", { method: "POST" }, isValue, 15_000, true))
+      .resolves.toEqual({ kind: "unknown" });
   });
 });

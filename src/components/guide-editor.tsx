@@ -67,6 +67,69 @@ export async function saveThenPublish<T, R>(
   return saved === undefined ? undefined : publish(saved);
 }
 
+type ClientRequestResult<T> =
+  | { kind: "ok"; data: T }
+  | { kind: "error"; status: number; message: string }
+  | { kind: "unknown" };
+
+function errorMessage(value: unknown): string | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const error = (value as { error?: unknown }).error;
+  if (!error || typeof error !== "object") return undefined;
+  const message = (error as { message?: unknown }).message;
+  return typeof message === "string" ? message : undefined;
+}
+
+export async function requestJson<T>(
+  url: string,
+  options: RequestInit,
+  isSuccess: (value: unknown) => value is T,
+  timeoutMs = 15_000,
+  serverErrorsAreUnknown = false
+): Promise<ClientRequestResult<T>> {
+  try {
+    const response = await fetch(url, {
+      cache: "no-store",
+      ...options,
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const data: unknown = response.status === 204
+      ? null
+      : await response.json().catch(() => undefined);
+    if (!response.ok) {
+      if (serverErrorsAreUnknown && response.status >= 500) return { kind: "unknown" };
+      return {
+        kind: "error",
+        status: response.status,
+        message: errorMessage(data) ?? "请求失败，请重试。",
+      };
+    }
+    return isSuccess(data) ? { kind: "ok", data } : { kind: "unknown" };
+  } catch {
+    return { kind: "unknown" };
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object";
+}
+
+function isGuideResponse(value: unknown): value is { guide: Guide } {
+  return isRecord(value) && isRecord(value.guide) && typeof value.guide.id === "string";
+}
+
+function isUploadResponse(value: unknown): value is { objectKey: string; publicUrl: string } {
+  return isRecord(value) && typeof value.objectKey === "string" && typeof value.publicUrl === "string";
+}
+
+type AiResponse = { result: { kind: "clarification"; questions: string[] } | { kind: "candidate"; data: GuideCandidate | GuideAnswer } };
+
+function isAiResponse(value: unknown): value is AiResponse {
+  if (!isRecord(value) || !isRecord(value.result)) return false;
+  if (value.result.kind === "clarification") return Array.isArray(value.result.questions);
+  return value.result.kind === "candidate" && isRecord(value.result.data);
+}
+
 function AiSources({ sources }: { sources: SourceRef[] }) {
   if (!sources.length) return null;
   return (
@@ -155,25 +218,19 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
   }
 
   async function request(url: string, options: RequestInit): Promise<GuideRequestResult> {
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers: { "content-type": "application/json" },
-        signal: AbortSignal.timeout(15_000),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) {
-        if (response.status === 409) {
-          setMessage("保存冲突：服务器已有更新。当前表单内容已保留，请另行复制后刷新页面再合并。");
-        } else {
-          setMessage(data?.error?.message ?? "请求失败，请重试。");
-        }
-        return { kind: "error" };
-      }
-      return data?.guide ? { kind: "ok", guide: data.guide } : { kind: "unknown" };
-    } catch {
-      return { kind: "unknown" };
+    const result = await requestJson(url, {
+      ...options,
+      headers: { "content-type": "application/json" },
+    }, isGuideResponse, 15_000, true);
+    if (result.kind === "error") {
+      setMessage(result.status === 409
+        ? "保存冲突：服务器已有更新。当前表单内容已保留，请另行复制后刷新页面再合并。"
+        : result.message);
+      return { kind: "error" };
     }
+    return result.kind === "ok"
+      ? { kind: "ok", guide: result.data.guide }
+      : { kind: "unknown" };
   }
 
   async function markUnknown(operation: string, guideId?: string) {
@@ -274,27 +331,29 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
     try {
       const form = new FormData();
       form.append("file", file);
-      const response = await fetch("/api/uploads", {
+      const result = await requestJson("/api/uploads", {
         method: "POST",
         body: form,
-        signal: AbortSignal.timeout(60_000),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) {
-        setMessage(data?.error?.message ?? "图片上传失败，请重试。");
+      }, isUploadResponse, 60_000, true);
+      if (result.kind === "error") {
+        setMessage(result.message);
+        return;
+      }
+      if (result.kind === "unknown") {
+        markGuideWriteUnknown(unknownWriteRef);
+        setUnknownWrite(true);
+        setMessage("图片上传结果未知，请勿直接重试；请先在对象存储中核对。");
         return;
       }
       setDraft((current) => ({
         ...current,
         coverImage: {
-          objectKey: data.objectKey,
-          publicUrl: data.publicUrl,
+          objectKey: result.data.objectKey,
+          publicUrl: result.data.publicUrl,
           alt: current.coverImage?.alt ?? "",
         },
       }));
       setMessage("封面图片已上传；保存攻略后生效。");
-    } catch {
-      setMessage("图片上传结果未知，请勿直接重试；请先在对象存储中核对。");
     } finally {
       finishOperation();
     }
@@ -304,32 +363,32 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
     if (!beginOperation()) return;
     setQuestions([]);
     try {
-      const response = await fetch(`/api/ai/${action}`, {
+      const result = await requestJson(`/api/ai/${action}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
-        signal: AbortSignal.timeout(60_000),
-      });
-      const data = await response.json().catch(() => null);
-      if (!response.ok) {
-        setMessage(data?.error?.message ?? "AI 请求失败，请重试。");
+      }, isAiResponse, 60_000);
+      if (result.kind === "error") {
+        setMessage(result.message);
         return;
       }
-      if (data.result.kind === "clarification") {
-        setQuestions(data.result.questions);
+      if (result.kind === "unknown") {
+        setMessage("AI 请求结果未知，可按需重试。");
+        return;
+      }
+      if (result.data.result.kind === "clarification") {
+        setQuestions(result.data.result.questions);
         setCandidate(undefined);
         setAnswer(undefined);
         return;
       }
       if (action === "answer") {
-        setAnswer(data.result.data);
+        setAnswer(result.data.result.data as GuideAnswer);
         setCandidate(undefined);
       } else {
-        setCandidate(data.result.data);
+        setCandidate(result.data.result.data as GuideCandidate);
         setAnswer(undefined);
       }
-    } catch {
-      setMessage("AI 请求结果未知，可按需重试。");
     } finally {
       finishOperation();
     }
@@ -345,20 +404,20 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
   async function remove() {
     if (!saved || isSubmittingRef.current || unknownWriteRef.current || !window.confirm("确定删除这篇攻略？此操作无法撤销。") || !beginOperation(true)) return;
     try {
-      const response = await fetch(`/api/guides/${saved.id}`, {
+      const result = await requestJson(`/api/guides/${saved.id}`, {
         method: "DELETE",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ expectedRevision: saved.revision }),
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (response.ok) {
+      }, (value): value is null => value === null, 15_000, true);
+      if (result.kind === "ok") {
         router.push("/admin/guides");
         return;
       }
-      const data = await response.json().catch(() => null);
-      setMessage(data?.error?.message ?? "删除失败。");
-    } catch {
-      await markUnknown("删除", saved.id);
+      if (result.kind === "error") {
+        setMessage(result.message);
+      } else {
+        await markUnknown("删除", saved.id);
+      }
     } finally {
       finishOperation();
     }
@@ -373,7 +432,9 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
           {saved && <p><span className={`status ${saved.status}`}>{saved.status === "published" ? "已发布" : "草稿"}</span> · 版本 {saved.revision}</p>}
         </div>
         <div className="actions">
-          <button type="button" disabled={busy || unknownWrite} onClick={save}>{busy ? "处理中…" : "保存攻略"}</button>
+          <button type="button" disabled={busy || unknownWrite} onClick={save}>
+            {busy ? "处理中…" : saved?.status === "published" ? "保存并更新公开内容" : "保存攻略"}
+          </button>
           {saved?.status === "published" ? (
             <button className="secondary" type="button" disabled={busy || unknownWrite} onClick={() => transition("unpublish")}>撤回</button>
           ) : (
@@ -473,7 +534,7 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  disabled={busy}
+                  disabled={busy || unknownWrite}
                   onChange={(event) => {
                     void uploadCover(event.target.files?.[0]);
                     event.currentTarget.value = "";
@@ -724,7 +785,9 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
             </button>
           </section>
 
-          <button type="submit" disabled={busy || unknownWrite}>保存攻略</button>
+          <button type="submit" disabled={busy || unknownWrite}>
+            {saved?.status === "published" ? "保存并更新公开内容" : "保存攻略"}
+          </button>
           </fieldset>
         </form>
 

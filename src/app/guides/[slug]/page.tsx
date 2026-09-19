@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { CopyLink } from "@/components/copy-link";
 import { getSiteOrigin } from "@/lib/env";
 import { getPublishedGuideBySlug } from "@/lib/guides";
@@ -8,6 +9,7 @@ import { getPublishedGuideBySlug } from "@/lib/guides";
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
+const getGuide = cache(getPublishedGuideBySlug);
 
 const sectionKindLabels: Record<string, string> = {
   transport: "交通出行",
@@ -19,7 +21,7 @@ const sectionKindLabels: Record<string, string> = {
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const guide = await getPublishedGuideBySlug((await params).slug);
+  const guide = await getGuide((await params).slug);
   if (!guide) return { title: "攻略不存在" };
   const images = guide.coverImage ? [{ url: guide.coverImage.publicUrl, alt: guide.coverImage.alt }] : [];
   const canonicalPath = `/guides/${guide.slug}`;
@@ -47,7 +49,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function GuidePage({ params }: Props) {
-  const guide = await getPublishedGuideBySlug((await params).slug);
+  const guide = await getGuide((await params).slug);
   if (!guide) notFound();
   const totalStops = guide.itinerary.reduce((sum, day) => sum + day.items.length, 0);
 

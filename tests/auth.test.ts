@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { assertAdmin, assertAdminOrToken, isValidApiToken, safeTokenCompare, verifyApiToken } from "@/lib/admin";
+import { assertAdmin, assertAdminOrToken, isValidApiToken, logAdminAction, safeTokenCompare, verifyApiToken } from "@/lib/admin";
 
 function unauthorized(session: Parameters<typeof assertAdmin>[0]) {
   try {
@@ -12,6 +12,7 @@ function unauthorized(session: Parameters<typeof assertAdmin>[0]) {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.restoreAllMocks();
 });
 
 describe("server admin guard", () => {
@@ -51,12 +52,44 @@ describe("server admin guard", () => {
     vi.stubEnv("ADMIN_EMAIL", "admin@example.test");
 
     const result = assertAdminOrToken(null, "Bearer my-test-token-at-least-16-chars");
-    expect(result).toMatchObject({ user: { id: "admin", email: "admin@example.test" } });
+    expect(result).toMatchObject({
+      user: { id: "admin", email: "admin@example.test" },
+      authKind: "token",
+      actorLabel: "api-token",
+    });
 
     expect(() => assertAdminOrToken(null, "Bearer wrong-token-at-least-16-chars")).toThrow();
     expect(() => assertAdminOrToken(null, null)).toThrow();
-    expect(assertAdminOrToken({ user: { id: "admin", email: "admin@example.test" } }, null)).toMatchObject({
-      user: { id: "admin" },
+    const session = { user: { id: "admin", email: "admin@example.test" } };
+    expect(() => assertAdminOrToken(session, "Bearer wrong-token-at-least-16-chars")).toThrow();
+    expect(() => assertAdminOrToken(session, "")).toThrow("Authorization 格式需为 Bearer <TOKEN>");
+    expect(assertAdminOrToken(session, null)).toMatchObject({
+      user: { id: "admin" }, authKind: "session", actorLabel: "admin@example.test",
     });
+  });
+
+  it("logs only server-derived attribution and revision metadata", () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const actor = {
+      user: { id: "admin", email: "admin@example.test" },
+      authKind: "token" as const,
+      actorLabel: "api-token",
+    };
+
+    logAdminAction(actor, "guide.update", "guide-1", 2, 3);
+
+    expect(info).toHaveBeenCalledWith("admin_action", expect.objectContaining({
+      requestId: expect.any(String),
+      action: "guide.update",
+      authKind: "token",
+      actorLabel: "api-token",
+      guideId: "guide-1",
+      beforeRevision: 2,
+      afterRevision: 3,
+      result: "success",
+    }));
+    expect(JSON.stringify(info.mock.calls)).not.toContain("my-test-token");
+    info.mockImplementationOnce(() => { throw new Error("sink failed"); });
+    expect(() => logAdminAction(actor, "guide.update", "guide-1", 2, 3)).not.toThrow();
   });
 });

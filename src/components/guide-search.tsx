@@ -23,7 +23,7 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
     const q = query.trim();
     if (!q) return;
     const controller = new AbortController();
-    fetch(`/api/guides?q=${encodeURIComponent(q)}`, { signal: controller.signal })
+    fetch(`/api/guides?q=${encodeURIComponent(q)}`, { cache: "no-store", signal: controller.signal })
       .then((response) => {
         if (!response.ok) throw new Error("search failed");
         return response.json() as Promise<{ guides?: GuideSummary[] }>;

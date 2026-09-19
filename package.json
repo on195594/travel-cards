@@ -12,8 +12,9 @@
     "test:vitest": "vitest run",
     "typecheck": "rm -rf .next/types && next typegen && tsc --noEmit",
     "test:http": "./scripts/with-test-mongo.sh ./scripts/http-smoke.sh",
+    "test:recovery": "./scripts/with-test-mongo.sh node scripts/recovery-smoke.mjs",
     "test:watch": "./scripts/with-test-mongo.sh vitest",
-    "verify": "npm run lint && npm run typecheck && npm test && ./scripts/build-with-test-env.sh && docker compose config >/dev/null && npm run test:http"
+    "verify": "npm run lint && npm run typecheck && npm test && npm run test:recovery && ./scripts/build-with-test-env.sh && docker compose config >/dev/null && npm run test:http"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1121.0",

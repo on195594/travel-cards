@@ -155,7 +155,18 @@ describe("AI routes", () => {
     const malformed = new Request("http://localhost:3000/api/ai/generate", { method: "POST", body: "{" });
     const response = await generateRoute(malformed);
     expect(response.status).toBe(401);
+    expect(malformed.bodyUsed).toBe(false);
     expect(mocks.create).not.toHaveBeenCalled();
+  });
+
+  it("returns only a no-store candidate result through the authenticated route", async () => {
+    mocks.create.mockResolvedValueOnce(completed(candidate({ ...guide, sources: [] })));
+    const response = await generateRoute(request(generateInput()));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toContain("private");
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    await expect(response.json()).resolves.toMatchObject({ result: { kind: "candidate" } });
   });
 
   it("validates strict bounded route input before calling the provider", async () => {

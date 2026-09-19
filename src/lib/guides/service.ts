@@ -199,7 +199,7 @@ export async function unpublishGuide(
 export async function deleteGuide(
   id: string,
   input: unknown
-): Promise<{ slug?: string }> {
+): Promise<{ id: string; slug?: string; revision: number }> {
   const { expectedRevision } = expectedRevisionSchema.parse(input);
   return (
     (await deleteGuideRecord(id, expectedRevision)) ?? conflictOrMissing(id)

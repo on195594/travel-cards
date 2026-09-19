@@ -5,7 +5,8 @@
 ## 当前状态
 
 - Next.js 16、Auth.js（支持管理后台 Session 与外部流程 Bearer API Token）、MongoDB、Guide CRUD/发布/撤回、Cloudflare R2 上传和 Gemini grounded assistant 已落地。
-- 当前代码状态以本仓库 HEAD 和下方验证命令为准；历史实现审查、测试及 provider smoke 证据见 [`docs/reviews/agy-final-implementation/closeout.md`](./docs/reviews/agy-final-implementation/closeout.md)。
+- 架构路线图当前批次已完成本地验收：T0-01～07（T0-05/06 的生产与真实 R2 证明仍需单独授权）、T1-01/02A/03/04、T2-01/02/03；T1-02B 与 T3 未混入本批次。
+- 当前代码状态以本仓库工作树和下方验证命令为准；历史实现审查、测试及 provider smoke 证据见 [`docs/reviews/agy-final-implementation/closeout.md`](./docs/reviews/agy-final-implementation/closeout.md)。
 - 真实 Gemini grounded structured-output smoke 与 R2 S3 上传/读回/删除 smoke 均已通过；R2 使用现有私有备份 bucket 验证传输，旅行图片专用 bucket/public base 仍需部署时配置。
 - 最终独立 AGY 审查返回 `APPROVE`；后续真实 smoke 暴露并验证修复了 Gemini schema 兼容问题。
 - 当前开发目录：`/home/lin/travel-cards`
@@ -72,22 +73,19 @@ npm run dev
 
 ## 验证
 
-测试需要正在运行的共用 MongoDB；测试配置使用宿主机的 `127.0.0.1:27017`：
+默认验证会创建并清理本次运行专用的临时 MongoDB，不连接共用生产实例：
 
 ```bash
-docker inspect mongodb >/dev/null
-npm test
-npm run lint
-npm run build
-docker compose config >/dev/null
-docker compose down
+npm run verify
 ```
 
-测试不会调用真实 Gemini 或 R2，但并非完全自包含：它依赖上面启动的 MongoDB。真实 provider smoke 是手动、显式且可能计费的操作；未获得确认时不得运行。
+`verify` 依次执行 lint、类型检查、隔离测试、合成数据库/图片恢复、生产构建、Compose 配置检查和生产启动路径 HTTP smoke。HTTP smoke 覆盖直接发布、已发布更新、撤回、删除，以及首页、搜索、API、详情、metadata/RSC 与 sitemap 的 no-store 可见性。恢复边界与共享 MongoDB 运维约束见 [`docs/backup-restore.md`](./docs/backup-restore.md)。测试不会调用真实 Gemini 或 R2；真实 provider smoke 是手动、显式且可能计费的操作，未获得确认时不得运行。
 
 ## 主要入口
 
 - `src/app/`：页面和 Route Handlers
-- `src/lib/guides.ts`：Guide 聚合、验证和 MongoDB 操作
+- `src/lib/guides/schema.ts`：Guide 输入输出结构与类型
+- `src/lib/guides/repository.ts`：Mongoose 持久化和摘要/详情读取
+- `src/lib/guides/service.ts`：Guide 业务规则；`src/lib/guides.ts` 仅保留兼容导出
 - `src/lib/storage/r2.ts`：受限图片上传
 - `docker-compose.yml`：接入 Meemo 共用 MongoDB 的 Web 服务

@@ -73,6 +73,8 @@ describe("POST /api/uploads", () => {
     const request = new Request(source.url, { method: "POST", headers: source.headers, body: source.body, duplex: "half" } as RequestInit);
     const response = await POST(request);
     expect(response.status).toBe(201);
+    expect(response.headers.get("cache-control")).toContain("private");
+    expect(response.headers.get("cache-control")).toContain("no-store");
     expect(await response.json()).toEqual({ objectKey: "guides/test.png", publicUrl: "https://img.example.test/guides/test.png" });
     expect(mocks.uploadImage).toHaveBeenCalledOnce();
     expect(mocks.uploadImage.mock.calls[0][1]).toBe("image/png");

@@ -91,6 +91,21 @@ describe("Guide aggregate", () => {
     await expect(getPublishedGuideBySlug("published-invariant")).resolves.toMatchObject({ title: draft.title, revision: published.revision });
   });
 
+  it("updates published content immediately while preserving publication", async () => {
+    const draft = await createGuide(threeDayGuide("published-save"));
+    const published = await publishGuide(draft.id, { expectedRevision: draft.revision });
+    const updated = await updateGuide(draft.id, {
+      expectedRevision: published.revision,
+      title: "立即更新的公开标题",
+    });
+
+    expect(updated).toMatchObject({ status: "published", revision: published.revision + 1 });
+    await expect(getPublishedGuideBySlug("published-save")).resolves.toMatchObject({
+      title: "立即更新的公开标题",
+      revision: updated.revision,
+    });
+  });
+
   it("does not lock a never-published draft when unpublish is called", async () => {
     const draft = await createGuide(threeDayGuide("never-published"));
     const stillDraft = await unpublishGuide(draft.id, { expectedRevision: draft.revision });

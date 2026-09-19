@@ -1,5 +1,5 @@
 import { requireAdmin } from "@/auth";
-import { assertSameOrigin, jsonError, HttpError } from "@/lib/http";
+import { assertSameOrigin, jsonError, HttpError, PRIVATE_NO_STORE_HEADERS } from "@/lib/http";
 import { MAX_MULTIPART_BYTES, uploadImage } from "@/lib/storage/r2";
 
 export const runtime = "nodejs";
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     }
     const file = entries[0][1];
     const result = await uploadImage(new Uint8Array(await file.arrayBuffer()), file.type);
-    return Response.json(result, { status: 201 });
+    return Response.json(result, { status: 201, headers: PRIVATE_NO_STORE_HEADERS });
   } catch (error) {
     return jsonError(error);
   }
