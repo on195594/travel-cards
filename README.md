@@ -25,7 +25,7 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 - `AUTH_URL`：默认 `http://localhost:3100`
 - `AUTH_SECRET`：至少 32 个字符
 - `ADMIN_EMAIL`
-- `HERMES_API_TOKEN`：Hermes 等外部流程调用 API 的 Bearer Token（至少 16 字符，可选）
+- `HERMES_API_TOKEN`：Hermes 等外部流程调用 API 的 Bearer Token（至少 16 字符，可选；兼容读取旧变量名 `API_TOKEN`）
 - `MONGODB_URI`（Compose 使用 Meemo 共用的 `mongodb` 服务）
 - R2 与 Gemini 变量；未配置时只有对应操作不可用，已有攻略浏览不受影响
 
@@ -33,7 +33,7 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 
 ### 自动化调用（API Token）
 
-配置 `HERMES_API_TOKEN`（至少 16 字符）后，外部自动化流水线（如 Hermes）可通过 HTTP 请求头携带 `Authorization: Bearer <TOKEN>` 调用管理接口（如 `GET /api/guides?scope=admin`、`POST /api/guides`、`PATCH /api/guides/[id]`、发布/撤回与图片上传），无需浏览器 Cookie 且豁免同源限制；创建攻略时若指定 `publish: true` 且满足完整性校验可直接发布。
+配置 `HERMES_API_TOKEN`（至少 16 字符；服务端也兼容读取 `API_TOKEN`）后，外部自动化流水线（如 Hermes）可通过 HTTP 请求头携带 `Authorization: Bearer <TOKEN>` 调用管理接口（如 `GET /api/guides?scope=admin`、`POST /api/guides`、`PATCH /api/guides/[id]`、发布/撤回与图片上传），无需浏览器 Cookie 且豁免同源限制；创建攻略时若指定 `publish: true` 且满足完整性校验可直接发布。
 
 ## Docker 运行
 
