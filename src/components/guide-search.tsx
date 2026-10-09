@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { GuideSummary } from "@/lib/guides/schema";
 import { GuideCard } from "@/components/guide-card";
 
@@ -16,6 +16,7 @@ function filterGuides(guides: GuideSummary[], query: string): GuideSummary[] {
 }
 
 export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
+  const searchInput = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState(initialQuery);
   const [remoteSearch, setRemoteSearch] = useState<{ query: string; guides: GuideSummary[] }>();
 
@@ -66,6 +67,7 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
 
   function handleClear() {
     handleQueryChange("");
+    searchInput.current?.focus();
   }
 
   return (
@@ -89,6 +91,7 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
           <div className="search-box" role="search" aria-label="攻略搜索">
             <svg className="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 4.5 4.5" /></svg>
             <input
+              ref={searchInput}
               className="search-input"
               type="search"
               value={query}
@@ -115,7 +118,7 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
               <button
                 type="button"
                 className={`chip ${!query.trim() ? "active" : ""}`}
-                onClick={handleClear}
+                onClick={() => handleQueryChange("")}
                 aria-pressed={!query.trim()}
               >
                 全部路线
