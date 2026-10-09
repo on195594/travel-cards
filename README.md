@@ -1,6 +1,10 @@
 # Travel Cards
 
-面向公开浏览、由单一管理员维护的中文旅行攻略应用。管理员可编辑和发布结构化攻略、上传 R2 封面，并使用 Gemini + Google Search 生成带来源的候选内容；AI 结果必须人工采纳后再通过普通保存流程持久化。
+供单一管理员和授权外部 AI 协作维护的中文旅行攻略工作台，公开展示与分享同一份结构化攻略。
+
+**当前实现**：管理员可编辑、发布、删除攻略、上传 R2 封面；应用内 Gemini + Google Search 只生成待采纳候选，通过普通保存流程持久化。现有受信任自动化 API Token 接口继续可用。
+
+**已批准、待实现**：MCP 接入，首先面向 Gemini 网页和手机 App；受限外部 AI 可创建、修改及直接发布，但不得删除或管理配置。管理员将管理非敏感应用配置，凭证仍来自环境变量。当前 Token 权限过宽，不能直接交给 AI 作为受限凭证。
 
 ## 当前状态
 
@@ -10,8 +14,16 @@
 - 真实 Gemini grounded structured-output smoke 与 R2 S3 上传/读回/删除 smoke 均已通过；R2 使用现有私有备份 bucket 验证传输，旅行图片专用 bucket/public base 仍需部署时配置。
 - 最终独立 AGY 审查返回 `APPROVE`；后续真实 smoke 暴露并验证修复了 Gemini schema 兼容问题。
 - 当前开发目录：`/home/lin/travel-cards`
-- 权威需求：[SPEC.md](./SPEC.md)
+- 权威需求与权限契约：[SPEC.md](./SPEC.md)
+- 已确认产品定位：[PRODUCT.md](./PRODUCT.md)
 - 项目约束：[AGENTS.md](./AGENTS.md)
+- 现有 UI 与 Impeccable 工作流：[docs/frontend.md](./docs/frontend.md)
+- 外部 AI / MCP 接入边界与 Gemini 官方限制：[docs/roadmaps/ai-client-integration.md](./docs/roadmaps/ai-client-integration.md)
+- UI 精修及 AGY 复审：[docs/reviews/ui-impeccable-review.md](./docs/reviews/ui-impeccable-review.md)
+
+Gemini 自定义 MCP 应用目前有地区、年龄、账号和语言限制，并要求客户端确认写操作；网页连接后才可在手机 App 使用。尚无本项目的双端接入成功证明，详见接入文档。
+
+Impeccable 已初始化 `PRODUCT.md`，用户选择的新页面构建默认是代码优先，保存在 `.impeccable/config.json`。开发期 live setup 已记录，但未注入或启动；本轮未重做视觉系统。
 
 ## 本地配置
 
@@ -33,7 +45,9 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 
 ### 自动化调用（API Token）
 
-配置 `HERMES_API_TOKEN`（至少 16 字符；服务端也兼容读取 `API_TOKEN`）后，外部自动化流水线（如 Hermes）可通过 HTTP 请求头携带 `Authorization: Bearer <TOKEN>` 调用管理接口（如 `GET /api/guides?scope=admin`、`POST /api/guides`、`PATCH /api/guides/[id]`、发布/撤回与图片上传），无需浏览器 Cookie 且豁免同源限制；创建攻略时若指定 `publish: true` 且满足完整性校验可直接发布。
+配置 `HERMES_API_TOKEN`（至少 16 字符；服务端也兼容读取 `API_TOKEN`）后，受信任自动化流水线（如 Hermes）可通过 HTTP 请求头携带 `Authorization: Bearer <TOKEN>` 调用管理接口（如 `GET /api/guides?scope=admin`、`POST /api/guides`、`PATCH /api/guides/[id]`、发布/撤回与图片上传），无需浏览器 Cookie 且豁免同源限制；创建攻略时若指定 `publish: true` 且满足完整性校验可直接发布。
+
+**注意**：这是现有管理员等价凭证，Token 删除攻略接口按用户确认继续保留。受限 AI 身份、MCP 与配置后台尚未实现，不要把本节的凭证交给外部 AI 来满足“不允许删除”的产品目标。
 
 ## Docker 运行
 
@@ -101,3 +115,7 @@ npm run verify
 - `src/lib/storage/r2.ts`：受限图片上传
 - `scripts/`：测试环境准备、HTTP smoke、恢复演练与管理员密码生成脚本
 - `docker-compose.yml`：接入 Meemo 共用 MongoDB 的 Web 服务
+
+## 清理边界
+
+本轮只清理确认无引用的类型别名、重复的窄屏 CSS 和本轮临时审查/预览产物；独立 AGY 原文保留在 `docs/reviews/agy-ui-review.txt`。保留 `src/lib/guides.ts` 兼容入口（仍有测试调用）、静态图片、历史审查、备份、依赖及构建缓存。新增 `.gitignore` 规则避免浏览器快照和 Impeccable 会话产物混入后续提交；不删除正式内容或改动共用 MongoDB。

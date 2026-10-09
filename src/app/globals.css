@@ -269,8 +269,6 @@ h1, h2, h3, p, a { overflow-wrap: anywhere; }
   .brand span { display: none; }
   .site-footer { flex-direction: column; }
   .admin-header { align-items: flex-start; flex-direction: column; }
-  .editor-layout { grid-template-columns: 1fr; }
-  .preview { position: static; max-height: none; }
   .form-grid, .item-grid { grid-template-columns: 1fr; }
   .wide { grid-column: auto; }
   .days-stack { gap: 1.25rem; }

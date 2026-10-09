@@ -17,3 +17,9 @@ backups/
 
 # Local uploads/test artifacts
 tmp/
+.playwright-mcp/
+
+# Impeccable: track workflow/setup, not local sessions or injected artifacts
+.impeccable/config.local.json
+.impeccable/live/*
+!.impeccable/live/config.json

@@ -81,18 +81,18 @@
 - `docker compose config --quiet`：通过。
 - `git diff --check`：通过。
 - Chromium：独立 `127.0.0.1:3217` 预览、独立测试 Mongo 与三条虚构攻略。覆盖首页、详情、登录页、深色切换、无封面、长标题/目的地、搜索清空及 reduced-motion。未修改正式数据库。
-- 本地检查产物位于忽略目录 `tmp/ui-review/`；不随源码提交。
+- 首轮本地检查产物曾位于忽略目录 `tmp/ui-review/`；后续初始化/清理任务已删除临时截图与预览文件，审查结论保留在本文。
 
 下一步优先处理主题按钮遮挡，再执行 `/impeccable polish` 并重跑审查。未测读屏、真实触屏手势、Safari/Firefox、完整管理编辑流程或 Lighthouse；未部署。
 
 ## AGY 独立复审与修复
 
 - 审查器：真实本地 `agy` CLI，模型 `gemini-3.1-pro-high`，`--mode plan --sandbox`。以 HEAD 导出的独立副本叠加本轮变更，提供补丁及报告，只读审查；没有将其他助手冒充 AGY。
-- AGY 原始输出：`tmp/agy-ui-review/agy-review.txt`（本地忽略产物）。AGY 未运行浏览器，其发现由当前助手另行复现验证。
+- AGY 原始输出：`docs/reviews/agy-ui-review.txt`（后续清理时从临时目录归档）。AGY 未运行浏览器，其发现由当前助手另行复现验证。
 - **P2 采纳：reduced-motion 覆盖不足。** 修复前实测 `.search-clear-btn:active` 仍缩放至 0.9，`.theme-toggle:active` 仍缩放至 0.93。为减少动态媒体查询补齐同优先级选择器，并关闭清空按钮的 transform transition。仅改共享 CSS 两行，不扩大修改范围。
 - **部分建议不采纳：关闭 chip 的全部过渡。** 实测 chip 在 reduce 下 transform 已为 none，保留的只是颜色过渡，无需移除有用的状态反馈。
 - **P3 不采纳：双重卡片焦点框。** AGY 根据两个 outline 声明推断存在双框，但 Chromium 键盘焦点截图仅呈现容器外框，内部链接的外扩 outline 被 `.card { overflow: hidden }` 裁剪。未发现可复现缺陷，因此不额外禁用链接焦点样式；其他浏览器未验证。
 - **报告纠正：** 首轮 reduced-motion 验证仅覆盖卡片，对按钮修复完整性的表述过宽。上述 P2 段落已明确首轮盲区及补测结果。
 - 复验：项目 12 个测试文件 / 81 项测试通过，lint、假配置构建、Compose 配置检查、diff 检查通过。独立 `127.0.0.1:3218` 构建预览中，断言三个按钮在 reduce 模式下无缩放、普通模式下仍有原缩放，搜索清空焦点及卡片 reduced-motion 断言通过。
-- 可重跑的 Playwright 自检：`tmp/agy-ui-review/browser-check.js`，通过浏览器工具 `browser_run_code_unsafe` 的 filename 参数执行；依赖该独立预览，不属于现有 Vitest 测试套件。没有新增依赖。
+- 复审时通过临时 Playwright 自检脚本验证上述交互，未纳入 Vitest 套件。后续清理任务已移除该临时脚本、截图、副本和两个测试预览；本文保留的是当时的验证结果，不承诺本地预览或脚本仍存在。原 UI 提交为 `5823400`，没有新增依赖。
 
