@@ -213,7 +213,9 @@ type AiResult<T> =
 - `POST /api/uploads`：管理员或携带有效 Token 请求上传一张受限图片，服务端校验后写入 R2；
 - `POST /api/ai/generate`：生成攻略候选；
 - `POST /api/ai/revise`：生成调整候选；
-- `POST /api/ai/answer`：基于攻略问答。
+- `POST /api/ai/answer`：基于攻略问答；
+- `GET /api/health/live`：存活探针，返回进程存活状态（无条件 200，no-store）；
+- `GET /api/health/ready`：就绪探针，探测 MongoDB 连接与 ping（就绪 200，未就绪 503，no-store）。
 
 所有写接口均校验请求体，返回稳定错误结构，支持管理员 Session 或 `Authorization: Bearer <TOKEN>` 鉴权，且不得依赖客户端传入的无凭证“管理员”标志。
 

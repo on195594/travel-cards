@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-export const httpUrl = z.string().url().refine((value) => ["http:", "https:"].includes(new URL(value).protocol), "URL must use http or https");
-export const slugSchema = z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "slug 只能包含小写字母、数字和连字符");
-export const optionalSlug = z.preprocess((value) => value === "" ? undefined : value, slugSchema.optional());
+const httpUrl = z.string().url().refine((value) => ["http:", "https:"].includes(new URL(value).protocol), "URL must use http or https");
+const slugSchema = z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "slug 只能包含小写字母、数字和连字符");
+const optionalSlug = z.preprocess((value) => value === "" ? undefined : value, slugSchema.optional());
 
 export const sourceRefSchema = z.object({
   title: z.string().trim().min(1).max(200),
@@ -28,7 +28,7 @@ export const sectionSchema = z.object({
   body: z.string().trim().min(1).max(10000),
 });
 
-export const draftGuideObject = z.object({
+const draftGuideObject = z.object({
   title: z.string().trim().max(200).default(""),
   slug: optionalSlug,
   destination: z.string().trim().max(200).default(""),
@@ -44,7 +44,7 @@ export const draftGuideObject = z.object({
   sources: z.array(sourceRefSchema).default([]),
 });
 
-export function checkDayNumbers(value: { days: number; itinerary: Array<{ day: number }> }, context: z.RefinementCtx) {
+function checkDayNumbers(value: { days: number; itinerary: Array<{ day: number }> }, context: z.RefinementCtx) {
   const seen = new Set<number>();
   for (const entry of value.itinerary) {
     if (entry.day > value.days) context.addIssue({ code: "custom", path: ["itinerary"], message: `第 ${entry.day} 天超出总天数` });

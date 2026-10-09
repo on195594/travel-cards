@@ -48,6 +48,8 @@ docker compose up -d --build
 docker compose ps
 ```
 
+若本地已有仓库根目录的 `deploy.sh`，更新代码可运行 `./deploy.sh`；脚本会确认在 `main` 分支且工作树干净，快进同步 `origin/main`，构建并重启 Web，再检查 live/ready 健康状态。它不会停止或重建共用 MongoDB。该本地辅助脚本不随当前仓库分发，新检出使用上述 Compose 命令。
+
 默认入口：
 
 - 公开页面：<http://localhost:3100>
@@ -81,6 +83,15 @@ npm run verify
 
 `verify` 依次执行 lint、类型检查、隔离测试、合成数据库/图片恢复、生产构建、Compose 配置检查和生产启动路径 HTTP smoke。HTTP smoke 覆盖直接发布、已发布更新、撤回、删除，以及首页、搜索、API、详情、metadata/RSC 与 sitemap 的 no-store 可见性。恢复边界与共享 MongoDB 运维约束见 [`docs/backup-restore.md`](./docs/backup-restore.md)。测试不会调用真实 Gemini 或 R2；真实 provider smoke 是手动、显式且可能计费的操作，未获得确认时不得运行。
 
+常用单项检查命令（测试需 Docker；类型检查不启动 MongoDB）：
+
+- `npm test`：运行 Vitest 单元与集成测试（`tests/*.test.ts`）
+- `npm run typecheck`：Next.js 路由类型生成与 TypeScript 静态检查
+- `npm run test:recovery`：隔离合成数据库与图片恢复测试
+- `npm run test:http`：生产启动路径与健康检查 HTTP smoke；先运行 `./scripts/build-with-test-env.sh` 生成隔离配置的生产构建
+
+数据库测试使用 `npm test` 或 `npm run test:watch`，不要直接运行 `vitest` 或 `npm run test:vitest`；后者仅供临时 Mongo 包装脚本调用。
+
 ## 主要入口
 
 - `src/app/`：页面和 Route Handlers
@@ -88,4 +99,5 @@ npm run verify
 - `src/lib/guides/repository.ts`：Mongoose 持久化和摘要/详情读取
 - `src/lib/guides/service.ts`：Guide 业务规则；`src/lib/guides.ts` 仅保留兼容导出
 - `src/lib/storage/r2.ts`：受限图片上传
+- `scripts/`：测试环境准备、HTTP smoke、恢复演练与管理员密码生成脚本
 - `docker-compose.yml`：接入 Meemo 共用 MongoDB 的 Web 服务

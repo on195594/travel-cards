@@ -57,7 +57,7 @@ async function conflictOrMissing(id: string): Promise<never> {
   throw new HttpError(404, "NOT_FOUND", "攻略不存在");
 }
 
-export function contentOf(guide: Guide): GuideDraftInput {
+function contentOf(guide: Guide): GuideDraftInput {
   return guideDraftInputSchema.parse({
     title: guide.title,
     slug: guide.slug,
@@ -71,7 +71,7 @@ export function contentOf(guide: Guide): GuideDraftInput {
   });
 }
 
-export function validatePublish(
+function validatePublish(
   guide: Pick<
     GuideDraftInput,
     "title" | "slug" | "destination" | "excerpt" | "coverImage" | "itinerary"

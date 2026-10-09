@@ -32,7 +32,7 @@ function geminiSchema(value: unknown): unknown {
   return result;
 }
 
-export class AiError extends HttpError {
+class AiError extends HttpError {
   constructor(status: number, code: string, message: string, public readonly retryable: boolean) {
     super(status, code, message);
   }

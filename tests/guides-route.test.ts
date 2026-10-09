@@ -17,16 +17,8 @@ vi.mock("@/lib/guides", () => ({
   publishGuide: mocks.publishGuide,
 }));
 
-vi.mock("next/cache", () => ({
-  revalidatePath: vi.fn(),
-}));
-
-vi.mock("@/auth", () => ({
-  requireAdmin: async (request?: Request) => {
-    const { assertAdminOrToken } = await import("@/lib/admin");
-    const authHeader = request?.headers.get("authorization");
-    return assertAdminOrToken(mocks.auth(), authHeader);
-  },
+vi.mock("next-auth", () => ({
+  default: () => ({ auth: mocks.auth }),
 }));
 
 import { GET as listGuidesRoute, POST as createGuideRoute } from "@/app/api/guides/route";
@@ -60,12 +52,15 @@ describe("Guide Route Handlers with API Token", () => {
     expect(mocks.createGuide).not.toHaveBeenCalled();
   });
 
-  it("rejects an invalid Bearer token without falling back to a valid Session", async () => {
-    mocks.auth.mockReturnValue({ user: { id: "admin", email: "admin@example.test" } });
+  it.each([
+    ["Bearer wrong-token-12345", "无效的 API Token"],
+    ["", "Authorization 格式需为 Bearer <TOKEN>"],
+  ])("rejects Authorization %j without falling back to a valid Session", async (authorization, message) => {
+    mocks.auth.mockResolvedValue({ user: { id: "admin", email: "admin@example.test" } });
     const request = new Request("http://localhost:3100/api/guides", {
       method: "POST",
       headers: {
-        authorization: "Bearer wrong-token-12345",
+        authorization,
         "content-type": "application/json",
       },
       body: JSON.stringify({ title: "测试攻略" }),
@@ -73,21 +68,8 @@ describe("Guide Route Handlers with API Token", () => {
     const response = await createGuideRoute(request);
     expect(response.status).toBe(401);
     const data = await response.json();
-    expect(data.error.message).toContain("无效的 API Token");
-    expect(request.bodyUsed).toBe(false);
-    expect(mocks.createGuide).not.toHaveBeenCalled();
-  });
-
-  it("rejects an empty Authorization header without falling back to a valid Session", async () => {
-    mocks.auth.mockReturnValue({ user: { id: "admin", email: "admin@example.test" } });
-    const request = new Request("http://localhost:3100/api/guides", {
-      method: "POST",
-      headers: { authorization: "", "content-type": "application/json" },
-      body: JSON.stringify({ title: "测试攻略" }),
-    });
-
-    const response = await createGuideRoute(request);
-    expect(response.status).toBe(401);
+    expect(data.error.message).toContain(message);
+    expect(mocks.auth).not.toHaveBeenCalled();
     expect(request.bodyUsed).toBe(false);
     expect(mocks.createGuide).not.toHaveBeenCalled();
   });
@@ -122,7 +104,7 @@ describe("Guide Route Handlers with API Token", () => {
   });
 
   it("accepts a same-origin Session write but rejects cross-origin Session writes", async () => {
-    mocks.auth.mockReturnValue({ user: { id: "admin", email: "admin@example.test" } });
+    mocks.auth.mockResolvedValue({ user: { id: "admin", email: "admin@example.test" } });
     mocks.createGuide.mockResolvedValue({ id: "g2", status: "draft", revision: 1 });
     const makeRequest = (origin: string) => new Request("http://localhost:3100/api/guides", {
       method: "POST",

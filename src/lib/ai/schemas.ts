@@ -30,7 +30,7 @@ const aiGuideFields = {
   sources: z.array(sourceRefSchema.strict()).max(50),
 };
 
-export const aiGuideContextSchema = z.strictObject(aiGuideFields).superRefine(checkDays);
+const aiGuideContextSchema = z.strictObject(aiGuideFields).superRefine(checkDays);
 
 export const generateGuideInputSchema = z.strictObject({
   destination: shortText.optional(),
