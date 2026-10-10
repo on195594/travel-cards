@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { getSiteOrigin } from "@/lib/env";
+import { getImageOrigin, getSiteOrigin } from "@/lib/env";
 import "./globals.css";
 
 const themeScript = `(()=>{try{const saved=localStorage.getItem("travel-cards-theme");const dark=saved?saved==="dark":matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.dataset.theme=dark?"dark":"light"}catch{}})()`;
@@ -21,5 +21,19 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="zh-CN" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: themeScript }} /></head><body><a className="skip-link" href="#main-content">跳到主要内容</a>{children}<ThemeToggle /></body></html>;
+  const imageOrigin = getImageOrigin();
+  return (
+    <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        {imageOrigin && <link rel="preconnect" href={imageOrigin} />}
+        {imageOrigin && <link rel="dns-prefetch" href={imageOrigin} />}
+      </head>
+      <body>
+        <a className="skip-link" href="#main-content">跳到主要内容</a>
+        {children}
+        <ThemeToggle />
+      </body>
+    </html>
+  );
 }

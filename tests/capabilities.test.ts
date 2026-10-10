@@ -33,6 +33,9 @@ describe("server-side capability policy", () => {
     for (const capability of ["guide.create", "guide.update", "guide.publish", "guide.delete", "config.manage"] as const) {
       expect(() => assertCapability(readOnly, capability)).toThrow(expect.objectContaining({ status: 403 }));
     }
+    const uploader: ApiActor = { authKind: "restricted-ai", actorLabel: "uploader", scopes: ["guide.read", "image.upload"] };
+    expect(() => assertCapability(uploader, "image.upload")).not.toThrow();
+    expect(() => assertCapability(uploader, "guide.create")).toThrow(expect.objectContaining({ status: 403 }));
     const missing = { authKind: "restricted-ai", actorLabel: "no-grant" } as ApiActor;
     expect(() => assertCapability(missing, "guide.read")).toThrow(expect.objectContaining({ status: 403 }));
     const forged = { ...readOnly, scopes: ["guide.delete", "config.manage"] } as unknown as ApiActor;

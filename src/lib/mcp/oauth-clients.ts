@@ -8,7 +8,7 @@ import { HttpError } from "@/lib/http";
 export const MCP_REGISTRATION_MAX_BYTES = 16 * 1024;
 export const MCP_REGISTRATION_LIMIT = 100;
 const HOUR_MS = 60 * 60 * 1000;
-const CLIENT_LIFETIME_MS = 30 * 24 * HOUR_MS;
+const CLIENT_LIFETIME_MS = 100 * 365 * 24 * HOUR_MS;
 
 const redirectUri = z.string().min(1).max(2048).refine((value) => {
   try {

@@ -9,7 +9,7 @@ const runId = process.env.TRAVEL_CARDS_TEST_RUN_ID;
 if (!runId || !/^[a-z0-9_]+$/.test(runId)) throw new Error("Run database tests through npm test");
 const origin = "https://travel.example.test";
 const admin = { authKind: "session" as const, actorLabel: "admin@example.test", user: { id: "admin", email: "admin@example.test" } };
-const allScopes = ["guide.read", "guide.create", "guide.update", "guide.publish"];
+const allScopes = ["guide.read", "guide.create", "guide.update", "guide.publish", "image.upload"];
 const draft = { title: "MCP HTTP 杭州", slug: "mcp-http-hangzhou", destination: "杭州", excerpt: "西湖漫步", days: 1, coverImage: { objectKey: "guides/test.jpg", publicUrl: "https://images.example.test/test.jpg", alt: "西湖" }, itinerary: [{ day: 1, title: "西湖", items: [{ place: "西湖", description: "步行" }] }] };
 function ownedDb() {
   if (!mongoose.connection.db || mongoose.connection.db.databaseName !== `travel_cards_test_${runId}`) throw new Error("Refusing non-test database access");
@@ -99,7 +99,7 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     expect(await initialized.text()).toBe("");
     expect(await (await POST(request(g.accessToken, rpc("ping")))).json()).toMatchObject({ id: 1, result: {} });
     const list = await (await POST(request(g.accessToken, rpc("tools/list")))).json();
-    expect(list.result.tools.map((t: { name: string }) => t.name)).toEqual(["list_guides", "get_guide", "create_guide", "update_guide", "publish_guide"]);
+    expect(list.result.tools.map((t: { name: string }) => t.name)).toEqual(["list_guides", "get_guide", "create_guide", "update_guide", "publish_guide", "upload_image"]);
     for (const handler of [GET, DELETE]) {
       const res = await handler(new Request(origin + "/mcp", { headers: { Authorization: `Bearer ${g.accessToken}` } }));
       expect(res.status).toBe(405);
@@ -172,7 +172,7 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
       const res = await POST(request(g.accessToken, rpc(method, { role: "admin" })));
       expect((await res.json()).error.code).toBe(-32601);
     }
-    for (const name of ["delete_guide", "unpublish_guide", "manage_config", "upload_image"]) expect((await call(g.accessToken, name, { id: "a".repeat(24) })).body.error).toMatchObject({ code: -32602, data: { code: "UNKNOWN_TOOL" } });
+    for (const name of ["delete_guide", "unpublish_guide", "manage_config"]) expect((await call(g.accessToken, name, { id: "a".repeat(24) })).body.error).toMatchObject({ code: -32602, data: { code: "UNKNOWN_TOOL" } });
     const invalid = await call(g.accessToken, "create_guide", { ...draft, role: "admin" });
     expect(invalid.body.result).toMatchObject({ isError: true, structuredContent: { error: { code: "VALIDATION_ERROR", status: 400 } } });
     const missing = await call(g.accessToken, "get_guide", { id: "a".repeat(24) });

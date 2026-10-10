@@ -97,6 +97,8 @@ export default async function GuidePage({ params }: Props) {
         {/* eslint-disable-next-line @next/next/no-img-element */}
         {guide.coverImage && <img className="cover" src={guide.coverImage.publicUrl} alt={guide.coverImage.alt} fetchPriority="high" decoding="async" />}
 
+        {guide.coverImage && <a className="cover-original" href={guide.coverImage.publicUrl} target="_blank" rel="noopener noreferrer">查看封面原图（新窗口） <span aria-hidden="true">↗</span></a>}
+
         <section className="itinerary-section">
           <div className="section-header-row">
             <div>

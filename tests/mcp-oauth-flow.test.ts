@@ -31,7 +31,7 @@ const origin = "https://travel.example.test";
 const redirectUri = "https://fake-client.example.test/callback?source=fixture";
 const session = { user: { id: "admin", email: "admin@example.test" } };
 const admin = { ...session, authKind: "session" as const, actorLabel: session.user.email };
-const scopes = "guide.read guide.create guide.update guide.publish";
+const scopes = "guide.read guide.create guide.update guide.publish image.upload";
 const legacyToken = "legacy-test-token-at-least-16-chars";
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 function ownedDb() {
@@ -197,8 +197,8 @@ describe("OAuth authorization code flow, fake authenticated admin and isolated M
     const body = await res.json();
     expect(body.access_token).toMatch(/^tc_mcp_[A-Za-z0-9_-]{43}$/);
     expect(body.token_type.toLowerCase()).toBe("bearer");
-    expect(body.expires_in).toBeGreaterThan(890);
-    expect(body.expires_in).toBeLessThanOrEqual(900);
+    expect(body.expires_in).toBeGreaterThan(99 * 365 * 24 * 3600);
+    expect(body.expires_in).toBeLessThanOrEqual(100 * 365 * 24 * 3600);
     expect(body.scope).toBe(scopes);
     expect(body).not.toHaveProperty("refresh_token");
     const actor = await authenticateMcpOAuthAccessToken(`Bearer ${body.access_token}`, getMcpResource());

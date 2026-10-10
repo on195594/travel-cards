@@ -4,6 +4,111 @@ import { assertCapability, hasCapability, type ApiActor, type AiGuideScope } fro
 import { createGuide, getGuideById, listAdminGuides, publishGuide, updateGuide } from "@/lib/guides";
 import { expectedRevisionSchema, guideCreateInputSchema, guidePatchSchema, MAX_SEARCH_QUERY_LENGTH } from "@/lib/guides/schema";
 import { HttpError } from "@/lib/http";
+import { detectImageMime, MAX_FILE_BYTES, uploadImage } from "@/lib/storage/r2";
+
+function isPrivateHost(hostname: string): boolean {
+  if (!hostname) return true;
+  const cleanHost = hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  if (cleanHost === "localhost" || cleanHost.endsWith(".localhost") || cleanHost.endsWith(".local") || cleanHost.endsWith(".internal")) return true;
+  const ipv4 = cleanHost.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (ipv4) {
+    const [, a, b, c, d] = ipv4.map(Number);
+    if (a > 255 || b > 255 || c > 255 || d > 255) return true;
+    if (a === 0 || a === 127 || a === 10) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 169 && b === 254) return true;
+    if (a === 100 && b >= 64 && b <= 127) return true;
+    if (a === 255 && b === 255) return true;
+  }
+  if (cleanHost === "::1" || cleanHost === "::" || cleanHost.startsWith("fe80:") || cleanHost.startsWith("fc") || cleanHost.startsWith("fd")) return true;
+  return false;
+}
+
+async function fetchImageFromUrl(rawUrl: string): Promise<{ bytes: Uint8Array; mime: "image/jpeg" | "image/png" | "image/webp" }> {
+  let targetUrl: URL;
+  try {
+    targetUrl = new URL(rawUrl);
+  } catch {
+    throw new HttpError(400, "INVALID_URL", "图片 URL 格式无效");
+  }
+
+  for (let hop = 0; hop < 5; hop++) {
+    if (targetUrl.protocol !== "https:") {
+      throw new HttpError(400, "INVALID_URL", "图片 URL 必须为 HTTPS 协议");
+    }
+    if (isPrivateHost(targetUrl.hostname)) {
+      throw new HttpError(400, "INVALID_URL", "禁止请求本地或私有网络地址");
+    }
+
+    const res = await fetch(targetUrl.toString(), {
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+      headers: { "User-Agent": "TravelCards-Bot/1.0" },
+    });
+
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get("location");
+      if (!loc) throw new HttpError(400, "IMAGE_FETCH_FAILED", "重定向未包含目标地址");
+      try {
+        targetUrl = new URL(loc, targetUrl);
+      } catch {
+        throw new HttpError(400, "INVALID_URL", "重定向目标地址无效");
+      }
+      continue;
+    }
+
+    if (!res.ok) {
+      throw new HttpError(400, "IMAGE_FETCH_FAILED", `获取图片失败 (HTTP ${res.status})`);
+    }
+
+    const contentLength = res.headers.get("content-length");
+    if (contentLength && Number(contentLength) > MAX_FILE_BYTES) {
+      throw new HttpError(413, "FILE_TOO_LARGE", "图片文件不能超过 10 MiB");
+    }
+
+    const reader = res.body?.getReader();
+    if (!reader) throw new HttpError(400, "IMAGE_FETCH_FAILED", "无法读取图片流");
+    const chunks: Uint8Array[] = [];
+    let total = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_FILE_BYTES) {
+        await reader.cancel();
+        throw new HttpError(413, "FILE_TOO_LARGE", "图片文件不能超过 10 MiB");
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const mime = detectImageMime(bytes);
+    if (!mime) throw new HttpError(400, "INVALID_IMAGE", "不支持的图片格式，仅支持 JPEG、PNG 和 WebP");
+    return { bytes, mime };
+  }
+
+  throw new HttpError(400, "IMAGE_FETCH_FAILED", "重定向次数过多");
+}
+
+function parseImageData(data: string): { bytes: Uint8Array; mime: "image/jpeg" | "image/png" | "image/webp" } {
+  let base64 = data.trim();
+  const dataUriMatch = base64.match(/^data:(image\/(?:jpeg|png|webp));base64,([\s\S]+)$/);
+  if (dataUriMatch) {
+    base64 = dataUriMatch[2].trim();
+  }
+  const buffer = Buffer.from(base64, "base64");
+  const bytes = new Uint8Array(buffer);
+  if (bytes.length === 0) throw new HttpError(400, "EMPTY_FILE", "图片文件不能为空");
+  if (bytes.length > MAX_FILE_BYTES) throw new HttpError(413, "FILE_TOO_LARGE", "图片文件不能超过 10 MiB");
+  const detected = detectImageMime(bytes);
+  if (!detected) throw new HttpError(400, "INVALID_IMAGE", "不支持的图片格式，仅支持 JPEG、PNG 和 WebP");
+  return { bytes, mime: detected };
+}
 
 const id = z.string().regex(/^[a-f\d]{24}$/i);
 const inputs = {
@@ -12,6 +117,17 @@ const inputs = {
   create_guide: guideCreateInputSchema.strict(),
   update_guide: guidePatchSchema.extend({ id }).strict(),
   publish_guide: expectedRevisionSchema.extend({ id }).strict(),
+  upload_image: z.object({
+    url: z.string().trim().url().max(2048).optional(),
+    data: z.string().trim().max(15 * 1024 * 1024).optional(),
+    alt: z.string().trim().min(1).max(500),
+    guideId: id.optional(),
+    expectedRevision: z.number().int().min(1).optional(),
+  }).strict()
+    .refine((val) => Boolean(val.url || val.data), { message: "必须提供 url 或 data 其中之一" })
+    .refine((val) => !(val.url && val.data), { message: "不能同时提供 url 和 data" })
+    .refine((val) => !(val.guideId && !val.expectedRevision), { message: "提供 guideId 时必须同时提供 expectedRevision" })
+    .refine((val) => !(val.expectedRevision && !val.guideId), { message: "提供 expectedRevision 时必须同时提供 guideId" }),
 };
 const definitions: { name: keyof typeof inputs; capability: AiGuideScope; description: string; readOnly: boolean }[] = [
   { name: "list_guides", capability: "guide.read", description: "List travel guide summaries, including drafts. Optionally filter by q. Use get_guide for full content.", readOnly: true },
@@ -19,6 +135,7 @@ const definitions: { name: keyof typeof inputs; capability: AiGuideScope; descri
   { name: "create_guide", capability: "guide.create", description: "Create a travel guide. Explicit publish:true or status:published publishes immediately if complete. Sources are client-supplied references, not verified Gemini grounding. This creates content; never retry blindly after an ambiguous failure.", readOnly: false },
   { name: "update_guide", capability: "guide.update", description: "Update a guide using id and expectedRevision. Changes to published guides are public immediately. On 409 REVISION_CONFLICT, reread and resolve with the user; never retry an overwrite automatically. Source URLs are not verified grounding.", readOnly: false },
   { name: "publish_guide", capability: "guide.publish", description: "Publish a complete guide using expectedRevision, without an additional application review. Respect the client's confirmation. On 409 REVISION_CONFLICT, reread and resolve with the user; do not retry automatically.", readOnly: false },
+  { name: "upload_image", capability: "image.upload", description: "Upload a travel guide cover image from a public HTTPS URL or Base64 data (JPEG, PNG, WebP up to 10MB). Returns { objectKey, publicUrl, alt } for use in create_guide or update_guide. Optionally supply guideId and expectedRevision to update the guide's cover image directly.", readOnly: false },
 ];
 
 export function guideToolScopes(name: string, input: unknown): AiGuideScope[] | null {
@@ -26,6 +143,7 @@ export function guideToolScopes(name: string, input: unknown): AiGuideScope[] | 
   if (!definition) return null;
   const scopes: AiGuideScope[] = definition.capability === "guide.read" ? ["guide.read"] : ["guide.read", definition.capability];
   if (name === "create_guide" && typeof input === "object" && input && (("publish" in input && input.publish === true) || ("status" in input && input.status === "published"))) scopes.push("guide.publish");
+  if (name === "upload_image" && typeof input === "object" && input && "guideId" in input && Boolean((input as Record<string, unknown>).guideId)) scopes.push("guide.update");
   return scopes;
 }
 
@@ -75,6 +193,20 @@ export async function callGuideTool(actor: ApiActor, name: string, input: unknow
       const guide = await publishGuide(guideId, { expectedRevision });
       logAdminAction(actor, "guide.publish", guide.id, guide.revision - 1, guide.revision);
       return result({ guide });
+    }
+    case "upload_image": {
+      const parsed = inputs.upload_image.parse(args);
+      const { bytes, mime } = parsed.url ? await fetchImageFromUrl(parsed.url) : parseImageData(parsed.data!);
+      const uploaded = await uploadImage(bytes, mime);
+      const coverImage = { objectKey: uploaded.objectKey, publicUrl: uploaded.publicUrl, alt: parsed.alt };
+      if (parsed.guideId) {
+        assertCapability(actor, "guide.update");
+        const guide = await updateGuide(parsed.guideId, { expectedRevision: parsed.expectedRevision!, coverImage });
+        logAdminAction(actor, "guide.update", guide.id, guide.revision - 1, guide.revision);
+        return result({ coverImage, guide });
+      }
+      logAdminAction(actor, "image.upload", null, null, null);
+      return result({ coverImage });
     }
   }
 }

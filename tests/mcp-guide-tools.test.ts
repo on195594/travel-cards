@@ -6,7 +6,16 @@ import { callGuideTool, listGuideTools } from "@/lib/mcp/guide-tools";
 
 const runId = process.env.TRAVEL_CARDS_TEST_RUN_ID;
 if (!runId || !/^[a-z0-9_]+$/.test(runId)) throw new Error("Run database tests through npm test");
-const actor: ApiActor = { authKind: "restricted-ai", actorLabel: "fake-oauth-client", scopes: ["guide.read", "guide.create", "guide.update", "guide.publish"] };
+const uploadImageMock = vi.fn();
+vi.mock("@/lib/storage/r2", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/storage/r2")>();
+  return {
+    ...actual,
+    uploadImage: (...args: Parameters<typeof actual.uploadImage>) => uploadImageMock(...args),
+  };
+});
+const actor: ApiActor = { authKind: "restricted-ai", actorLabel: "fake-oauth-client", scopes: ["guide.read", "guide.create", "guide.update", "guide.publish", "image.upload"] };
+const validPngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 const draft = {
   title: "西湖一日游", slug: "mcp-tool-hangzhou", destination: "杭州", excerpt: "西湖漫步", days: 1,
   coverImage: { objectKey: "guides/test.jpg", publicUrl: "https://images.example.test/test.jpg", alt: "西湖" },
@@ -31,15 +40,16 @@ afterAll(async () => {
 });
 
 describe("MCP Guide tool core (fake authenticated actor, real isolated persistence)", () => {
-  it("advertises exactly five tools with input JSON Schemas and honest write annotations", () => {
+  it("advertises exactly six tools with input JSON Schemas and honest write annotations", () => {
     const tools = listGuideTools(actor);
-    expect(tools.map((tool) => tool.name)).toEqual(["list_guides", "get_guide", "create_guide", "update_guide", "publish_guide"]);
+    expect(tools.map((tool) => tool.name)).toEqual(["list_guides", "get_guide", "create_guide", "update_guide", "publish_guide", "upload_image"]);
     for (const tool of tools) {
       expect(tool.inputSchema).toMatchObject({ type: "object", additionalProperties: false });
       expect(tool.annotations.readOnlyHint).toBe(["list_guides", "get_guide"].includes(tool.name));
     }
     expect(tools.find((tool) => tool.name === "update_guide")!.description).toContain("never retry");
     expect(tools.find((tool) => tool.name === "create_guide")!.description).toContain("not verified");
+    expect(tools.find((tool) => tool.name === "upload_image")!.description).toContain("cover image");
   });
 
   it("creates, searches, reads, updates and publishes with the existing audit identity", async () => {
@@ -78,10 +88,43 @@ describe("MCP Guide tool core (fake authenticated actor, real isolated persisten
 
   it("rejects every unapproved tool without changing data", async () => {
     const guide = await create(true);
-    for (const name of ["delete_guide", "unpublish_guide", "upload_image", "manage_config", "generate_guide", "__proto__"]) {
+    for (const name of ["delete_guide", "unpublish_guide", "manage_config", "generate_guide", "__proto__"]) {
       await expect(callGuideTool(actor, name, { id: guide.id, expectedRevision: 1 }), name).rejects.toMatchObject({ code: "UNKNOWN_TOOL" });
       expect(await getGuideById(guide.id)).toEqual(guide);
     }
+  });
+
+  it("uploads an image and optionally sets it on a guide", async () => {
+    uploadImageMock.mockResolvedValue({ objectKey: "guides/new-cover.png", publicUrl: "https://images.example.test/new-cover.png" });
+    const standalone = await callGuideTool(actor, "upload_image", { data: validPngBase64, alt: "西湖日出" });
+    expect(standalone.structuredContent.coverImage).toEqual({
+      objectKey: "guides/new-cover.png",
+      publicUrl: "https://images.example.test/new-cover.png",
+      alt: "西湖日出",
+    });
+
+    const guide = await create();
+    const updated = await callGuideTool(actor, "upload_image", {
+      data: `data:image/png;base64,${validPngBase64}`,
+      alt: "西湖黄昏",
+      guideId: guide.id,
+      expectedRevision: 1,
+    });
+    expect(updated.structuredContent.guide).toMatchObject({
+      id: guide.id,
+      revision: 2,
+      coverImage: {
+        objectKey: "guides/new-cover.png",
+        publicUrl: "https://images.example.test/new-cover.png",
+        alt: "西湖黄昏",
+      },
+    });
+
+    await expect(callGuideTool(actor, "upload_image", { data: "not-an-image", alt: "bad" })).rejects.toMatchObject({ code: "INVALID_IMAGE" });
+    await expect(callGuideTool(actor, "upload_image", { url: "https://127.0.0.1/private.png", alt: "ssrf" })).rejects.toMatchObject({ code: "INVALID_URL" });
+    await expect(callGuideTool(actor, "upload_image", { url: "https://[::1]/private.png", alt: "ssrf-ipv6" })).rejects.toMatchObject({ code: "INVALID_URL" });
+    await expect(callGuideTool(actor, "upload_image", { url: "https://example.com/pic.png", data: validPngBase64, alt: "both" })).rejects.toMatchObject({ name: "ZodError" });
+    await expect(callGuideTool(actor, "upload_image", { data: validPngBase64, alt: "rev-without-id", expectedRevision: 1 })).rejects.toMatchObject({ name: "ZodError" });
   });
 
   it("rejects unknown actor kinds before validation or database access", async () => {

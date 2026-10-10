@@ -57,7 +57,7 @@
 
 - 保留 3.2 的现有 API Token 接口，**包括有效 Token 调用 DELETE 删除攻略的能力**，不因后续 MCP 接入而移除。新增 MCP 使用独立受限 AI 身份；外部客户端只通过受鉴权应用接口调用共享 Guide 业务规则，不直接访问 MongoDB。
 - 受限外部 AI 身份允许读取、创建、修改及直接发布攻略；发布仍须通过现有完整性、slug 唯一性及 revision 校验，不额外要求管理员在应用内审核。不得绕过客户端自身的写入确认。
-- 外部 AI 禁止删除攻略或修改应用配置；管理员保留删除及配置管理权限。外部 AI 是否可撤回或上传图片，需另行明确，未明确前不开放。
+- 外部 AI 禁止删除攻略或修改应用配置；管理员保留删除及配置管理权限。撤回暂不开放；图片上传与替换能力已由 2026-10-10 用户授权开放（提供 `upload_image` 工具用于上传封面及替换攻略图片，需 `image.upload` 权限）。
 - **现状缺口**：当前 API Token 属于管理员等价凭证，仍可调用 DELETE；管理 API 尚未接入受限 AI 认证。能力守卫、短效令牌及 OAuth/DCR/PKCE 管理员同意/撤销已本地实现并默认关闭；业务 MCP HTTP adapter 已通过本轮门禁上线；真实客户端验收尚未完成。新增业务 MCP 或向外部 AI 开放凭证前，必须落实服务端能力隔离并验证禁止操作；只不展示删除工具不能满足权限要求。
 - 首个客户端目标为 Gemini 网页及手机 App，不能用 Gemini API / CLI 联调代替。账号、地区、语言、服务端认证与客户端兼容性均需真实验收，详见 `docs/roadmaps/ai-client-integration.md`。
 - 认证实现按 Gemini 官方帮助支持的 OAuth + Dynamic Client Registration（DCR）方向推进，不再以用户逐屏截图为开发前置条件。DCR 注册不授予攻略权限，仍需管理员同意客户端授权、精确 resource/audience 与 scopes 校验及服务端撤销；不能复用管理员 Token。方向与实现状态见 `docs/decisions/2026-10-09-gemini-mcp-auth.md`，授权服务器与业务 MCP 已实现并上线，但 Gemini 实际握手未验收，不能据此开放业务 MCP。
@@ -65,21 +65,21 @@
 #### 3.3.1 受限访问令牌底座
 
 - 内部签发/撤销函数仅接受已认证管理员 Session；默认关闭的 `/api/oauth/token` 仅从已验证客户端注册、管理员明确同意、S256 PKCE 与一次性授权码流程签发，不能仅凭客户端自报标识、Cookie 或旧管理员 Token 获得令牌。
-- 访问令牌为服务端生成的随机、短效、opaque 凭证（15 分钟），数据库仅存 SHA-256 摘要、client ID、授权 scopes、精确资源 URI 和过期/撤销状态；明文仅在签发返回值中提供一次，不进入日志或模型提示词。这是动态授权产物，不改变环境变量管理既有管理员 API Token/第三方密钥的规则。
-- scopes 仅限 `guide.read/create/update/publish`，按实际授权取子集；读取为工具发现所需的基础 scope。缺少或不匹配 scopes 默认拒绝，不因 `restricted-ai` 角色自动获得全部批准能力。
+- 访问令牌为服务端生成的随机、长效 opaque 凭证（默认 100 年长效持久，2026-10-10 用户指示：为保证 Gemini 客户端接入后长效可用且请求不过期，经管理员同意授权的 OAuth 客户端注册与受限访问令牌均保持长效持久；管理员仍可通过后台随时主动撤销客户端及令牌），数据库仅存 SHA-256 摘要、client ID、授权 scopes、精确资源 URI 和过期/撤销状态；明文仅在签发返回值中提供一次，不进入日志或模型提示词。这是动态授权产物，不改变环境变量管理既有管理员 API Token/第三方密钥的规则。
+- scopes 仅限 `guide.read/create/update/publish` 及 `image.upload`，按实际授权取子集；读取为工具发现所需的基础 scope。缺少或不匹配 scopes 默认拒绝，不因 `restricted-ai` 角色自动获得全部批准能力。
 - 令牌绑定由服务端 `AUTH_URL` 确定的正式 `/mcp` 资源，不接受任意客户端 resource，不用于公开探针或管理员 REST。正式 OAuth 认证逐次查询有效令牌及 active 客户端授权，拒绝裸内部令牌；TTL 清理延迟不能延长权限。撤销阻止其后开始的认证，不能取消已通过认证的在途操作。
 - 不提供 refresh token；fake 客户端与隔离 MongoDB 测试不能代替 Gemini 双端验收。内部签发函数不等于可直接向外部客户端授权，正式接入须满足下节。
 
 #### 3.3.2 本批 OAuth / MCP 闭环契约（已批准，实施中）
 
 - 使用成熟 OAuth 服务端库提供仅授权码模式，强制 S256 PKCE、精确注册的 HTTPS redirect URI、`state`、规范 MCP `resource` 与批准 scopes。不启用 implicit、密码、client credentials 或 refresh grant。
-- DCR 支持 public `none` 及 `client_secret_basic` / `client_secret_post`；缺省按注册规范使用 basic。动态 secret 仅签发时返回，数据库仅存摘要。注册不授权内容；注册入口限制实际请求体与每小时全局配额，注册和授权记录最多保留 30 天，过期查询必须显式拒绝。
-- DCR 省略 `scope` 时，可申请范围默认仅为 `guide.read guide.create guide.update guide.publish`（2026-10-10 用户批准）；显式 scope 保持其子集限制，空值/未知权限仍拒绝。此范围不是授权，必须经过管理员同意才可签发对应令牌；授权请求省略 scope 仍默认只读。已有注册与令牌不自动扩权。
+- DCR 支持 public `none` 及 `client_secret_basic` / `client_secret_post`；缺省按注册规范使用 basic。动态 secret 仅签发时返回，数据库仅存摘要。注册不授权内容；注册入口限制实际请求体与每小时全局配额，注册和授权记录默认长效保持（100 年，2026-10-10 用户指示），管理员可随时主动撤销。
+- DCR 省略 `scope` 时，可申请范围默认仅为 `guide.read guide.create guide.update guide.publish image.upload`（2026-10-10 用户批准增加图片上传能力）；显式 scope 保持其子集限制，空值/未知权限仍拒绝。此范围不是授权，必须经过管理员同意才可签发对应令牌；授权请求省略 scope 仍默认只读。已有注册与令牌不自动扩权。
 - 管理员在登录后看到未验证客户端名称、精确回调地址与权限，明确同意后才生成一次性 5 分钟授权码。确认意图同样短效、单次消费且服务器存储；表单不能自报 scopes、角色或客户端。所有同意/撤销 POST 校验管理员 Session 与固定服务端同源，旧管理员 Token 不能代替同意。
 - 客户端撤销持久化并统一使其已有授权码、令牌及尚未确认的授权意图失效；已撤销客户端需重新注册并获得明确同意。并发换码最多成功一次，撤销阻止后续认证，不取消已认证的在途工作。
 - 路由边界（2026-10-10 用户确认）：`/api/*` 保留 REST API（含 `/api/oauth/*`），`/mcp` 为唯一正式业务 MCP 入口；路径式资源元数据为 `/.well-known/oauth-protected-resource/mcp`。不保留旧 `/api/mcp` 或旧路径式元数据别名，不重写既有授权记录；旧 resource 的意图、授权码和令牌须拒绝，客户端重新授权。公开 `/api/mcp-probe` 保持独立且不变。
 - 正式 `/mcp` 仅接受已批准、绑定 active 客户端授权的受限令牌，不接受裸内部令牌、管理员 Token 或 Cookie。发现、注册、授权/换码、业务 MCP 由环境开关 `MCP_OAUTH_ENABLED=true` 启用，默认关闭；无效令牌 401、权限不足 403 并提供标准 discovery challenge，409 等业务错误保留原代码且不自动重试。
-- 本批增加管理员授权列表/撤销和授权同意页面，复用既有样式。OAuth 不要求逐篇发布审批；外部 AI 的操作范围仍仅 Guide read/create/update/publish。
+- 本批增加管理员授权列表/撤销和授权同意页面，复用既有样式。OAuth 不要求逐篇发布审批；外部 AI 的操作范围仍仅 Guide read/create/update/publish 与 image.upload。
 - 先完成本地 fake 客户端完整流程、输入/重放/并发/撤销/跨资源/REST 绕过回归及 AGY 审查。生产部署、开关启用、真实账号和 Gemini 双端验收需单独授权，不修改既有生产凭证。
 
 ### 3.4 临时 MCP 连接探针（2026-10-09 已授权）

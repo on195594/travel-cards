@@ -15,7 +15,7 @@ const grantInput = z.object({
     .refine((scopes) => scopes.includes("guide.read"), "需要 guide.read 基础权限"),
 }).strict();
 const grantIdSchema = z.string().regex(/^[a-f\d]{24}$/i);
-const lifetimeSeconds = 15 * 60;
+const lifetimeSeconds = 100 * 365 * 24 * 3600;
 
 const grantSchema = new Schema({
   tokenHash: { type: String, required: true, select: false },

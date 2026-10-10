@@ -15,6 +15,19 @@ function filterGuides(guides: GuideSummary[], query: string): GuideSummary[] {
   return guides.filter((guide) => guide.title.toLowerCase().includes(q) || guide.destination.toLowerCase().includes(q) || guide.excerpt.toLowerCase().includes(q));
 }
 
+function syncUrl(q: string) {
+  if (typeof window !== "undefined") {
+    const url = new URL(window.location.href);
+    const currentQ = url.searchParams.get("q") || "";
+    const nextQ = q.trim();
+    if (currentQ !== nextQ) {
+      if (nextQ) url.searchParams.set("q", nextQ);
+      else url.searchParams.delete("q");
+      window.history.replaceState(null, "", url.toString());
+    }
+  }
+}
+
 export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
   const searchInput = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState(initialQuery);
@@ -22,19 +35,30 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
 
   useEffect(() => {
     const q = query.trim();
-    if (!q) return;
+    if (!q) {
+      syncUrl("");
+      return;
+    }
     const controller = new AbortController();
-    fetch(`/api/guides?q=${encodeURIComponent(q)}`, { cache: "no-store", signal: controller.signal })
-      .then((response) => {
-        if (!response.ok) throw new Error("search failed");
-        return response.json() as Promise<{ guides?: GuideSummary[] }>;
-      })
-      .then((data) => setRemoteSearch({ query: q, guides: Array.isArray(data.guides) ? data.guides : [] }))
-      .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        setRemoteSearch({ query: q, guides: filterGuides(initialGuides, q) });
-      });
-    return () => controller.abort();
+    const timer = window.setTimeout(() => {
+      syncUrl(q);
+      fetch(`/api/guides?q=${encodeURIComponent(q)}`, { cache: "no-store", signal: controller.signal })
+        .then((response) => {
+          if (!response.ok) throw new Error("search failed");
+          return response.json() as Promise<{ guides?: GuideSummary[] }>;
+        })
+        .then((data) => {
+          if (!controller.signal.aborted) setRemoteSearch({ query: q, guides: Array.isArray(data.guides) ? data.guides : [] });
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
+          setRemoteSearch({ query: q, guides: filterGuides(initialGuides, q) });
+        });
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, [initialGuides, query]);
 
   const destinations = useMemo(() => {
@@ -54,20 +78,19 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
 
   function handleQueryChange(value: string) {
     setQuery(value);
-    if (typeof window !== "undefined") {
-      const url = new URL(window.location.href);
-      if (value.trim()) {
-        url.searchParams.set("q", value.trim());
-      } else {
-        url.searchParams.delete("q");
-      }
-      window.history.replaceState(null, "", url.toString());
-    }
   }
 
   function handleClear() {
-    handleQueryChange("");
+    setRemoteSearch(undefined);
+    setQuery("");
+    syncUrl("");
     searchInput.current?.focus();
+  }
+
+  function handleChipSelect(dest: string) {
+    const next = query.trim().toLowerCase() === dest.toLowerCase() ? "" : dest;
+    setQuery(next);
+    syncUrl(next);
   }
 
   return (
@@ -118,7 +141,7 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
               <button
                 type="button"
                 className={`chip ${!query.trim() ? "active" : ""}`}
-                onClick={() => handleQueryChange("")}
+                onClick={() => handleChipSelect("")}
                 aria-pressed={!query.trim()}
               >
                 全部路线
@@ -130,7 +153,7 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
                     key={dest}
                     type="button"
                     className={`chip ${isActive ? "active" : ""}`}
-                    onClick={() => handleQueryChange(isActive ? "" : dest)}
+                    onClick={() => handleChipSelect(dest)}
                     aria-pressed={isActive}
                   >
                     {dest}
@@ -154,8 +177,8 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
 
         {filtered.length ? (
           <div className="grid">
-            {filtered.map((guide) => (
-              <GuideCard key={guide.id} guide={guide} />
+            {filtered.map((guide, index) => (
+              <GuideCard key={guide.id} guide={guide} priority={index === 0} />
             ))}
           </div>
         ) : !initialGuides.length ? (

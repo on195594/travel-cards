@@ -33,6 +33,14 @@ export function getSiteOrigin(): string {
   return "https://travel.keyi.win";
 }
 
+export function getImageOrigin(): string | null {
+  try {
+    return httpsUrl("R2_PUBLIC_BASE_URL", true).origin;
+  } catch {
+    return null;
+  }
+}
+
 export function getMongoUri(): string {
   const uri = required("MONGODB_URI");
   let parsed: URL;

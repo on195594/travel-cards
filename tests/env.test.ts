@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { getApiToken, getAuthEnv, getGeminiEnv, getMongoUri, getR2Env, getSiteOrigin } from "@/lib/env";
+import { getApiToken, getAuthEnv, getGeminiEnv, getMongoUri, getR2Env, getSiteOrigin, getImageOrigin } from "@/lib/env";
 
 const baseline = { ...process.env };
 afterEach(() => {
@@ -49,6 +49,19 @@ describe("environment validation", () => {
     expect(getR2Env()).toMatchObject({ publicBaseUrl: "https://images.example.test/travel/" });
     vi.stubEnv("R2_ENDPOINT", "http://account.r2.cloudflarestorage.com");
     expect(() => getR2Env()).toThrow("safe HTTPS URL");
+  });
+
+  it.each(["", "not-a-url", "data:image/png;base64,AAAA", "http://images.example.test", "https://user:password@images.example.test", "https://images.example.test/?token=test", "https://images.example.test/#fragment"])("omits image connection hints for invalid public base %s", (value) => {
+    vi.stubEnv("R2_PUBLIC_BASE_URL", value);
+    expect(getImageOrigin()).toBeNull();
+  });
+
+  it("extracts only the image origin without requiring storage credentials", () => {
+    vi.stubEnv("R2_PUBLIC_BASE_URL", " https://images.example.test/travel/ ");
+    vi.stubEnv("R2_SECRET_ACCESS_KEY", "");
+    expect(getImageOrigin()).toBe("https://images.example.test");
+    delete process.env.R2_PUBLIC_BASE_URL;
+    expect(getImageOrigin()).toBeNull();
   });
 
   it("uses the supported stable Gemini model when none is configured", () => {

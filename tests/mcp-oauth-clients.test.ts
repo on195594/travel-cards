@@ -11,7 +11,7 @@ const endpoint = "https://travel.example.test/api/oauth/register";
 const metadata = {
   client_name: "Fake unverified client",
   redirect_uris: ["https://client.example.test/callback?return=%2Fguides"],
-  scope: "guide.read guide.create guide.update guide.publish",
+  scope: "guide.read guide.create guide.update guide.publish image.upload",
 };
 function ownedDb() {
   if (!mongoose.connection.db || mongoose.connection.db.databaseName !== `travel_cards_test_${runId}`) throw new Error("Refusing non-test database access");
@@ -68,7 +68,7 @@ describe("MCP OAuth DCR (fake clients, isolated MongoDB, no consent or tokens)",
     expect(body).not.toHaveProperty("client_uri");
     const row = await clients.findRegisteredMcpClient(body.client_id);
     expect(row).toMatchObject({ clientId: body.client_id, clientName: metadata.client_name, redirectUris: metadata.redirect_uris, scopes: metadata.scope.split(" ") });
-    expect(row!.expiresAt.getTime() - row!.createdAt.getTime()).toBe(30 * 24 * 60 * 60 * 1000);
+    expect(row!.expiresAt.getTime() - row!.createdAt.getTime()).toBe(100 * 365 * 24 * 60 * 60 * 1000);
     expect(body.client_id_issued_at).toBe(Math.floor(row!.createdAt.getTime() / 1000));
     if (method === "none") {
       expect(body).not.toHaveProperty("client_secret");

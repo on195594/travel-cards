@@ -11,7 +11,7 @@ if (!runId || !/^[a-z0-9_]+$/.test(runId)) throw new Error("Run database tests t
 const admin: AdminActor = { authKind: "session", actorLabel: "admin@example.test", user: { id: "admin", email: "admin@example.test" } };
 const automation: AdminActor = { ...admin, authKind: "token", actorLabel: "api-token" };
 const readOnly: ApiActor = { authKind: "restricted-ai", actorLabel: "other-client", scopes: ["guide.read"] };
-const scopes = ["guide.read", "guide.create", "guide.update", "guide.publish"];
+const scopes = ["guide.read", "guide.create", "guide.update", "guide.publish", "image.upload"];
 const draft = {
   title: "杭州一日游", slug: "mcp-grant-hangzhou", destination: "杭州", excerpt: "西湖漫步", days: 1,
   coverImage: { objectKey: "guides/test.jpg", publicUrl: "https://images.example.test/test.jpg", alt: "西湖" },
@@ -50,12 +50,12 @@ describe("internal MCP access grant lifecycle (fake admin consent, isolated Mong
     const second = await issue();
     expect(grant.accessToken).toMatch(/^tc_mcp_[A-Za-z0-9_-]{43}$/);
     expect(second.accessToken).not.toBe(grant.accessToken);
-    expect(grant).toMatchObject({ resource: "https://travel.example.test/mcp", tokenType: "Bearer", expiresIn: 900, scopes });
+    expect(grant).toMatchObject({ resource: "https://travel.example.test/mcp", tokenType: "Bearer", expiresIn: 100 * 365 * 24 * 3600, scopes });
     const row = await ownedDb().collection("mcp_access_grants").findOne({ _id: new mongoose.Types.ObjectId(grant.grantId) });
     expect(row!.tokenHash).toBe(createHash("sha256").update(grant.accessToken).digest("hex"));
     expect(JSON.stringify(row)).not.toContain(grant.accessToken);
     expect(new Date(row!.expiresAt).toISOString()).toBe(grant.expiresAt);
-    expect(new Date(grant.expiresAt).getTime() - Date.now()).toBeGreaterThan(890_000);
+    expect(new Date(grant.expiresAt).getTime() - Date.now()).toBeGreaterThan(99 * 365 * 24 * 3600 * 1000);
     const indexes = await ownedDb().collection("mcp_access_grants").indexes();
     expect(indexes).toEqual(expect.arrayContaining([
       expect.objectContaining({ key: { tokenHash: 1 }, unique: true }),
@@ -73,7 +73,7 @@ describe("internal MCP access grant lifecycle (fake admin consent, isolated Mong
 
   it.each([
     { scopes: [] }, { scopes: ["guide.publish"] }, { scopes: ["guide.read", "guide.read"] },
-    { scopes: ["guide.read", "guide.delete"] }, { scopes: ["guide.read", "config.manage"] }, { scopes: ["guide.read", "image.upload"] },
+    { scopes: ["guide.read", "guide.delete"] }, { scopes: ["guide.read", "config.manage"] }, { scopes: ["guide.read", "assistant.use"] },
   ])("rejects invalid scopes %j", async (input) => {
     await expect(issueMcpAccessGrant(admin, { clientId: "fake-registered-client", ...input })).rejects.toMatchObject({ name: "ZodError" });
   });

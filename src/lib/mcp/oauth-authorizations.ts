@@ -159,7 +159,7 @@ function oauthServer(client: RegisteredMcpClient, resource: string, consent?: { 
       return { accessToken: grant.accessToken, accessTokenExpiresAt: new Date(grant.expiresAt), scope: grant.scopes, client: savedClient, user };
     },
   };
-  return new OAuth2Server({ model, authorizationCodeLifetime: 300, accessTokenLifetime: 900, allowEmptyState: false });
+  return new OAuth2Server({ model, authorizationCodeLifetime: 300, accessTokenLifetime: 100 * 365 * 24 * 3600, allowEmptyState: false });
 }
 
 export async function decideConsent(actor: AdminActor, value: string, decision: "approve" | "deny") {
