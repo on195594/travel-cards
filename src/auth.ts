@@ -3,6 +3,7 @@ import Credentials from "next-auth/providers/credentials";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { assertAdmin, assertAdminOrToken } from "@/lib/admin";
+import { assertCapability, type ApiCapability } from "@/lib/capabilities";
 import { getAuthEnv } from "@/lib/env";
 import { verifyPassword } from "@/lib/password";
 
@@ -47,6 +48,13 @@ export async function requireAdmin(request?: Request) {
   }
   const session = await auth();
   return assertAdminOrToken(session, null);
+}
+
+export async function requireCapability(request: Request, capability: ApiCapability) {
+  // Restricted-client authentication stays disabled until its handshake and revocation are verified.
+  const actor = await requireAdmin(request);
+  assertCapability(actor, capability);
+  return actor;
 }
 
 export async function requireAdminPage() {

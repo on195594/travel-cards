@@ -2,11 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HttpError } from "@/lib/http";
 
 const mocks = vi.hoisted(() => ({
-  requireAdmin: vi.fn(),
+  requireCapability: vi.fn(),
   uploadImage: vi.fn(),
 }));
 
-vi.mock("@/auth", () => ({ requireAdmin: mocks.requireAdmin }));
+vi.mock("@/auth", () => ({ requireCapability: mocks.requireCapability }));
 vi.mock("@/lib/storage/r2", () => ({
   MAX_MULTIPART_BYTES: 10 * 1024 * 1024 + 64 * 1024,
   uploadImage: mocks.uploadImage,
@@ -17,13 +17,13 @@ import { POST } from "@/app/api/uploads/route";
 describe("POST /api/uploads", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.requireAdmin.mockResolvedValue({ user: { id: "admin" } });
+    mocks.requireCapability.mockResolvedValue({ user: { id: "admin" } });
     mocks.uploadImage.mockResolvedValue({ objectKey: "guides/test.png", publicUrl: "https://img.example.test/guides/test.png" });
   });
 
   it("authorizes before consuming any body bytes", async () => {
     let pulls = 0;
-    mocks.requireAdmin.mockRejectedValue(new HttpError(401, "UNAUTHORIZED", "需要管理员登录"));
+    mocks.requireCapability.mockRejectedValue(new HttpError(401, "UNAUTHORIZED", "需要管理员登录"));
     const body = new ReadableStream({ pull(controller) { pulls += 1; controller.enqueue(Uint8Array.of(1)); controller.close(); } });
     const request = new Request("http://localhost/api/uploads", { method: "POST", body, duplex: "half" } as RequestInit);
     await Promise.resolve();

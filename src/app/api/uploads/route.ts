@@ -1,4 +1,4 @@
-import { requireAdmin } from "@/auth";
+import { requireCapability } from "@/auth";
 import { assertSameOrigin, jsonError, HttpError, PRIVATE_NO_STORE_HEADERS } from "@/lib/http";
 import { MAX_MULTIPART_BYTES, uploadImage } from "@/lib/storage/r2";
 
@@ -30,7 +30,7 @@ async function boundedBody(request: Request): Promise<Uint8Array> {
 
 export async function POST(request: Request) {
   try {
-    await requireAdmin(request);
+    await requireCapability(request, "image.upload");
     assertSameOrigin(request);
 
     const encoding = request.headers.get("content-encoding");

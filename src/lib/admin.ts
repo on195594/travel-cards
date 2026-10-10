@@ -1,4 +1,5 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import type { ApiActor } from "@/lib/capabilities";
 import { getApiToken, getAuthEnv } from "@/lib/env";
 import { HttpError } from "@/lib/http";
 
@@ -56,7 +57,7 @@ export function assertAdminOrToken(
 }
 
 export function logAdminAction(
-  actor: AdminActor,
+  actor: ApiActor,
   action: string,
   guideId: string | null,
   beforeRevision: number | null,

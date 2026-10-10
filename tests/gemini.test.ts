@@ -4,7 +4,7 @@ import { HttpError } from "@/lib/http";
 const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   constructor: vi.fn(),
-  requireAdmin: vi.fn(),
+  requireCapability: vi.fn(),
 }));
 
 vi.mock("@google/genai", () => ({
@@ -13,7 +13,7 @@ vi.mock("@google/genai", () => ({
     constructor(options: unknown) { mocks.constructor(options); }
   },
 }));
-vi.mock("@/auth", () => ({ requireAdmin: mocks.requireAdmin }));
+vi.mock("@/auth", () => ({ requireCapability: mocks.requireCapability }));
 
 import { answerGuideQuestion, generateGuideDraft, reviseGuide } from "@/lib/ai/gemini";
 import { POST as generateRoute } from "@/app/api/ai/generate/route";
@@ -54,7 +54,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.stubEnv("GEMINI_API_KEY", "test-key");
   vi.stubEnv("GEMINI_MODEL", "gemini-test-model");
-  mocks.requireAdmin.mockResolvedValue({ user: { id: "admin" } });
+  mocks.requireCapability.mockResolvedValue({ user: { id: "admin" } });
 });
 
 describe("grounded Gemini assistant", () => {
@@ -151,7 +151,7 @@ describe("AI routes", () => {
   }
 
   it("authorizes before parsing or calling the provider", async () => {
-    mocks.requireAdmin.mockRejectedValue(new HttpError(401, "UNAUTHORIZED", "需要管理员登录"));
+    mocks.requireCapability.mockRejectedValue(new HttpError(401, "UNAUTHORIZED", "需要管理员登录"));
     const malformed = new Request("http://localhost:3000/api/ai/generate", { method: "POST", body: "{" });
     const response = await generateRoute(malformed);
     expect(response.status).toBe(401);
