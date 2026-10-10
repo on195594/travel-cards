@@ -1,0 +1,19 @@
+{
+  "reviewer": "Real AGY CLI",
+  "model": "gemini-3.1-pro-high",
+  "mode": "plan",
+  "sandbox": true,
+  "status": "SUCCESS",
+  "verdict": "APPROVE",
+  "baseCommit": "d0a1195eb2c6164e2429f1749238c41214533b01",
+  "sourceSha256": "bb6d5a31eb8a76aff293abb1adad9571e8f03c57bce4ce738b8e9929d73d14d9",
+  "sourceFileCount": 134,
+  "sourceDrift": false,
+  "extraSourceFiles": false,
+  "reviewTestsExecuted": false,
+  "imageId": "sha256:03595246cd6dc2fddffb44b3b58c9bd883247254a20715cc0655d1ae3a70dd38",
+  "realGeminiAcceptance": "NOT_RUN",
+  "prompt.txtSha256": "aad28cf28988ea05d58c7fb6e8374c567342c387948a6d252a9aa0b20e8655ff",
+  "response.jsonSha256": "cc9ff8880f98bbd75ed17760fb90dc94dec64010acfbfceae00a28dda4b19e2e",
+  "source-manifest.jsonSha256": "bb6d5a31eb8a76aff293abb1adad9571e8f03c57bce4ce738b8e9929d73d14d9"
+}

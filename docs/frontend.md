@@ -45,6 +45,15 @@
 - 本地会话、注入 journal、临时截图不提交；共享工作流与 setup config 可以提交。不得在生产站点注入开发 helper。
 - 后续若要建立正式 `DESIGN.md`，按 Impeccable document 流程确认定性设计语言；若要改版，另行确认方向，不把本次产品初始化当作改版授权。
 
+## OAuth 管理页面（2026-10-10）
+
+- `/admin/oauth/consent`：显示未验证客户端名称、精确回调和批准 scopes，管理员原生表单显式同意/拒绝；过期或重复确认提供重新连接提示。
+- `/admin/oauth`：显示已授权/已撤销客户端及注册到期时间，提供原生表单撤销。攻略管理页仅在 OAuth 开关启用时显示入口。
+- 登录页新增仅允许恢复本站 authorize/consent 的 returnTo；不接受外部跳转。
+- 新页面沿用现有 panel/login/admin/actions 样式与主题；只补管理员列表中 form 不缩窄的共享规则，避免手机视口的撤销按钮逐字换行。不重做视觉系统。
+- 页面 metadata 使用 `same-origin` referrer，防止原生表单 POST 的 Origin 变成 `null`；外部回调响应仍使用 `no-referrer`。服务器仍严格拒绝缺失或 `null` Origin。
+- 浏览器视觉检查使用隔离 MongoDB、合成管理员 Session、本地 production server；模拟 1440×1000 与 390×844，覆盖明暗主题和 reduced-motion。视觉检查两轮，授权/撤销原生表单另做功能验证；不是实际手机、读屏或 Gemini 客户端验收。临时截图/Session 不提交。
+
 ## 修改后验证
 
 按 `AGENTS.md` 运行测试、lint、构建和 Compose 配置检查。UI 行为用浏览器验证，明确记录模拟 viewport、模拟动态偏好、真实设备或读屏哪些未测；不能仅凭 CSS 或截图宣称全部无障碍合规。

@@ -1,0 +1,12 @@
+{
+  "sourceSha256": "bb6d5a31eb8a76aff293abb1adad9571e8f03c57bce4ce738b8e9929d73d14d9",
+  "candidateImage": "travel-cards-web:release-bb6d5a31eb8a76af",
+  "candidateImageId": "sha256:03595246cd6dc2fddffb44b3b58c9bd883247254a20715cc0655d1ae3a70dd38",
+  "oldImageId": "sha256:b1392688e71f1dce1de4bc4c9e7715ee933edf485393a4c8dd299a43c57f867c",
+  "oldImageReference": "travel-cards-web",
+  "oldMcpFlag": "false",
+  "rollbackImage": "travel-cards-web:rollback-20261010-b1392688e71f",
+  "reviewVerdict": "APPROVE",
+  "sourceDrift": false,
+  "credentialEnvironmentNote": "Initial config JSON comparison falsely differed on ADMIN_PASSWORD_HASH because Compose escapes literal dollars; deployment command was not gated by shell set -e. Runtime/config normalized comparison passes; env file not edited. Other existing environment keys matched pre-deployment."
+}

@@ -6,6 +6,7 @@ base="http://127.0.0.1:${port}"
 api_token="test-http-token-at-least-16-chars"
 log="$(mktemp)"
 app_pid=""
+app_container=""
 mongo_paused=false
 
 cleanup() {
@@ -15,6 +16,10 @@ cleanup() {
       docker unpause "$TRAVEL_CARDS_TEST_MONGO_CONTAINER" >/dev/null || true
     fi
   fi
+  if [[ -n "$app_container" ]]; then
+    owner="$(docker inspect --format '{{ index .Config.Labels "travel-cards.test-run" }}' "$app_container" 2>/dev/null || true)"
+    if [[ "$owner" == "$TRAVEL_CARDS_TEST_RUN_ID" ]]; then docker rm -f "$app_container" >/dev/null; fi
+  fi
   if [[ -n "$app_pid" ]] && kill -0 "$app_pid" 2>/dev/null; then
     kill "$app_pid"
     wait "$app_pid" 2>/dev/null || true
@@ -23,6 +28,21 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+if [[ -n "${TRAVEL_CARDS_TEST_IMAGE:-}" ]]; then
+  [[ "${TRAVEL_CARDS_TEST_RUN_ID:-}" =~ ^[a-z0-9_]+$ ]]
+  [[ "${MONGODB_URI:-}" == mongodb://127.0.0.1:*/travel_cards_test_"$TRAVEL_CARDS_TEST_RUN_ID" ]]
+  app_container="travel-cards-http-$TRAVEL_CARDS_TEST_RUN_ID"
+  docker run --pull=never -d --name "$app_container" --label "travel-cards.test-run=$TRAVEL_CARDS_TEST_RUN_ID" --network host \
+    -e MONGODB_URI -e MCP_OAUTH_ENABLED \
+    -e AUTH_SECRET="test-only-secret-that-is-at-least-32-characters" -e AUTH_URL="$base" \
+    -e ADMIN_EMAIL="admin@example.test" -e ADMIN_PASSWORD_HASH='scrypt$00$00' \
+    -e HERMES_API_TOKEN="$api_token" -e HOSTNAME=127.0.0.1 -e PORT="$port" \
+    "$TRAVEL_CARDS_TEST_IMAGE" >/dev/null
+else
+  # Match Docker's standalone layout, including admin styles/scripts.
+  cp -a .next/static .next/standalone/.next/
+  cp -a public .next/standalone/
+
 AUTH_SECRET="test-only-secret-that-is-at-least-32-characters" \
 AUTH_URL="$base" \
 ADMIN_EMAIL="admin@example.test" \
@@ -30,6 +50,7 @@ ADMIN_PASSWORD_HASH='scrypt$00$00' \
 HERMES_API_TOKEN="$api_token" \
 HOSTNAME=127.0.0.1 PORT="$port" node .next/standalone/server.js >"$log" 2>&1 &
 app_pid=$!
+fi
 
 wait_for_status() {
   local path="$1" expected="$2"
@@ -40,6 +61,7 @@ wait_for_status() {
     sleep 0.5
   done
   printf 'Timed out waiting for %s -> %s\n' "$path" "$expected" >&2
+  if [[ -n "$app_container" ]]; then docker logs "$app_container" --tail 40 >&2; fi
   python - "$log" <<'PY' >&2
 from pathlib import Path
 import sys
@@ -184,6 +206,10 @@ assert.equal((await fetch(`${base}/guides/${payload.slug}`)).status, 404);
 
 console.log("http-content-smoke PASS direct-publish/update/unpublish/republish/delete no-store HTML+RSC visibility");
 NODE
+
+if [[ "${TRAVEL_CARDS_OAUTH_SMOKE:-false}" == true ]]; then
+  HERMES_API_TOKEN="$api_token" node scripts/oauth-http-smoke.mjs "$base"
+fi
 
 owner="$(docker inspect --format '{{ index .Config.Labels "travel-cards.test-run" }}' "$TRAVEL_CARDS_TEST_MONGO_CONTAINER")"
 if [[ "$owner" != "$TRAVEL_CARDS_TEST_RUN_ID" ]]; then

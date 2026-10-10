@@ -205,7 +205,7 @@ textarea { min-height: 6rem; resize: vertical; }
 .admin-list { display: grid; padding: .25rem 1.5rem; border: 1px solid var(--line); border-radius: 1rem; background: var(--surface); }
 .admin-list article:last-child { border-bottom: 0; }
 .admin-list article > div { min-width: 0; }
-.admin-list article > a { flex-shrink: 0; }
+.admin-list article > a, .admin-list article > form { flex-shrink: 0; }
 .admin-list article p { margin: .4rem 0 0; color: var(--muted); font-size: .9rem; }
 .admin-header .back-link { margin-bottom: .75rem; }
 .admin-list article { display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--line); padding: 1.2rem 0; }

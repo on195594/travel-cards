@@ -1,0 +1,90 @@
+{
+  "timestampUtc": "2026-10-10T05:58:45Z",
+  "checks": [
+    {
+      "path": "/api/health/live",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/api/health/ready",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/admin/login",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/.well-known/oauth-protected-resource",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/.well-known/oauth-protected-resource/mcp",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/.well-known/oauth-authorization-server",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/api/mcp",
+      "method": "GET",
+      "status": 404
+    },
+    {
+      "path": "/.well-known/oauth-protected-resource/api/mcp",
+      "method": "GET",
+      "status": 404
+    },
+    {
+      "path": "/api/mcp",
+      "method": "POST",
+      "status": 404
+    },
+    {
+      "path": "/mcp",
+      "method": "GET",
+      "status": 401
+    },
+    {
+      "path": "/mcp",
+      "method": "POST",
+      "status": 401
+    },
+    {
+      "path": "/mcp",
+      "method": "POST",
+      "status": 401
+    },
+    {
+      "path": "/mcp",
+      "method": "POST",
+      "status": 403
+    },
+    {
+      "path": "/api/guides?scope=admin",
+      "method": "GET",
+      "status": 401
+    },
+    {
+      "path": "/api/mcp-probe",
+      "method": "GET",
+      "status": 405
+    }
+  ],
+  "imageId": "sha256:41407b1fc3cc58dbdada16bc4795d6720cd19bc619f1aa1e3a91941cee393a5e",
+  "guideWrites": false,
+  "productionCredentialIssued": false,
+  "realGeminiAcceptance": "NOT_RUN",
+  "rollbackExecuted": false
+}

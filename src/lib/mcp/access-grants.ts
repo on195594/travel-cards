@@ -6,6 +6,7 @@ import { AI_GUIDE_SCOPES, assertCapability, type ApiActor } from "@/lib/capabili
 import { connectDb } from "@/lib/db";
 import { getAuthEnv } from "@/lib/env";
 import { HttpError } from "@/lib/http";
+import { findRegisteredMcpClient } from "@/lib/mcp/oauth-clients";
 
 const grantInput = z.object({
   clientId: z.string().regex(/^[a-zA-Z0-9._-]{1,128}$/),
@@ -19,6 +20,7 @@ const lifetimeSeconds = 15 * 60;
 const grantSchema = new Schema({
   tokenHash: { type: String, required: true, select: false },
   clientId: { type: String, required: true },
+  oauthClientId: String,
   resource: { type: String, required: true },
   scopes: { type: [String], enum: AI_GUIDE_SCOPES, required: true },
   expiresAt: { type: Date, required: true },
@@ -44,25 +46,36 @@ export function getMcpResource(): string {
   if (origin.protocol !== "https:" && !["localhost", "127.0.0.1", "[::1]"].includes(origin.hostname)) {
     throw new Error("MCP authorization requires HTTPS outside loopback development");
   }
-  return new URL("/api/mcp", origin).href;
+  return new URL("/mcp", origin).href;
 }
 
-// Internal only: the future OAuth consent/code flow must validate the registered client
-// before calling this. No HTTP signing endpoint or automatic client authorization exists.
-export async function issueMcpAccessGrant(actor: ApiActor, input: unknown) {
+// Bare internal grants remain separate from the formal OAuth authentication path.
+async function issueGrant(actor: ApiActor, input: unknown, oauthClientId?: string) {
   assertCapability(actor, "config.manage");
   const { clientId, scopes } = grantInput.parse(input);
   const resource = getMcpResource();
   const accessToken = `tc_mcp_${randomBytes(32).toString("base64url")}`;
   const expiresAt = new Date(Date.now() + lifetimeSeconds * 1000);
   await ready();
-  const grant = await GrantModel.create({ tokenHash: digest(accessToken), clientId, resource, scopes, expiresAt });
+  const grant = await GrantModel.create({ tokenHash: digest(accessToken), clientId, oauthClientId, resource, scopes, expiresAt });
   logAdminAction(actor, "mcp.grant.issue", null, null, null);
   // This is the only return of the plaintext token. Never log or supply it to an LLM.
   return { grantId: String(grant._id), accessToken, tokenType: "Bearer" as const, expiresIn: lifetimeSeconds, expiresAt: expiresAt.toISOString(), resource, scopes };
 }
 
-export async function authenticateMcpAccessToken(authHeader: string | null, resource: string): Promise<Extract<ApiActor, { authKind: "restricted-ai" }>> {
+export async function issueMcpAccessGrant(actor: ApiActor, input: unknown) {
+  return issueGrant(actor, input);
+}
+
+export async function issueMcpOAuthAccessGrant(actor: ApiActor, input: unknown) {
+  assertCapability(actor, "config.manage");
+  const data = grantInput.parse(input);
+  const client = await findRegisteredMcpClient(data.clientId);
+  if (!client?.authorizedAt || data.scopes.some((scope) => !client.authorizedScopes?.includes(scope))) unauthorized();
+  return issueGrant(actor, data, client.clientId);
+}
+
+async function authenticateGrant(authHeader: string | null, resource: string, requireClient: boolean): Promise<Extract<ApiActor, { authKind: "restricted-ai" }>> {
   const match = authHeader?.match(/^Bearer\s+(tc_mcp_[A-Za-z0-9_-]{43})$/i);
   if (!match || resource !== getMcpResource()) unauthorized();
   await ready();
@@ -71,9 +84,22 @@ export async function authenticateMcpAccessToken(authHeader: string | null, reso
     tokenHash: digest(match[1]), resource,
     expiresAt: { $gt: new Date() }, revokedAt: { $exists: false },
   }).lean();
-  if (!grant) unauthorized();
+  if (!grant || (requireClient && !grant.oauthClientId)) unauthorized();
   const { scopes } = grantInput.parse({ clientId: grant.clientId, scopes: grant.scopes });
+  if (grant.oauthClientId) {
+    const client = await findRegisteredMcpClient(grant.oauthClientId);
+    if (grant.clientId !== grant.oauthClientId || !client?.authorizedAt || scopes.some((scope) => !client.authorizedScopes?.includes(scope))) unauthorized();
+  }
   return { authKind: "restricted-ai", actorLabel: `mcp-grant:${String(grant._id)}`, scopes };
+}
+
+export async function authenticateMcpAccessToken(authHeader: string | null, resource: string) {
+  return authenticateGrant(authHeader, resource, false);
+}
+
+export async function authenticateMcpOAuthAccessToken(authHeader: string | null, resource: string) {
+  if (process.env.MCP_OAUTH_ENABLED !== "true") unauthorized();
+  return authenticateGrant(authHeader, resource, true);
 }
 
 export async function revokeMcpAccessGrant(actor: ApiActor, grantId: string): Promise<void> {

@@ -12,7 +12,12 @@ export class HttpError extends Error {
   }
 }
 
-async function boundedText(request: Request): Promise<string> {
+async function boundedText(request: Request, maxBytes = MAX_JSON_BYTES): Promise<string> {
+  const contentLength = request.headers.get("content-length");
+  if (contentLength !== null) {
+    if (!/^\d+$/.test(contentLength)) throw new HttpError(400, "INVALID_CONTENT_LENGTH", "Content-Length 无效");
+    if (Number(contentLength) > maxBytes) throw new HttpError(413, "REQUEST_TOO_LARGE", "请求体过大");
+  }
   if (!request.body) return "";
   const reader = request.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -22,9 +27,9 @@ async function boundedText(request: Request): Promise<string> {
     if (done) break;
     if (!value) continue;
     total += value.byteLength;
-    if (total > MAX_JSON_BYTES) {
+    if (total > maxBytes) {
       await reader.cancel();
-      throw new HttpError(413, "REQUEST_TOO_LARGE", "请求体不能超过 2 MiB");
+      throw new HttpError(413, "REQUEST_TOO_LARGE", "请求体过大");
     }
     chunks.push(value);
   }
@@ -52,22 +57,30 @@ export function jsonError(error: unknown): Response {
   return Response.json({ error: { code: "INTERNAL_ERROR", message: "服务器暂时无法处理请求" } }, { status: 500, headers: PRIVATE_NO_STORE_HEADERS });
 }
 
-export async function readJson(request: Request): Promise<unknown> {
-  assertSameOrigin(request);
+export async function readJsonBody(request: Request, maxBytes = MAX_JSON_BYTES): Promise<unknown> {
   if (request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() !== "application/json") {
     throw new HttpError(415, "UNSUPPORTED_MEDIA_TYPE", "请求体必须使用 application/json");
   }
-  const contentLength = request.headers.get("content-length");
-  if (contentLength !== null) {
-    if (!/^\d+$/.test(contentLength)) throw new HttpError(400, "INVALID_CONTENT_LENGTH", "Content-Length 无效");
-    if (Number(contentLength) > MAX_JSON_BYTES) throw new HttpError(413, "REQUEST_TOO_LARGE", "请求体不能超过 2 MiB");
-  }
-  const body = await boundedText(request);
+  const body = await boundedText(request, maxBytes);
   try {
     return JSON.parse(body);
   } catch {
     throw new HttpError(400, "INVALID_JSON", "请求体必须是有效 JSON");
   }
+}
+
+export async function readFormBody(request: Request): Promise<Record<string, string>> {
+  if (request.headers.get("content-type")?.split(";", 1)[0].trim().toLowerCase() !== "application/x-www-form-urlencoded") {
+    throw new HttpError(415, "UNSUPPORTED_MEDIA_TYPE", "请求体必须使用 application/x-www-form-urlencoded");
+  }
+  const entries = [...new URLSearchParams(await boundedText(request, 16 * 1024))];
+  if (new Set(entries.map(([name]) => name)).size !== entries.length) throw new HttpError(400, "INVALID_FORM", "表单字段不能重复");
+  return Object.fromEntries(entries);
+}
+
+export async function readJson(request: Request): Promise<unknown> {
+  assertSameOrigin(request);
+  return readJsonBody(request);
 }
 
 export function assertSameOrigin(request: Request): void {

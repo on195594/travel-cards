@@ -50,7 +50,7 @@ describe("internal MCP access grant lifecycle (fake admin consent, isolated Mong
     const second = await issue();
     expect(grant.accessToken).toMatch(/^tc_mcp_[A-Za-z0-9_-]{43}$/);
     expect(second.accessToken).not.toBe(grant.accessToken);
-    expect(grant).toMatchObject({ resource: "https://travel.example.test/api/mcp", tokenType: "Bearer", expiresIn: 900, scopes });
+    expect(grant).toMatchObject({ resource: "https://travel.example.test/mcp", tokenType: "Bearer", expiresIn: 900, scopes });
     const row = await ownedDb().collection("mcp_access_grants").findOne({ _id: new mongoose.Types.ObjectId(grant.grantId) });
     expect(row!.tokenHash).toBe(createHash("sha256").update(grant.accessToken).digest("hex"));
     expect(JSON.stringify(row)).not.toContain(grant.accessToken);
@@ -79,7 +79,7 @@ describe("internal MCP access grant lifecycle (fake admin consent, isolated Mong
   });
 
   it("rejects self-reported roles, custom lifetime/resource and invalid client identifiers", async () => {
-    for (const extra of [{ authKind: "session" }, { expiresIn: 86400 }, { resource: "https://other.test/api/mcp" }]) {
+    for (const extra of [{ authKind: "session" }, { expiresIn: 86400 }, { resource: "https://other.test/mcp" }]) {
       await expect(issueMcpAccessGrant(admin, { clientId: "fake-registered-client", scopes, ...extra })).rejects.toMatchObject({ name: "ZodError" });
     }
     await expect(issueMcpAccessGrant(admin, { clientId: { $ne: null }, scopes })).rejects.toMatchObject({ name: "ZodError" });
@@ -96,7 +96,7 @@ describe("internal MCP access grant lifecycle (fake admin consent, isolated Mong
 
   it("binds tokens to the exact configured MCP resource, not probe, REST or another host", async () => {
     const grant = await issue();
-    for (const resource of ["https://travel.example.test/api/mcp-probe", "https://travel.example.test/api/guides", `${grant.resource}/`, "https://other.test/api/mcp"]) {
+    for (const resource of ["https://travel.example.test/api/mcp", "https://travel.example.test/api/mcp-probe", "https://travel.example.test/api/guides", `${grant.resource}/`, "https://other.test/mcp"]) {
       await expect(authenticateMcpAccessToken(`Bearer ${grant.accessToken}`, resource)).rejects.toMatchObject({ status: 401 });
     }
     vi.stubEnv("AUTH_URL", "https://other.test");
@@ -106,7 +106,7 @@ describe("internal MCP access grant lifecycle (fake admin consent, isolated Mong
   it("requires HTTPS except for loopback development", () => {
     for (const origin of ["http://localhost:3100", "http://127.0.0.1:3100", "http://[::1]:3100"]) {
       vi.stubEnv("AUTH_URL", origin);
-      expect(getMcpResource()).toBe(`${origin}/api/mcp`);
+      expect(getMcpResource()).toBe(`${origin}/mcp`);
     }
     vi.stubEnv("AUTH_URL", "http://travel.example.test");
     expect(() => getMcpResource()).toThrow("HTTPS");

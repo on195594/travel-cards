@@ -1,0 +1,11 @@
+你是真实 AGY CLI 内的独立只读审查员。审查当前隔离 source 的 Travel Cards OAuth + 业务 MCP 完整增量，源码清单 SHA-256 bb6d5a31eb8a76aff293abb1adad9571e8f03c57bce4ce738b8e9929d73d14d9，Git 基线 d0a1195（快照含未提交改动，不冒充 exact commit）。请阅读 SPEC.md / AGENTS.md 与完整相关调用路径。
+
+只读硬边界：只读本 source；不要修改文件、运行服务或测试、安装依赖、访问数据库/真实 Gemini/R2、读原仓库或其他目录、读取 .env/凭证、commit/push/deploy。这里没有私有环境、Git metadata、node_modules、历史审查或生产数据。不要从父目录 git diff 读 live 工作树。不要读取 ../*.log 或其他审查输出。模式 plan+sandbox；源文件前后哈希将核验，任何源码漂移都会使审查失效。
+
+范围：src/lib/mcp/{oauth-clients,oauth-authorizations,oauth-http,access-grants,guide-tools,http-server}.ts；对应 .well-known 和 /api/oauth、/api/mcp 路由；管理同意/撤销/登录 returnTo；src/auth.ts、能力、Guide 共享服务、结构化输入及版本冲突；测试、Dockerfile、生产 compose override 和 image-aware HTTP smoke。必要时扩展到源码内相连文件。
+
+核对重点：真实 session 的管理员同意及固定 Origin（不能豁免旧 Token 或 null Origin）；动态 DCR 的 none/basic/post 精确认证与摘要 secret；S256/状态/精确 URI、资源、scopes 和注册上界；短效意图/码原子单次消费与并发换码；客户端根撤销使码/令牌/意图失效，过期显式拒绝不依赖 TTL；MCP 只能使用 active 客户端授权的受限 opaque token，拒绝裸内部/旧 Token/Cookie/跨资源；role∩scopes 每次调用、create+publish 双能力；删除/撤回/上传/配置不可绕过，包括 REST；JSON-RPC 协议错误 vs isError 业务错误、409 不重试；实际 body 字节、Origin/Host、防泄密/XSS；部署只换 Web，明确不可变源码镜像，不影响共用 MongoDB/现有凭证，image smoke 是隔离库。
+
+父助手报告本快照已通过 263 tests、lint、TypeScript、production build、Compose 和完整本地 production HTTP OAuth/MCP smoke。这只是父助手报告，不是你的独立测试证据。当前待真实 AGY 门禁通过后构建/验证精确 Docker 镜像，再依据用户明确上线授权部署并启用 OAuth/MCP。只做公开只读 production smoke；没有真实 Gemini 网页/手机账号验收，真实客户端的写确认必须由用户验收。不把缺少人类账号证明视作代码 bug，也不称其已验收。未提供 refresh、SSE/session、tasks、Agent 框架、删除/上传/配置工具；这些是明确契约边界，不以缺失扩展功能报阻塞。
+
+第一行仅选一个判定 APPROVE / REQUEST_CHANGES / BLOCKED。每个 blocking finding 必须有严重性、确切 file:line、真实可复现调用路径/输入、后果、最小修复与应有测试。必须区分可证 bug 与猜测/非阻塞建议；无阻塞则明确无阻塞发现，列未验证门禁。只提交审查报告，不写补丁或修改代码。

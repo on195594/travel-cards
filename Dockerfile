@@ -13,6 +13,8 @@ RUN npm run build
 
 FROM node:24-alpine AS runner
 WORKDIR /app
+ARG SOURCE_SHA256=unknown
+LABEL win.keyi.travel-cards.source-sha256=$SOURCE_SHA256
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
     PORT=3000 \

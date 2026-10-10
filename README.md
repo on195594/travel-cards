@@ -4,14 +4,14 @@
 
 **当前实现**：管理员可编辑、发布、删除攻略、上传 R2 封面；应用内 Gemini + Google Search 只生成待采纳候选，通过普通保存流程持久化。现有受信任自动化 API Token 接口继续可用。
 
-**已批准、接入未完成**：首先面向 Gemini 网页和手机 App 的业务 MCP/OAuth；受限外部 AI 可创建、修改及直接发布，但不得删除或管理配置。内部权限、工具和短效令牌底座已实现，完整客户端接入和非敏感配置后台仍待完成。服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
+**服务端已上线、真实客户端待验收**：首先面向 Gemini 网页和手机 App 的业务 MCP/OAuth；受限外部 AI 可创建、修改及直接发布，但不得删除或管理配置。内部权限、工具、短效令牌及本地 OAuth/DCR/PKCE 同意撤销流程已实现，业务 MCP 已通过本轮门禁并部署，真实 Gemini 客户端验收和非敏感配置后台仍待完成。服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
 
 ## 当前状态
 
 - Next.js 16、Auth.js（支持管理后台 Session 与外部流程 Bearer API Token）、MongoDB、Guide CRUD/发布/撤回、Cloudflare R2 上传和 Gemini grounded assistant 已落地。
-- 仓库已实现显式能力守卫、五个攻略工具核心和短效受限令牌底座（提交 `7cc88f8`）。权限取角色与 scopes 交集，令牌只存摘要并绑定 MCP resource；没有公网签发或业务 MCP 入口。该提交的真实 AGY 审查为 `APPROVE`，见 [审查证据](./docs/reviews/agy-7cc88f8/closeout.md)，不代表完整 OAuth 或客户端验收通过。
-- 按 Gemini 官方原文采用 OAuth + DCR 方向；完整 DCR/PKCE/管理员同意、长期客户端授权撤销和业务 HTTP/协议 adapter 尚未完成。[认证决定](./docs/decisions/2026-10-09-gemini-mcp-auth.md) 记录实现细节，当前待办集中在 [接入路线图](./docs/roadmaps/ai-client-integration.md)。
-- 生产曾获授权部署固定数据探针：`https://travel.keyi.win/api/mcp-probe`。2026-10-10 只读核对首页 GET 200、探针 GET 405；当前镜像为 `travel-cards-web`，未标源提交，不能断言线上对应 `7cc88f8`。历史公网协议 smoke 不等于 Gemini 实际连接通过；现有镜像/旧回滚失效情况见接入路线图。
+- 仓库已实现显式能力守卫、五个攻略工具核心和短效受限令牌底座（提交 `7cc88f8`）。权限取角色与 scopes 交集，令牌只存摘要并绑定 MCP resource；该历史提交仅有内部签发，当前 OAuth 增量默认关闭，业务 MCP 入口已通过本轮门禁并在生产显式启用。该提交的真实 AGY 审查为 `APPROVE`，见 [审查证据](./docs/reviews/agy-7cc88f8/closeout.md)，不代表完整 OAuth 或客户端验收通过。
+- 按 Gemini 官方原文采用 OAuth + DCR 方向；发现、注册/限额、S256 PKCE、一次性授权码换令牌、管理员同意及客户端授权列表/撤销已本地实现，默认关闭。`npm run test:oauth` 验证本地 production HTTP 路径与三种客户端认证；业务 MCP HTTP/协议 adapter 已本地实现；扩展审查及服务端生产门禁已通过，真实 Gemini 双端验收仍待完成，见[发布证据](./docs/deployments/2026-10-10-oauth-mcp.md)。[认证决定](./docs/decisions/2026-10-09-gemini-mcp-auth.md) 记录实现细节，当前待办集中在 [接入路线图](./docs/roadmaps/ai-client-integration.md)。
+- 生产曾获授权部署固定数据探针：`https://travel.keyi.win/api/mcp-probe`。2026-10-10 只读核对首页 GET 200、探针 GET 405；当时镜像为 `travel-cards-web`，未标源提交，不能断言线上对应 `7cc88f8`。历史公网协议 smoke 不等于 Gemini 实际连接通过；现有镜像/旧回滚失效情况见接入路线图。
 - 架构路线图当前批次已完成本地验收：T0-01～07（T0-05/06 的生产与真实 R2 证明仍需单独授权）、T1-01/02A/03/04、T2-01/02/03；T1-02B 与 T3 未混入本批次。
 - 当前代码状态以本仓库工作树和下方验证命令为准；历史实现审查、测试及 provider smoke 证据见 [`docs/reviews/agy-final-implementation/closeout.md`](./docs/reviews/agy-final-implementation/closeout.md)。
 - 真实 Gemini grounded structured-output smoke 与 R2 S3 上传/读回/删除 smoke 均已通过；R2 使用现有私有备份 bucket 验证传输，旅行图片专用 bucket/public base 仍需部署时配置。
@@ -41,6 +41,7 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 - `AUTH_SECRET`：至少 32 个字符
 - `ADMIN_EMAIL`
 - `HERMES_API_TOKEN`：Hermes 等外部流程调用 API 的 Bearer Token（至少 16 字符，可选；兼容读取旧变量名 `API_TOKEN`）
+- `MCP_OAUTH_ENABLED`：默认关闭；控制本地 OAuth 发现/注册/授权/换码及管理员同意/撤销页面。业务 MCP 已本地实现；生产启用须通过扩展审查与上线门禁；开启不代表 Gemini 已接入
 - `MONGODB_URI`（Compose 使用 Meemo 共用的 `mongodb` 服务）
 - R2 与 Gemini 变量；未配置时只有对应操作不可用，已有攻略浏览不受影响
 
@@ -50,7 +51,20 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 
 配置 `HERMES_API_TOKEN`（至少 16 字符；服务端也兼容读取 `API_TOKEN`）后，受信任自动化流水线（如 Hermes）可通过 HTTP 请求头携带 `Authorization: Bearer <TOKEN>` 调用管理接口（如 `GET /api/guides?scope=admin`、`POST /api/guides`、`PATCH /api/guides/[id]`、发布/撤回与图片上传），无需浏览器 Cookie 且豁免同源限制；创建攻略时若指定 `publish: true` 且满足完整性校验可直接发布。
 
-**注意**：这是现有管理员等价凭证，Token 删除攻略接口按用户确认继续保留。受限 AI 身份、MCP 与配置后台尚未实现，不要把本节的凭证交给外部 AI 来满足“不允许删除”的产品目标。
+**注意**：这是现有管理员等价凭证，Token 删除攻略接口按用户确认继续保留。受限凭证及业务 MCP 服务端已部署，但真实客户端验收待完成，配置后台尚未完成，不要把本节的凭证交给外部 AI 来满足“不允许删除”的产品目标。
+
+## REST / MCP 路由边界
+
+- `/api/*`：REST API，保留攻略、上传、OAuth 等现有路径。
+- `/mcp`：唯一正式 MCP 入口，资源元数据为 `/.well-known/oauth-protected-resource/mcp`。
+- 本轮迁移不保留 `/api/mcp` 别名或旧路径式元数据；旧资源的意图、授权码和令牌失效，客户端需重新授权。固定数据 `/api/mcp-probe` 不变。
+- 路由迁移已获用户确认并上线：正式接入地址 `https://travel.keyi.win/mcp`，见[当前发布及回滚证据](./docs/deployments/2026-10-10-mcp-route.md)。历史发布/审查证据不改写。
+
+## 已审查镜像的生产发布
+
+本轮按独立源码快照构建，不要求 commit/push；禁止把 dirty 工作树自动混入后续部署。镜像使用 `win.keyi.travel-cards.source-sha256` 标识冻结的实际源码，不将 Git HEAD 当作该未提交快照的版本。
+
+`docker-compose.production.yml` 显式选择已经通过审查/隔离验证的不可变镜像；用 `--no-deps --no-build --pull never web` 只替换 Web，不改共用 MongoDB或凭证。新功能默认关闭；生产启用需要本轮上线授权，真实 Gemini 验收由管理员自行完成。部署记录必须保存源清单、审查、镜像、原镜像/开关及公开 smoke；回滚复用原镜像和开关。不要用旧 `deploy.sh` 覆盖这一固定镜像发布。
 
 ## Docker 运行
 

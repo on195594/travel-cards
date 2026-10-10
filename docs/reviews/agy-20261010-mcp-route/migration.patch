@@ -1,0 +1,449 @@
+--- a/PRODUCT.md
++++ b/PRODUCT.md
+@@ -16,7 +16,7 @@
+ 
+ Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻略从对话中的建议变为结构化、可修改、可分享的逐日行程，并保持清楚的权限与来源边界。
+ 
+-成功标准是读者能找到并读懂攻略，管理员和授权 AI 能更新同一份内容。管理员及现有受信任自动化 Token 保留删除能力；受限 AI 身份不得删除或管理配置。权限、工具、短效令牌及本地 OAuth 同意撤销已实现，业务 MCP 也已本地实现，但生产门禁、真实外部客户端接入及配置后台未完成，不能据此宣称已上线。
++成功标准是读者能找到并读懂攻略，管理员和授权 AI 能更新同一份内容。管理员及现有受信任自动化 Token 保留删除能力；受限 AI 身份不得删除或管理配置。权限、工具、短效令牌及本地 OAuth 同意撤销已实现，业务 MCP 服务端也已通过本轮门禁上线，但真实外部客户端验收及配置后台未完成，不能宣称已连接 Gemini。
+ 
+ ## Positioning
+ 
+@@ -25,7 +25,8 @@
+ ## Operating Context
+ 
+ - 已有 Next.js 应用、管理员后台、公开页面、MongoDB 持久化、R2 图片上传与服务端 Gemini 助手。
+-- 现有 Bearer API Token 接口保留；MCP 固定数据探针已部署，内部攻略工具、受限令牌与本地 OAuth/DCR/PKCE 已实现，业务 MCP 已本地实现，生产与真实客户端验收仍待完成。
++- 路由边界：`/api/*` 是现有 REST API，正式 MCP 独立位于 `/mcp`；迁移旧 `/api/mcp` 后需重新授权，不保留业务别名。
++- 现有 Bearer API Token 接口保留；MCP 固定数据探针已部署，内部攻略工具、受限令牌与本地 OAuth/DCR/PKCE 已实现，业务 MCP 服务端已上线，真实客户端验收仍待完成。
+ - Gemini 网页／手机 App 是首个验收目标，但客户端地区、账号及认证支持需单独验收，不能用 Gemini API 或 CLI 测试替代。
+ - 产品契约以 `SPEC.md` 为准。代码优先的构建默认记录在 `.impeccable/config.json`，不是产品权限或平台设置。
+ 
+@@ -46,7 +47,7 @@
+ 
+ ### 尚未实现或决定
+ 
+-- 本地 OAuth/DCR/PKCE、管理员同意及客户端授权撤销界面已实现并默认关闭；业务 MCP HTTP 入口已本地实现；扩展审查、生产门禁、真实客户端联调和非敏感配置后台尚未完成。本地授权闭环不等于 Gemini 正式接入。
++- 本地 OAuth/DCR/PKCE、管理员同意及客户端授权撤销界面已实现并默认关闭；业务 MCP HTTP 入口已通过扩展审查与服务端生产门禁；真实客户端联调和非敏感配置后台尚未完成。本地授权闭环不等于 Gemini 正式接入。
+ - 现有 Token 是管理员等价的自动化凭证，仍可删除；不能交给外部 AI 来满足上述受限权限目标。
+ - 是否允许外部 AI 撤回、上传图片，配置字段清单，以及 Gemini 账号实际可用性待接入阶段确定。
+ - MCP 只复用应用接口和业务规则，不让模型直接访问数据库；不引入 Agent 框架或多用户发布，不另建语义重复的内容集合。令牌授权记录不是第二套 Card 模型。
+--- a/README.md
++++ b/README.md
+@@ -4,13 +4,13 @@
+ 
+ **当前实现**：管理员可编辑、发布、删除攻略、上传 R2 封面；应用内 Gemini + Google Search 只生成待采纳候选，通过普通保存流程持久化。现有受信任自动化 API Token 接口继续可用。
+ 
+-**已批准、接入未完成**：首先面向 Gemini 网页和手机 App 的业务 MCP/OAuth；受限外部 AI 可创建、修改及直接发布，但不得删除或管理配置。内部权限、工具、短效令牌及本地 OAuth/DCR/PKCE 同意撤销流程已实现，业务 MCP 已本地实现，生产上线门禁、真实客户端接入和非敏感配置后台仍待完成。服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
++**服务端已上线、真实客户端待验收**：首先面向 Gemini 网页和手机 App 的业务 MCP/OAuth；受限外部 AI 可创建、修改及直接发布，但不得删除或管理配置。内部权限、工具、短效令牌及本地 OAuth/DCR/PKCE 同意撤销流程已实现，业务 MCP 已通过本轮门禁并部署，真实 Gemini 客户端验收和非敏感配置后台仍待完成。服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
+ 
+ ## 当前状态
+ 
+ - Next.js 16、Auth.js（支持管理后台 Session 与外部流程 Bearer API Token）、MongoDB、Guide CRUD/发布/撤回、Cloudflare R2 上传和 Gemini grounded assistant 已落地。
+-- 仓库已实现显式能力守卫、五个攻略工具核心和短效受限令牌底座（提交 `7cc88f8`）。权限取角色与 scopes 交集，令牌只存摘要并绑定 MCP resource；该历史提交仅有内部签发，当前 OAuth 增量默认关闭，业务 MCP 入口已本地实现，生产启用仍须通过本轮门禁。该提交的真实 AGY 审查为 `APPROVE`，见 [审查证据](./docs/reviews/agy-7cc88f8/closeout.md)，不代表完整 OAuth 或客户端验收通过。
+-- 按 Gemini 官方原文采用 OAuth + DCR 方向；发现、注册/限额、S256 PKCE、一次性授权码换令牌、管理员同意及客户端授权列表/撤销已本地实现，默认关闭。`npm run test:oauth` 验证本地 production HTTP 路径与三种客户端认证；业务 MCP HTTP/协议 adapter 已本地实现；扩展审查、生产上线门禁与真实 Gemini 双端验收仍待完成。[认证决定](./docs/decisions/2026-10-09-gemini-mcp-auth.md) 记录实现细节，当前待办集中在 [接入路线图](./docs/roadmaps/ai-client-integration.md)。
++- 仓库已实现显式能力守卫、五个攻略工具核心和短效受限令牌底座（提交 `7cc88f8`）。权限取角色与 scopes 交集，令牌只存摘要并绑定 MCP resource；该历史提交仅有内部签发，当前 OAuth 增量默认关闭，业务 MCP 入口已通过本轮门禁并在生产显式启用。该提交的真实 AGY 审查为 `APPROVE`，见 [审查证据](./docs/reviews/agy-7cc88f8/closeout.md)，不代表完整 OAuth 或客户端验收通过。
++- 按 Gemini 官方原文采用 OAuth + DCR 方向；发现、注册/限额、S256 PKCE、一次性授权码换令牌、管理员同意及客户端授权列表/撤销已本地实现，默认关闭。`npm run test:oauth` 验证本地 production HTTP 路径与三种客户端认证；业务 MCP HTTP/协议 adapter 已本地实现；扩展审查及服务端生产门禁已通过，真实 Gemini 双端验收仍待完成，见[发布证据](./docs/deployments/2026-10-10-oauth-mcp.md)。[认证决定](./docs/decisions/2026-10-09-gemini-mcp-auth.md) 记录实现细节，当前待办集中在 [接入路线图](./docs/roadmaps/ai-client-integration.md)。
+ - 生产曾获授权部署固定数据探针：`https://travel.keyi.win/api/mcp-probe`。2026-10-10 只读核对首页 GET 200、探针 GET 405；当前镜像为 `travel-cards-web`，未标源提交，不能断言线上对应 `7cc88f8`。历史公网协议 smoke 不等于 Gemini 实际连接通过；现有镜像/旧回滚失效情况见接入路线图。
+ - 架构路线图当前批次已完成本地验收：T0-01～07（T0-05/06 的生产与真实 R2 证明仍需单独授权）、T1-01/02A/03/04、T2-01/02/03；T1-02B 与 T3 未混入本批次。
+ - 当前代码状态以本仓库工作树和下方验证命令为准；历史实现审查、测试及 provider smoke 证据见 [`docs/reviews/agy-final-implementation/closeout.md`](./docs/reviews/agy-final-implementation/closeout.md)。
+@@ -51,7 +51,14 @@
+ 
+ 配置 `HERMES_API_TOKEN`（至少 16 字符；服务端也兼容读取 `API_TOKEN`）后，受信任自动化流水线（如 Hermes）可通过 HTTP 请求头携带 `Authorization: Bearer <TOKEN>` 调用管理接口（如 `GET /api/guides?scope=admin`、`POST /api/guides`、`PATCH /api/guides/[id]`、发布/撤回与图片上传），无需浏览器 Cookie 且豁免同源限制；创建攻略时若指定 `publish: true` 且满足完整性校验可直接发布。
+ 
+-**注意**：这是现有管理员等价凭证，Token 删除攻略接口按用户确认继续保留。受限凭证及业务 MCP 已本地实现，但生产验收待完成，配置后台尚未完成，不要把本节的凭证交给外部 AI 来满足“不允许删除”的产品目标。
++**注意**：这是现有管理员等价凭证，Token 删除攻略接口按用户确认继续保留。受限凭证及业务 MCP 服务端已部署，但真实客户端验收待完成，配置后台尚未完成，不要把本节的凭证交给外部 AI 来满足“不允许删除”的产品目标。
++
++## REST / MCP 路由边界
++
++- `/api/*`：REST API，保留攻略、上传、OAuth 等现有路径。
++- `/mcp`：唯一正式 MCP 入口，资源元数据为 `/.well-known/oauth-protected-resource/mcp`。
++- 本轮迁移不保留 `/api/mcp` 别名或旧路径式元数据；旧资源的意图、授权码和令牌失效，客户端需重新授权。固定数据 `/api/mcp-probe` 不变。
++- 路由迁移已获用户确认，上线状态以本轮发布记录为准，历史发布/审查证据不改写。
+ 
+ ## 已审查镜像的生产发布
+ 
+--- a/SPEC.md
++++ b/SPEC.md
+@@ -1,6 +1,6 @@
+ # Travel Cards MVP Specification
+ 
+-- **状态**：核心应用已实现；MCP 权限/工具/令牌底座及本地 OAuth/DCR/PKCE 同意撤销流程已实现，业务 MCP 已本地实现，生产上线门禁、真实客户端验收及配置后台未完成；生产状态以 README 的实测记录为准
++- **状态**：核心应用已实现；MCP 权限/工具/令牌底座及本地 OAuth/DCR/PKCE 同意撤销流程已实现，业务 MCP 服务端已通过本轮门禁上线，真实客户端验收及配置后台未完成；生产状态以 README 的实测记录为准
+ - **更新日期**：2026-10-10
+ - **项目根目录**：`/home/lin/travel-cards`
+ - **产品语言**：首版中文界面与中文内容
+@@ -58,16 +58,16 @@
+ - 保留 3.2 的现有 API Token 接口，**包括有效 Token 调用 DELETE 删除攻略的能力**，不因后续 MCP 接入而移除。新增 MCP 使用独立受限 AI 身份；外部客户端只通过受鉴权应用接口调用共享 Guide 业务规则，不直接访问 MongoDB。
+ - 受限外部 AI 身份允许读取、创建、修改及直接发布攻略；发布仍须通过现有完整性、slug 唯一性及 revision 校验，不额外要求管理员在应用内审核。不得绕过客户端自身的写入确认。
+ - 外部 AI 禁止删除攻略或修改应用配置；管理员保留删除及配置管理权限。外部 AI 是否可撤回或上传图片，需另行明确，未明确前不开放。
+-- **现状缺口**：当前 API Token 属于管理员等价凭证，仍可调用 DELETE；管理 API 尚未接入受限 AI 认证。能力守卫、短效令牌及 OAuth/DCR/PKCE 管理员同意/撤销已本地实现并默认关闭；业务 MCP HTTP adapter 已本地实现；上线门禁与真实客户端验收尚未完成。新增业务 MCP 或向外部 AI 开放凭证前，必须落实服务端能力隔离并验证禁止操作；只不展示删除工具不能满足权限要求。
++- **现状缺口**：当前 API Token 属于管理员等价凭证，仍可调用 DELETE；管理 API 尚未接入受限 AI 认证。能力守卫、短效令牌及 OAuth/DCR/PKCE 管理员同意/撤销已本地实现并默认关闭；业务 MCP HTTP adapter 已通过本轮门禁上线；真实客户端验收尚未完成。新增业务 MCP 或向外部 AI 开放凭证前，必须落实服务端能力隔离并验证禁止操作；只不展示删除工具不能满足权限要求。
+ - 首个客户端目标为 Gemini 网页及手机 App，不能用 Gemini API / CLI 联调代替。账号、地区、语言、服务端认证与客户端兼容性均需真实验收，详见 `docs/roadmaps/ai-client-integration.md`。
+-- 认证实现按 Gemini 官方帮助支持的 OAuth + Dynamic Client Registration（DCR）方向推进，不再以用户逐屏截图为开发前置条件。DCR 注册不授予攻略权限，仍需管理员同意客户端授权、精确 resource/audience 与 scopes 校验及服务端撤销；不能复用管理员 Token。方向与实现状态见 `docs/decisions/2026-10-09-gemini-mcp-auth.md`，本地授权服务器与业务 MCP 已实现，但生产上线门禁与 Gemini 实际握手未验收，不能据此开放业务 MCP。
++- 认证实现按 Gemini 官方帮助支持的 OAuth + Dynamic Client Registration（DCR）方向推进，不再以用户逐屏截图为开发前置条件。DCR 注册不授予攻略权限，仍需管理员同意客户端授权、精确 resource/audience 与 scopes 校验及服务端撤销；不能复用管理员 Token。方向与实现状态见 `docs/decisions/2026-10-09-gemini-mcp-auth.md`，授权服务器与业务 MCP 已实现并上线，但 Gemini 实际握手未验收，不能据此开放业务 MCP。
+ 
+ #### 3.3.1 受限访问令牌底座
+ 
+ - 内部签发/撤销函数仅接受已认证管理员 Session；默认关闭的 `/api/oauth/token` 仅从已验证客户端注册、管理员明确同意、S256 PKCE 与一次性授权码流程签发，不能仅凭客户端自报标识、Cookie 或旧管理员 Token 获得令牌。
+ - 访问令牌为服务端生成的随机、短效、opaque 凭证（15 分钟），数据库仅存 SHA-256 摘要、client ID、授权 scopes、精确资源 URI 和过期/撤销状态；明文仅在签发返回值中提供一次，不进入日志或模型提示词。这是动态授权产物，不改变环境变量管理既有管理员 API Token/第三方密钥的规则。
+ - scopes 仅限 `guide.read/create/update/publish`，按实际授权取子集；读取为工具发现所需的基础 scope。缺少或不匹配 scopes 默认拒绝，不因 `restricted-ai` 角色自动获得全部批准能力。
+-- 令牌绑定由服务端 `AUTH_URL` 确定的正式 `/api/mcp` 资源，不接受任意客户端 resource，不用于公开探针或管理员 REST。正式 OAuth 认证逐次查询有效令牌及 active 客户端授权，拒绝裸内部令牌；TTL 清理延迟不能延长权限。撤销阻止其后开始的认证，不能取消已通过认证的在途操作。
++- 令牌绑定由服务端 `AUTH_URL` 确定的正式 `/mcp` 资源，不接受任意客户端 resource，不用于公开探针或管理员 REST。正式 OAuth 认证逐次查询有效令牌及 active 客户端授权，拒绝裸内部令牌；TTL 清理延迟不能延长权限。撤销阻止其后开始的认证，不能取消已通过认证的在途操作。
+ - 不提供 refresh token；fake 客户端与隔离 MongoDB 测试不能代替 Gemini 双端验收。内部签发函数不等于可直接向外部客户端授权，正式接入须满足下节。
+ 
+ #### 3.3.2 本批 OAuth / MCP 闭环契约（已批准，实施中）
+@@ -76,7 +76,8 @@
+ - DCR 支持 public `none` 及 `client_secret_basic` / `client_secret_post`；缺省按注册规范使用 basic。动态 secret 仅签发时返回，数据库仅存摘要。注册不授权内容；注册入口限制实际请求体与每小时全局配额，注册和授权记录最多保留 30 天，过期查询必须显式拒绝。
+ - 管理员在登录后看到未验证客户端名称、精确回调地址与权限，明确同意后才生成一次性 5 分钟授权码。确认意图同样短效、单次消费且服务器存储；表单不能自报 scopes、角色或客户端。所有同意/撤销 POST 校验管理员 Session 与固定服务端同源，旧管理员 Token 不能代替同意。
+ - 客户端撤销持久化并统一使其已有授权码、令牌及尚未确认的授权意图失效；已撤销客户端需重新注册并获得明确同意。并发换码最多成功一次，撤销阻止后续认证，不取消已认证的在途工作。
+-- 正式 `/api/mcp` 仅接受已批准、绑定 active 客户端授权的受限令牌，不接受裸内部令牌、管理员 Token 或 Cookie。发现、注册、授权/换码、业务 MCP 由环境开关 `MCP_OAUTH_ENABLED=true` 启用，默认关闭；无效令牌 401、权限不足 403 并提供标准 discovery challenge，409 等业务错误保留原代码且不自动重试。
++- 路由边界（2026-10-10 用户确认）：`/api/*` 保留 REST API（含 `/api/oauth/*`），`/mcp` 为唯一正式业务 MCP 入口；路径式资源元数据为 `/.well-known/oauth-protected-resource/mcp`。不保留旧 `/api/mcp` 或旧路径式元数据别名，不重写既有授权记录；旧 resource 的意图、授权码和令牌须拒绝，客户端重新授权。公开 `/api/mcp-probe` 保持独立且不变。
++- 正式 `/mcp` 仅接受已批准、绑定 active 客户端授权的受限令牌，不接受裸内部令牌、管理员 Token 或 Cookie。发现、注册、授权/换码、业务 MCP 由环境开关 `MCP_OAUTH_ENABLED=true` 启用，默认关闭；无效令牌 401、权限不足 403 并提供标准 discovery challenge，409 等业务错误保留原代码且不自动重试。
+ - 本批增加管理员授权列表/撤销和授权同意页面，复用既有样式。OAuth 不要求逐篇发布审批；外部 AI 的操作范围仍仅 Guide read/create/update/publish。
+ - 先完成本地 fake 客户端完整流程、输入/重放/并发/撤销/跨资源/REST 绕过回归及 AGY 审查。生产部署、开关启用、真实账号和 Gemini 双端验收需单独授权，不修改既有生产凭证。
+ 
+@@ -270,7 +271,7 @@
+ - Markdown 或结构化正文渲染必须防止脚本注入；不允许未经净化的 HTML。
+ - AI 请求不得接收任意系统提示词或工具定义；用户内容作为不可信数据处理。
+ - 公开页面不得泄露草稿、内部错误、模型提示词、凭证或原始供应商响应。
+-- 当前删除、发布、撤回属于显式管理员操作或 3.2 受信任 Token 的显式调用；应用内 Gemini 助手无权调用。3.3 的外部 AI 身份可以显式发布，但不得删除或管理配置；受限能力底座已实现；业务 MCP 已覆盖本地端到端禁止操作验证；扩展审查与上线门禁仍是生产启用的 blocker。
++- 当前删除、发布、撤回属于显式管理员操作或 3.2 受信任 Token 的显式调用；应用内 Gemini 助手无权调用。3.3 的外部 AI 身份可以显式发布，但不得删除或管理配置；受限能力底座已实现；业务 MCP 已覆盖本地端到端禁止操作验证；扩展审查与服务端上线门禁已通过；真实 Gemini 客户端验收仍待完成。
+ 
+ ## 9. 非目标
+ 
+@@ -376,6 +377,6 @@
+ 
+ 核心应用及历史 Gemini/R2 传输 smoke 已完成，UI 精修已部署。真实服务当前配置和外网可用性不由历史 smoke 推定。
+ 
+-已批准 3.3 的产品方向：保留 API Token、增加 MCP、允许受限外部 AI 创建/修改/直接发布、禁止其删除/配置管理，并由管理员管理非敏感配置。内部权限/工具/令牌底座及本地 OAuth/DCR/PKCE 同意撤销已实现，业务端点已本地实现，扩展审查、上线门禁、Gemini 实际握手与配置后台仍待完成；当前实现和证据入口见 README 及接入路线图，不将早期产品初始化或内部测试当作客户端集成验收。
++已批准 3.3 的产品方向：保留 API Token、增加 MCP、允许受限外部 AI 创建/修改/直接发布、禁止其删除/配置管理，并由管理员管理非敏感配置。内部权限/工具/令牌底座及本地 OAuth/DCR/PKCE 同意撤销已实现，业务端点已通过扩展审查并上线，Gemini 实际握手与配置后台仍待完成；当前实现和证据入口见 README 及接入路线图，不将早期产品初始化或内部测试当作客户端集成验收。
+ 
+ 创建远端资源、修改凭证、部署、付费调用和外部写入仍需对应操作的明确授权。后续超出上述边界的新产品功能，必须先修订并确认本 spec。
+--- a/docs/decisions/2026-10-09-gemini-mcp-auth.md
++++ b/docs/decisions/2026-10-09-gemini-mcp-auth.md
+@@ -1,6 +1,6 @@
+ # Gemini Apps MCP：以官方文档驱动接入
+ 
+-初始日期：2026-10-09；更新：2026-10-10。状态：Guide 工具核心、短效令牌及默认关闭的本地 OAuth/DCR/PKCE 同意撤销流程已实现；业务 MCP HTTP endpoint 已本地实现；扩展审查、生产门禁与真实 Gemini 验收待完成。本文不是新一轮生产部署或凭证变更授权。
++初始日期：2026-10-09；更新：2026-10-10。状态：Guide 工具核心、短效令牌及默认关闭的本地 OAuth/DCR/PKCE 同意撤销流程已实现；业务 MCP HTTP endpoint 已通过真实 AGY 扩展审查并上线；真实 Gemini 验收待完成（见发布记录）。本文不是新一轮生产部署或凭证变更授权。
+ 
+ ## 官方依据与提取纠正
+ 
+--- a/docs/roadmaps/ai-client-integration.md
++++ b/docs/roadmaps/ai-client-integration.md
+@@ -22,9 +22,9 @@
+ | 连接探针 | `/api/mcp-probe` 固定数据工具及公开部署记录 | 不提供认证或业务能力，不替代 Gemini 双端验收 |
+ | 非敏感配置后台 | 管理员专属能力策略 | 字段清单、存储与管理界面 |
+ 
+-`restricted-ai` 的有效权限为角色上界与实际 scopes 的交集。缺少 scopes 默认拒绝；发现工具时过滤并不替代调用时鉴权。内部令牌仅绑定 `AUTH_URL` 对应的 `/api/mcp`；每次认证查询过期/撤销状态，不依赖 TTL 及时删除。内部撤销针对短效记录；新客户端撤销统一阻止其令牌、授权码和未确认意图的后续使用，但不能取消已认证的在途操作，也不代表真实 Google 账号关联已验收。当前没有 refresh token。
++`restricted-ai` 的有效权限为角色上界与实际 scopes 的交集。缺少 scopes 默认拒绝；发现工具时过滤并不替代调用时鉴权。当前令牌仅绑定 `AUTH_URL` 对应的 `/mcp`（本轮从旧 `/api/mcp` 迁移，需重新授权）；每次认证查询过期/撤销状态，不依赖 TTL 及时删除。内部撤销针对短效记录；新客户端撤销统一阻止其令牌、授权码和未确认意图的后续使用，但不能取消已认证的在途操作，也不代表真实 Google 账号关联已验收。当前没有 refresh token。
+ 
+-内部底座已提交至 `7cc88f8`；该提交获得真实 AGY 的 **APPROVE**，证据见 [审查记录](../reviews/agy-7cc88f8/closeout.md)。后续 DCR/OAuth 增量不在该审查范围内，未部署；不能将历史审查当作 OAuth 接入通过。
++内部底座已提交至 `7cc88f8`；该提交获得真实 AGY 的 **APPROVE**，证据见 [审查记录](../reviews/agy-7cc88f8/closeout.md)。后续 DCR/OAuth 增量不在该历史审查范围内；本轮另获扩展审查并已部署，仍不能将历史审查当作 OAuth 接入通过。
+ 
+ ## Gemini 官方能力与约束
+ 
+@@ -69,7 +69,7 @@
+ - `/admin/oauth` 只显示已经明确授权的客户端，提供 `POST /api/oauth/revoke-client`。撤销持久化于客户端根状态，每次读取意图、换码及正式令牌认证都复查；注册/授权仍最多 30 天，TTL 不延长权限。已撤销客户端必须重新注册并获得同意。
+ - 同意/撤销必须是管理员 Session + 固定 Origin，旧管理员 Token、缺失/`null` Origin 和伪造 Host 不可豁免。HTML 管理页使用 `same-origin` referrer 以保留原生 POST 的 Origin；外部回调响应仍 `no-referrer`。浏览器中过期/重复确认返回可恢复的失效页，不重放授权。
+ - 所有新入口默认关闭；正式认证函数 `authenticateMcpOAuthAccessToken` 也受开关控制，拒绝 Cookie、管理员 Token、裸内部令牌与失效客户端关联。原管理员 REST 不接受 OAuth 令牌，原 Token CRUD/发布/删除保持兼容。
+-- **尚未完成**：业务 `/api/mcp`、401 discovery challenge、工具协议/业务错误映射、真实 Gemini 账号及双端验证、扩展 AGY 审查。发现元数据和本地换码成功不是业务接入成功；生产开关保持关闭。
++- **该 OAuth 子批当时未完成**：业务 `/api/mcp`、401 discovery challenge、工具协议/业务错误映射、扩展 AGY 审查，生产开关保持关闭。上述服务端项已在下一业务批补齐并上线；真实 Gemini 账号及双端验证仍未完成，发现/换码成功不代表真实客户端成功。
+ 
+ 验证入口：`npm test`、`npm run lint`、`scripts/build-with-test-env.sh`、`docker compose config`、`npm run test:oauth`。本轮 19 个文件、255 项测试通过；lint、类型检查、构建、Compose 通过。HTTP smoke 使用隔离 MongoDB和仅本地有效的合成 Auth.js Session，三种认证方法、PKCE、回放/撤销、原 Token CRUD/发布/删除及 OAuth REST 拒绝均通过，不调用 Gemini/R2，不跟随外部回调。
+ 
+@@ -77,11 +77,15 @@
+ 
+ ## 业务 MCP 与上线批次（2026-10-10）
+ 
+-`POST /api/mcp` 提供无状态 Streamable HTTP 的 JSON 响应，支持三版协议协商、初始化/通知/ping 和五个攻略工具。GET/DELETE 不建立 SSE/session，有效身份得到 405；无身份返回 401 discovery challenge。提供 Origin 时只接受固定服务端同源；不依赖请求 Host，不接受管理员 Cookie、旧 API Token 或裸内部令牌。
++`POST /mcp` 提供无状态 Streamable HTTP 的 JSON 响应，支持三版协议协商、初始化/通知/ping 和五个攻略工具。GET/DELETE 不建立 SSE/session，有效身份得到 405；无身份返回 401 discovery challenge。提供 Origin 时只接受固定服务端同源；不依赖请求 Host，不接受管理员 Cookie、旧 API Token 或裸内部令牌。
+ 
+ 401 challenge 声明四项攻略 scopes，供首个客户端明确申请完整维护权限；已发只读令牌仍只发现两个读工具。403 step-up 列出调用所需最小 scopes（包含 read；创建并直接发布还含 publish）。未知方法/工具使用 JSON-RPC 错误；业务/校验错误返回 `isError: true`，结构中保留 409 与 REVISION_CONFLICT。JSON 请求上限 2 MiB，无 id 的工具调用禁止执行，冲突/失败不自动重试。探针保持固定数据，未增加删除、撤回、上传或配置工具。
+ 
+-上线使用无凭证的隔离源码快照、真实 AGY 只读审查、带源码 SHA-256 标签的不可变 Docker 镜像和该镜像的隔离 HTTP 验证。`docker-compose.production.yml` 必须显式选定镜像，默认不启用 MCP。部署只替换 Web；旧镜像和原开关状态作为回滚目标，生产 smoke 只做公开/未授权只读检查，不签发临时生产凭证或修改攻略。当前部署结果另行记录，不将本段当作已上线证据。
++上线使用无凭证的隔离源码快照、真实 AGY 只读审查、带源码 SHA-256 标签的不可变 Docker 镜像和该镜像的隔离 HTTP 验证。`docker-compose.production.yml` 必须显式选定镜像，默认不启用 MCP。部署只替换 Web；旧镜像和原开关状态作为回滚目标，生产 smoke 只做公开/未授权只读检查，不签发临时生产凭证或修改攻略。本轮服务端已通过门禁部署并显式启用，见[发布及回滚记录](../deployments/2026-10-10-oauth-mcp.md)；真实 Gemini 双端验收仍 NOT_RUN。
++
++## 路由迁移（2026-10-10 用户确认）
++
++REST 保留 `/api/*`，正式 MCP 迁至 `/mcp`，路径式元数据迁至 `/.well-known/oauth-protected-resource/mcp`；根资源元数据保持可用，OAuth endpoints 不变。旧 `/api/mcp` 与旧路径式元数据返回 404，不建立跳转/别名，也不改写旧授权记录的 resource。旧意图、码、令牌拒绝；客户端重新授权。历史源清单、审查和发布记录仍保留当时的旧路径。
+ 
+ ## 实施顺序与验收
+ 
+@@ -89,4 +93,4 @@
+ 2. **扩展审查与部署/Gemini 双端验收**：权限、输入、脱敏日志及授权撤销全部通过后，另行授权部署。由用户完成必要的账号授权；网页/原生手机调用、发布确认、冲突和来源展示均保留真实证据。
+ 3. **非敏感配置管理**：字段确认后增加管理员专属界面及服务端检查，不展示或修改环境凭证。
+ 
+-默认测试使用隔离 MongoDB 和 fake 身份/transport，不依赖真实 Gemini/R2。本地 OAuth 与业务 MCP 已完成上述闭环；扩展审查、生产上线门禁和真实双端验收仍 **pending**，未满足门槛前不开放业务写入。
++默认测试使用隔离 MongoDB 和 fake 身份/transport，不依赖真实 Gemini/R2。本地 OAuth 与业务 MCP 已完成上述闭环；扩展审查与服务端上线门禁已通过；真实双端验收仍 **pending**；生产仅允许管理员明确 OAuth 同意的受限身份按 scopes 写入，不将真实账号验收标为通过。
+--- a/scripts/oauth-http-smoke.mjs
++++ b/scripts/oauth-http-smoke.mjs
+@@ -12,7 +12,7 @@
+ const jwt = await encode({ token: { sub: "admin", email: "admin@example.test", name: "Fake smoke admin" }, secret: "test-only-secret-that-is-at-least-32-characters", salt: cookieName, maxAge: 600 });
+ const session = { cookie: `${cookieName}=${jwt}` };
+ const callbackUri = "https://fake-client.example.test/callback";
+-const resource = base + "/api/mcp";
++const resource = base + "/mcp";
+ async function send(path, options = {}) {
+   const response = await fetch(base + path, { ...options, redirect: "manual" });
+   assert.match(response.headers.get("cache-control") ?? "", /no-store/, path);
+@@ -21,13 +21,17 @@
+ function post(path, body, headers = {}) {
+   return send(path, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", ...headers }, body: new URLSearchParams(body) });
+ }
+-const anonymousMcp = await send("/api/mcp");
++for (const oldPath of ["/api/mcp", "/.well-known/oauth-protected-resource/api/mcp"]) {
++  assert.equal((await fetch(base + oldPath, { redirect: "manual" })).status, 404, oldPath);
++}
++assert.equal((await fetch(base + "/api/mcp", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" })).status, 404);
++const anonymousMcp = await send("/mcp");
+ assert.equal(anonymousMcp.status, 401);
+-assert.match(anonymousMcp.headers.get("www-authenticate") ?? "", /oauth-protected-resource\/api\/mcp/);
++assert.match(anonymousMcp.headers.get("www-authenticate") ?? "", /oauth-protected-resource\/mcp/);
+ const metadata = await send("/.well-known/oauth-authorization-server");
+ assert.equal(metadata.status, 200);
+ assert.equal((await metadata.json()).issuer, base);
+-assert.equal((await (await send("/.well-known/oauth-protected-resource/api/mcp")).json()).resource, resource);
++assert.equal((await (await send("/.well-known/oauth-protected-resource/mcp")).json()).resource, resource);
+ for (const method of ["none", "client_secret_basic", "client_secret_post"]) {
+   const registration = await send("/api/oauth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_name: "Fake client <script>alert(1)</script>", redirect_uris: [callbackUri], token_endpoint_auth_method: method, scope: "guide.read guide.create guide.update guide.publish" }) });
+   assert.equal(registration.status, 201);
+@@ -78,7 +82,7 @@
+   const mcpHeaders = { authorization: `Bearer ${token.access_token}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream", "MCP-Protocol-Version": "2025-11-25" };
+   let rpcId = 1;
+   async function mcp(rpcMethod, params = {}) {
+-    const res = await send("/api/mcp", { method: "POST", headers: mcpHeaders, body: JSON.stringify({ jsonrpc: "2.0", id: rpcId++, method: rpcMethod, params }) });
++    const res = await send("/mcp", { method: "POST", headers: mcpHeaders, body: JSON.stringify({ jsonrpc: "2.0", id: rpcId++, method: rpcMethod, params }) });
+     return { response: res, body: await res.json() };
+   }
+   const initialized = await mcp("initialize", { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "fake-http-client", version: "1" } });
+--- a/src/app/.well-known/oauth-protected-resource/api/mcp/route.ts
++++ b/src/app/.well-known/oauth-protected-resource/api/mcp/route.ts
+@@ -1,2 +0,0 @@
+-export { GET } from "../../route";
+-export const runtime = "nodejs";
+--- a/src/app/.well-known/oauth-protected-resource/mcp/route.ts
++++ b/src/app/.well-known/oauth-protected-resource/mcp/route.ts
+@@ -0,0 +1,2 @@
++export { GET } from "../route";
++export const runtime = "nodejs";
+--- a/src/app/api/mcp/route.ts
++++ b/src/app/api/mcp/route.ts
+@@ -1,9 +0,0 @@
+-import { mcpPost, mcpUnsupported } from "@/lib/mcp/http-server";
+-
+-export const runtime = "nodejs";
+-export const dynamic = "force-dynamic";
+-export const POST = mcpPost;
+-export const GET = mcpUnsupported;
+-export const HEAD = mcpUnsupported;
+-export const DELETE = mcpUnsupported;
+-export const OPTIONS = mcpUnsupported;
+--- a/src/app/mcp/route.ts
++++ b/src/app/mcp/route.ts
+@@ -0,0 +1,9 @@
++import { mcpPost, mcpUnsupported } from "@/lib/mcp/http-server";
++
++export const runtime = "nodejs";
++export const dynamic = "force-dynamic";
++export const POST = mcpPost;
++export const GET = mcpUnsupported;
++export const HEAD = mcpUnsupported;
++export const DELETE = mcpUnsupported;
++export const OPTIONS = mcpUnsupported;
+--- a/src/lib/mcp/access-grants.ts
++++ b/src/lib/mcp/access-grants.ts
+@@ -46,7 +46,7 @@
+   if (origin.protocol !== "https:" && !["localhost", "127.0.0.1", "[::1]"].includes(origin.hostname)) {
+     throw new Error("MCP authorization requires HTTPS outside loopback development");
+   }
+-  return new URL("/api/mcp", origin).href;
++  return new URL("/mcp", origin).href;
+ }
+ 
+ // Bare internal grants remain separate from the formal OAuth authentication path.
+--- a/src/lib/mcp/http-server.ts
++++ b/src/lib/mcp/http-server.ts
+@@ -26,7 +26,7 @@
+   const origin = new URL(getMcpResource()).origin;
+   const error = status === 401 ? "invalid_token" : "insufficient_scope";
+   return Response.json({ error }, { status, headers: {
+-    ...headers, "WWW-Authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/api/mcp", error="${error}", scope="${scopes.join(" ")}"`,
++    ...headers, "WWW-Authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp", error="${error}", scope="${scopes.join(" ")}"`,
+   } });
+ }
+ async function authenticate(request: Request): Promise<ApiActor> {
+--- a/tests/mcp-access-grants.test.ts
++++ b/tests/mcp-access-grants.test.ts
+@@ -50,7 +50,7 @@
+     const second = await issue();
+     expect(grant.accessToken).toMatch(/^tc_mcp_[A-Za-z0-9_-]{43}$/);
+     expect(second.accessToken).not.toBe(grant.accessToken);
+-    expect(grant).toMatchObject({ resource: "https://travel.example.test/api/mcp", tokenType: "Bearer", expiresIn: 900, scopes });
++    expect(grant).toMatchObject({ resource: "https://travel.example.test/mcp", tokenType: "Bearer", expiresIn: 900, scopes });
+     const row = await ownedDb().collection("mcp_access_grants").findOne({ _id: new mongoose.Types.ObjectId(grant.grantId) });
+     expect(row!.tokenHash).toBe(createHash("sha256").update(grant.accessToken).digest("hex"));
+     expect(JSON.stringify(row)).not.toContain(grant.accessToken);
+@@ -79,7 +79,7 @@
+   });
+ 
+   it("rejects self-reported roles, custom lifetime/resource and invalid client identifiers", async () => {
+-    for (const extra of [{ authKind: "session" }, { expiresIn: 86400 }, { resource: "https://other.test/api/mcp" }]) {
++    for (const extra of [{ authKind: "session" }, { expiresIn: 86400 }, { resource: "https://other.test/mcp" }]) {
+       await expect(issueMcpAccessGrant(admin, { clientId: "fake-registered-client", scopes, ...extra })).rejects.toMatchObject({ name: "ZodError" });
+     }
+     await expect(issueMcpAccessGrant(admin, { clientId: { $ne: null }, scopes })).rejects.toMatchObject({ name: "ZodError" });
+@@ -96,7 +96,7 @@
+ 
+   it("binds tokens to the exact configured MCP resource, not probe, REST or another host", async () => {
+     const grant = await issue();
+-    for (const resource of ["https://travel.example.test/api/mcp-probe", "https://travel.example.test/api/guides", `${grant.resource}/`, "https://other.test/api/mcp"]) {
++    for (const resource of ["https://travel.example.test/api/mcp", "https://travel.example.test/api/mcp-probe", "https://travel.example.test/api/guides", `${grant.resource}/`, "https://other.test/mcp"]) {
+       await expect(authenticateMcpAccessToken(`Bearer ${grant.accessToken}`, resource)).rejects.toMatchObject({ status: 401 });
+     }
+     vi.stubEnv("AUTH_URL", "https://other.test");
+@@ -106,7 +106,7 @@
+   it("requires HTTPS except for loopback development", () => {
+     for (const origin of ["http://localhost:3100", "http://127.0.0.1:3100", "http://[::1]:3100"]) {
+       vi.stubEnv("AUTH_URL", origin);
+-      expect(getMcpResource()).toBe(`${origin}/api/mcp`);
++      expect(getMcpResource()).toBe(`${origin}/mcp`);
+     }
+     vi.stubEnv("AUTH_URL", "http://travel.example.test");
+     expect(() => getMcpResource()).toThrow("HTTPS");
+--- a/tests/mcp-http.test.ts
++++ b/tests/mcp-http.test.ts
+@@ -1,6 +1,6 @@
+ import mongoose from "mongoose";
+ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+-import { POST, GET, DELETE } from "@/app/api/mcp/route";
++import { POST, GET, DELETE } from "@/app/mcp/route";
+ import { issueMcpAccessGrant, issueMcpOAuthAccessGrant } from "@/lib/mcp/access-grants";
+ import { authorizeMcpClient, registerMcpClient, revokeMcpClient } from "@/lib/mcp/oauth-clients";
+ const fakeAuth = vi.hoisted(() => vi.fn());
+@@ -21,7 +21,7 @@
+   return { clientId: c.client_id, ...await issueMcpOAuthAccessGrant(admin, { clientId: c.client_id, scopes }) };
+ }
+ function request(accessToken: string | null, message: unknown, extraHeaders: Record<string, string> = {}) {
+-  return new Request(origin + "/api/mcp", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), ...extraHeaders }, body: JSON.stringify(message) });
++  return new Request(origin + "/mcp", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), ...extraHeaders }, body: JSON.stringify(message) });
+ }
+ function rpc(method: string, params: unknown = {}, id: string | number = 1) { return { jsonrpc: "2.0", id, method, params }; }
+ async function call(accessToken: string, name: string, args: unknown = {}) {
+@@ -53,14 +53,14 @@
+     const req = request(null, rpc("tools/list"));
+     expect((await POST(req)).status).toBe(404);
+     expect(req.bodyUsed).toBe(false);
+-    expect((await GET(new Request(origin + "/api/mcp"))).status).toBe(404);
++    expect((await GET(new Request(origin + "/mcp"))).status).toBe(404);
+     vi.stubEnv("MCP_OAUTH_ENABLED", "true");
+     for (const value of [null, "legacy-token-at-least-16-characters", "invalid-token"]) {
+       const req = request(value, rpc("tools/call", { name: "create_guide", arguments: draft }), { Cookie: "authjs.session-token=fake-cookie" });
+       const res = await POST(req);
+       expect(res.status).toBe(401);
+       expect(req.bodyUsed).toBe(false);
+-      expect(res.headers.get("www-authenticate")).toContain(origin + "/.well-known/oauth-protected-resource/api/mcp");
++      expect(res.headers.get("www-authenticate")).toContain(origin + "/.well-known/oauth-protected-resource/mcp");
+       expect(res.headers.get("www-authenticate")).toContain("guide.publish");
+       expect(res.headers.get("cache-control")).toContain("no-store");
+     }
+@@ -71,7 +71,7 @@
+     const bare = await issueMcpAccessGrant(admin, { clientId: "bare-test-client", scopes: ["guide.read"] });
+     expect((await POST(request(bare.accessToken, rpc("tools/list")))).status).toBe(401);
+     const linked = await grant();
+-    await ownedDb().collection("mcp_access_grants").updateOne({ clientId: linked.clientId }, { $set: { resource: origin + "/other" } });
++    await ownedDb().collection("mcp_access_grants").updateOne({ clientId: linked.clientId }, { $set: { resource: origin + "/api/mcp" } });
+     expect((await POST(request(linked.accessToken, rpc("tools/list")))).status).toBe(401);
+     const unapproved = await grant();
+     await ownedDb().collection("mcp_oauth_clients").updateOne({ clientId: unapproved.clientId }, { $unset: { authorizedAt: "" } });
+@@ -101,7 +101,7 @@
+     const list = await (await POST(request(g.accessToken, rpc("tools/list")))).json();
+     expect(list.result.tools.map((t: { name: string }) => t.name)).toEqual(["list_guides", "get_guide", "create_guide", "update_guide", "publish_guide"]);
+     for (const handler of [GET, DELETE]) {
+-      const res = await handler(new Request(origin + "/api/mcp", { headers: { Authorization: `Bearer ${g.accessToken}` } }));
++      const res = await handler(new Request(origin + "/mcp", { headers: { Authorization: `Bearer ${g.accessToken}` } }));
+       expect(res.status).toBe(405);
+       expect(res.headers.get("allow")).toBe("POST");
+     }
+@@ -166,7 +166,7 @@
+     expect((await POST(request(g.accessToken, rpc("ping"), { "MCP-Protocol-Version": "2099-01-01" }))).status).toBe(400);
+     expect((await POST(request(g.accessToken, rpc("ping"), { Accept: "text/event-stream" }))).status).toBe(406);
+     const headers = { Authorization: `Bearer ${g.accessToken}`, "Content-Type": "application/json" };
+-    const malformed = await POST(new Request(origin + "/api/mcp", { method: "POST", headers, body: "{" }));
++    const malformed = await POST(new Request(origin + "/mcp", { method: "POST", headers, body: "{" }));
+     expect((await malformed.json()).error.code).toBe(-32700);
+     const tooLarge = await POST(request(g.accessToken, { padding: "x".repeat(2 * 1024 * 1024) }));
+     expect(tooLarge.status).toBe(413);
+--- a/tests/mcp-oauth-flow.test.ts
++++ b/tests/mcp-oauth-flow.test.ts
+@@ -13,7 +13,7 @@
+ import { POST as token } from "@/app/api/oauth/token/route";
+ import { POST as revoke } from "@/app/api/oauth/revoke-client/route";
+ import { GET as serverMetadata } from "@/app/.well-known/oauth-authorization-server/route";
+-import { GET as resourceMetadata } from "@/app/.well-known/oauth-protected-resource/api/mcp/route";
++import { GET as resourceMetadata } from "@/app/.well-known/oauth-protected-resource/mcp/route";
+ import { POST as createGuide } from "@/app/api/guides/route";
+ 
+ const fakeAuth = vi.hoisted(() => vi.fn());
+@@ -108,11 +108,35 @@
+     expect(fakeAuth).not.toHaveBeenCalled();
+   });
+ 
++  it("rejects the retired resource and its persisted consent intents and authorization codes", async () => {
++    const c = await client();
++    const legacyResource = origin + "/api/mcp";
++    const request = new Request(origin + "/api/oauth/authorize?" + authorizationQuery(c.client_id, randomBytes(32).toString("base64url"), { resource: legacyResource }));
++    const rejected = await authorize(request);
++    expect(rejected.status).toBe(400);
++    expect(await rejected.json()).toMatchObject({ error: "invalid_target" });
++    const pending = await begin(c);
++    await ownedDb().collection("mcp_oauth_intents").updateOne({ intentHash: digest(pending.intent) }, { $set: { resource: legacyResource } });
++    await expect(getConsentIntent(admin, pending.intent)).rejects.toMatchObject({ status: 400 });
++    const rejectedConsent = await consent(form("/api/oauth/consent", { intent: pending.intent, decision: "approve" }, { Origin: origin }));
++    expect(rejectedConsent.status).toBe(400);
++    expect(rejectedConsent.headers.get("location")).toBeNull();
++    const oldCode = await approve(c);
++    await ownedDb().collection("mcp_oauth_codes").updateOne({ codeHash: digest(oldCode.code) }, { $set: { resource: legacyResource } });
++    const exchanged = await exchange(c, oldCode);
++    expect(exchanged.status).toBe(400);
++    expect(await exchanged.json()).toMatchObject({ error: "invalid_grant" });
++    expect(await ownedDb().collection("mcp_access_grants").countDocuments({ clientId: c.client_id })).toBe(0);
++    const liveCode = await approve(c);
++    expect((await exchange(c, liveCode, { resource: legacyResource })).status).toBe(400);
++    expect((await exchange(c, liveCode)).status).toBe(200);
++  });
++
+   it("publishes fixed-origin metadata for only supported capabilities, not request Host or refresh", async () => {
+     const as = await serverMetadata();
+     expect(as.headers.get("cache-control")).toContain("no-store");
+     expect(await as.json()).toMatchObject({ issuer: origin, authorization_endpoint: origin + "/api/oauth/authorize", token_endpoint: origin + "/api/oauth/token", registration_endpoint: origin + "/api/oauth/register", grant_types_supported: ["authorization_code"], code_challenge_methods_supported: ["S256"], authorization_response_iss_parameter_supported: true });
+-    expect(await (await resourceMetadata()).json()).toMatchObject({ resource: origin + "/api/mcp", authorization_servers: [origin], bearer_methods_supported: ["header"] });
++    expect(await (await resourceMetadata()).json()).toMatchObject({ resource: origin + "/mcp", authorization_servers: [origin], bearer_methods_supported: ["header"] });
+   });
+ 
+   it.each(["none", "client_secret_basic", "client_secret_post"])("completes %s PKCE flow without issuing refresh or exposing credentials, binds client and audience, and denies REST bypass", async (method) => {
+--- a/tsconfig.json
++++ b/tsconfig.json
+@@ -30,5 +30,5 @@
+     ".next/dev/types/**/*.ts",
+     "**/*.mts"
+   ],
+-  "exclude": ["node_modules"]
++  "exclude": ["node_modules", "tmp"]
+ }
+--- a/vitest.config.ts
++++ b/vitest.config.ts
+@@ -1,10 +1,11 @@
+-import { defineConfig } from "vitest/config";
++import { configDefaults, defineConfig } from "vitest/config";
+ import { fileURLToPath } from "node:url";
+ 
+ export default defineConfig({
+   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
+   test: {
+     environment: "node",
++    exclude: [...configDefaults.exclude, "tmp/**"],
+     fileParallelism: false,
+     sequence: { concurrent: false },
+     env: {
