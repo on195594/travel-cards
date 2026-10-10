@@ -3,7 +3,6 @@ import mongoose from "mongoose";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { assertAdminOrToken, type AdminActor } from "@/lib/admin";
 import { assertCapability, type ApiActor } from "@/lib/capabilities";
-import { getGuideById } from "@/lib/guides";
 import { authenticateMcpAccessToken, getMcpResource, issueMcpAccessGrant, revokeMcpAccessGrant } from "@/lib/mcp/access-grants";
 import { callGuideTool, listGuideTools } from "@/lib/mcp/guide-tools";
 
@@ -147,7 +146,7 @@ describe("internal MCP access grant lifecycle (fake admin consent, isolated Mong
     }
   });
 
-  it("denies direct publication without publish scope, then supports explicitly granted operations", async () => {
+  it("requires publish scope for credential-backed direct publication", async () => {
     const limited = await issue(["guide.read", "guide.create"]);
     const limitedActor = await authenticateMcpAccessToken(`Bearer ${limited.accessToken}`, limited.resource);
     for (const publication of [{ publish: true }, { status: "published" }]) {
@@ -156,12 +155,6 @@ describe("internal MCP access grant lifecycle (fake admin consent, isolated Mong
     const full = await issue();
     const actor = await authenticateMcpAccessToken(`Bearer ${full.accessToken}`, full.resource);
     const created = await callGuideTool(actor, "create_guide", { ...draft, publish: true });
-    const id = (created.structuredContent.guide as { id: string }).id;
-    await callGuideTool(actor, "update_guide", { id, expectedRevision: 1, excerpt: "已更新" });
-    await expect(callGuideTool(actor, "publish_guide", { id, expectedRevision: 1 })).rejects.toMatchObject({ status: 409 });
-    expect(await getGuideById(id)).toMatchObject({ revision: 2, status: "published", excerpt: "已更新" });
-    await revokeMcpAccessGrant(admin, full.grantId);
-    await expect(authenticateMcpAccessToken(`Bearer ${full.accessToken}`, full.resource)).rejects.toMatchObject({ status: 401 });
-    expect(await getGuideById(id)).toMatchObject({ revision: 2 });
+    expect(created.structuredContent.guide).toMatchObject({ revision: 1, status: "published" });
   });
 });

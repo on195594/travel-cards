@@ -1,0 +1,17 @@
+{
+  "commit": "7cc88f88712886996122a6995d1113a420fae50d",
+  "base": "d1f929177a827e0f37d5a3021a5f572084c59f7a",
+  "reviewer": "actual local agy CLI",
+  "model": "gemini-3.1-pro-high",
+  "mode": "plan",
+  "sandbox": true,
+  "exit_code": 0,
+  "stderr_bytes": 0,
+  "patch_sha256": "24372b5b3096dcf0bff5911dd00a2f7af9b2e1831014242649abe42b6b6789b8",
+  "response_sha256": "d2c312009c5983911965ca5b0edf823831a0d9427112c228c61f472959a5d047",
+  "source_file_count": 82,
+  "source_verification": {
+    "tracked_source_drift": []
+  },
+  "initial_attempt_discarded": "--disable-slash-commands makes --mode plan ineffective; repeated without that flag"
+}

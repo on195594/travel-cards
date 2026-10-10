@@ -1,0 +1,16 @@
+你是真实 AGY CLI 内的独立只读代码审查员。请用中文审查 Travel Cards 的确切提交 7cc88f88712886996122a6995d1113a420fae50d，相对于其父提交 d1f9291。
+
+范围：本提交的 scopes 能力收窄、内部短效 opaque MCP access grant 签发/资源绑定/鉴权/撤销、Guide 工具发现过滤、测试与文档。补丁在 ../commit.patch。当前目录是 exact-commit source 的隔离导出，不是 live 项目，无 .env、凭证、数据库、node_modules、Git metadata。请读补丁与相关完整调用路径，遵守 SPEC.md 和 AGENTS.md。
+
+硬边界：只读。不要修改文件、安装依赖、运行开发服务、联系真实 Gemini/R2/任何数据库、执行 commit/push/deploy、读取原仓库 /home/lin/travel-cards 或其他目录。可读本 source 与 ../commit.patch；仅使用安全只读命令。无需运行测试：父助手已运行 182 tests、lint、隔离构建/TypeScript、Compose 配置与 HTTP smoke，通过是父助手报告而非你的独立运行证据。不要读取之前 AGY 报告（未包含），不要猜此前审查结论。
+
+核对：
+- role ∩ scopes 能否绕过，受限 actor 缺少 scopes 是否默认拒绝；工具调用不依赖 discovery 隐藏；create+publish 权限及原管理员/Token 兼容性。
+- 随机 token entropy/hash-only storage、令牌 expiry 不依赖 TTL、资源绑定与 legacy token 隔离、persistent revocation、并发/重连/重复撤销、输入验证、日志/浏览器/错误泄漏。
+- 管理员签发/撤销接口是否是明确可信的内部 seam，不把 TS 类型当公网鉴权；相关测试是否真实证明宣称的行为。
+- 安全停止条件、文档事实/状态与边界、有没有无请求需求的冗余。
+
+关键范围限制：SPEC 明确本批仅为内部底座，没有 OAuth/DCR、PKCE、管理员同意 UI、业务 MCP HTTP、refresh 或 production activation。不要把这些明确 pending 的功能缺失视为本提交 bug；但若当前可调用代码已违反自身契约、会泄密/越权，必须指出。公开 probe 来自父提交且仍是固定数据，本次不会部署。部署后的真实 Gemini 账号验收是另行门禁，不假冒已完成。
+
+第一行输出且只能选择一个判定：APPROVE / REQUEST_CHANGES / BLOCKED。
+每项实质问题给严重性、确切 file:line、可复现输入或调用路径、错误后果、最小修复、应有回归测试。分清代码 bug 与非阻塞未来工作，不凭想象报漏洞。若无 blocking finding，明确无阻塞发现并列出未验证的门禁。不要输出补丁，不做任何修改。

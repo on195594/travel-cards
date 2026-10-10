@@ -76,10 +76,12 @@ describe("MCP Guide tool core (fake authenticated actor, real isolated persisten
     expect(await getGuideById(guide.id)).toMatchObject({ revision: 2, excerpt: "新简介", status: "published" });
   });
 
-  it.each(["delete_guide", "unpublish_guide", "upload_image", "manage_config", "generate_guide", "__proto__"])("rejects unapproved tool %s without changing data", async (name) => {
+  it("rejects every unapproved tool without changing data", async () => {
     const guide = await create(true);
-    await expect(callGuideTool(actor, name, { id: guide.id, expectedRevision: 1 })).rejects.toMatchObject({ code: "UNKNOWN_TOOL" });
-    expect(await getGuideById(guide.id)).toEqual(guide);
+    for (const name of ["delete_guide", "unpublish_guide", "upload_image", "manage_config", "generate_guide", "__proto__"]) {
+      await expect(callGuideTool(actor, name, { id: guide.id, expectedRevision: 1 }), name).rejects.toMatchObject({ code: "UNKNOWN_TOOL" });
+      expect(await getGuideById(guide.id)).toEqual(guide);
+    }
   });
 
   it("rejects unknown actor kinds before validation or database access", async () => {

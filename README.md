@@ -4,18 +4,18 @@
 
 **当前实现**：管理员可编辑、发布、删除攻略、上传 R2 封面；应用内 Gemini + Google Search 只生成待采纳候选，通过普通保存流程持久化。现有受信任自动化 API Token 接口继续可用。
 
-**已批准、待实现**：MCP 接入，首先面向 Gemini 网页和手机 App；受限外部 AI 可创建、修改及直接发布，但不得删除或管理配置。管理员将管理非敏感应用配置，凭证仍来自环境变量。当前 Token 权限过宽，不能直接交给 AI 作为受限凭证。
+**已批准、接入未完成**：首先面向 Gemini 网页和手机 App 的业务 MCP/OAuth；受限外部 AI 可创建、修改及直接发布，但不得删除或管理配置。内部权限、工具和短效令牌底座已实现，完整客户端接入和非敏感配置后台仍待完成。服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
 
 ## 当前状态
 
 - Next.js 16、Auth.js（支持管理后台 Session 与外部流程 Bearer API Token）、MongoDB、Guide CRUD/发布/撤回、Cloudflare R2 上传和 Gemini grounded assistant 已落地。
-- 外部 AI 路线图已本地实现显式能力守卫、五个攻略工具核心，以及短效受限令牌签发/校验/撤销底座。受限权限取角色与 scopes 交集，令牌只存摘要并绑定 MCP resource；182 项测试通过。以上未随公开探针部署；现有管理员 Token 仍可删除，不能交给受限 AI。
-- 按 Gemini 官方原文确定 OAuth + DCR 方向；完整 DCR/PKCE/管理员同意、长期客户端授权撤销和业务 HTTP/协议 adapter 尚未实现，没有公网受限凭证签发入口。[认证决定](./docs/decisions/2026-10-09-gemini-mcp-auth.md) 区分已实现与待验收能力。
-- 已按授权单独部署公开连接探针：`https://travel.keyi.win/api/mcp-probe`，仅提供固定返回值的 `connection_check`，不访问业务数据或凭证。公网协议 smoke 已通过，Gemini 实际连接与认证仍待验收；部署范围与回滚见接入文档。
+- 仓库已实现显式能力守卫、五个攻略工具核心和短效受限令牌底座（提交 `7cc88f8`）。权限取角色与 scopes 交集，令牌只存摘要并绑定 MCP resource；没有公网签发或业务 MCP 入口。该提交的真实 AGY 审查为 `APPROVE`，见 [审查证据](./docs/reviews/agy-7cc88f8/closeout.md)，不代表完整 OAuth 或客户端验收通过。
+- 按 Gemini 官方原文采用 OAuth + DCR 方向；完整 DCR/PKCE/管理员同意、长期客户端授权撤销和业务 HTTP/协议 adapter 尚未完成。[认证决定](./docs/decisions/2026-10-09-gemini-mcp-auth.md) 记录实现细节，当前待办集中在 [接入路线图](./docs/roadmaps/ai-client-integration.md)。
+- 生产曾获授权部署固定数据探针：`https://travel.keyi.win/api/mcp-probe`。2026-10-10 只读核对首页 GET 200、探针 GET 405；当前镜像为 `travel-cards-web`，未标源提交，不能断言线上对应 `7cc88f8`。历史公网协议 smoke 不等于 Gemini 实际连接通过；现有镜像/旧回滚失效情况见接入路线图。
 - 架构路线图当前批次已完成本地验收：T0-01～07（T0-05/06 的生产与真实 R2 证明仍需单独授权）、T1-01/02A/03/04、T2-01/02/03；T1-02B 与 T3 未混入本批次。
 - 当前代码状态以本仓库工作树和下方验证命令为准；历史实现审查、测试及 provider smoke 证据见 [`docs/reviews/agy-final-implementation/closeout.md`](./docs/reviews/agy-final-implementation/closeout.md)。
 - 真实 Gemini grounded structured-output smoke 与 R2 S3 上传/读回/删除 smoke 均已通过；R2 使用现有私有备份 bucket 验证传输，旅行图片专用 bucket/public base 仍需部署时配置。
-- 最终独立 AGY 审查返回 `APPROVE`；后续真实 smoke 暴露并验证修复了 Gemini schema 兼容问题。
+- 历史核心实现的独立 AGY 审查返回 `APPROVE`；后续真实 smoke 暴露并验证修复了 Gemini schema 兼容问题。该历史结论不覆盖后来的 OAuth/MCP 扩展。
 - 当前开发目录：`/home/lin/travel-cards`
 - 权威需求与权限契约：[SPEC.md](./SPEC.md)
 - 已确认产品定位：[PRODUCT.md](./PRODUCT.md)
@@ -124,4 +124,6 @@ npm run verify
 
 ## 清理边界
 
-本轮只清理确认无引用的类型别名、重复的窄屏 CSS 和本轮临时审查/预览产物；独立 AGY 原文保留在 `docs/reviews/agy-ui-review.txt`。保留 `src/lib/guides.ts` 兼容入口（仍有测试调用）、静态图片、历史审查、备份、依赖及构建缓存。新增 `.gitignore` 规则避免浏览器快照和 Impeccable 会话产物混入后续提交；不删除正式内容或改动共用 MongoDB。
+正式审查证据保存在 `docs/reviews/`，临时源码快照和日志归档必要证据后清理；旧回滚脚本不得作为当前运维入口。保留凭证、备份、静态资源、历史审查、依赖和构建缓存；不改动共享 MongoDB 或其他项目。
+
+`src/lib/guides.ts` 仍被调用；MCP 授权/工具模块虽未接公网，但属于已批准实现且有测试，不按“仅测试引用”当死代码删除。测试仅合并重复建库和跨层重复的业务断言，保留权限拒绝、scope/resource、过期撤销、409 和输入边界覆盖。本次清理与验证记录见 [维护记录](./docs/maintenance/2026-10-10-cleanup.md)。

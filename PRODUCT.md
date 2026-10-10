@@ -16,7 +16,7 @@ web
 
 Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻略从对话中的建议变为结构化、可修改、可分享的逐日行程，并保持清楚的权限与来源边界。
 
-成功标准是读者能找到并读懂攻略，管理员和授权 AI 能更新同一份内容。管理员及现有受信任自动化 Token 保留删除能力；后续受限 AI 身份不得删除或管理配置。受限 AI 身份及配置后台尚未实现，不能据此宣称已完成。
+成功标准是读者能找到并读懂攻略，管理员和授权 AI 能更新同一份内容。管理员及现有受信任自动化 Token 保留删除能力；受限 AI 身份不得删除或管理配置。权限、工具和短效受限令牌底座已实现，但完整外部客户端接入及配置后台未完成，不能据此宣称已上线。
 
 ## Positioning
 
@@ -25,7 +25,7 @@ Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻
 ## Operating Context
 
 - 已有 Next.js 应用、管理员后台、公开页面、MongoDB 持久化、R2 图片上传与服务端 Gemini 助手。
-- 现有 Bearer API Token 接口保留；新增 MCP 接入属于已批准但尚未实现的后续工作。
+- 现有 Bearer API Token 接口保留；MCP 固定数据探针已部署，内部攻略工具与受限令牌底座已实现，完整业务 MCP/OAuth 接入仍待完成。
 - Gemini 网页／手机 App 是首个验收目标，但客户端地区、账号及认证支持需单独验收，不能用 Gemini API 或 CLI 测试替代。
 - 产品契约以 `SPEC.md` 为准。代码优先的构建默认记录在 `.impeccable/config.json`，不是产品权限或平台设置。
 
@@ -46,10 +46,10 @@ Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻
 
 ### 尚未实现或决定
 
-- MCP endpoint、受限客户端凭证与客户端认证联调、非敏感配置后台尚未实现。
+- 业务 MCP HTTP 入口、完整 OAuth/DCR/PKCE、管理员客户端同意及长期授权撤销界面、客户端联调和非敏感配置后台尚未完成。固定数据探针和内部短效令牌不等于正式接入。
 - 现有 Token 是管理员等价的自动化凭证，仍可删除；不能交给外部 AI 来满足上述受限权限目标。
 - 是否允许外部 AI 撤回、上传图片，配置字段清单，以及 Gemini 账号实际可用性待接入阶段确定。
-- MCP 只复用应用接口和业务规则，不让模型直接访问数据库；暂不引入 Agent 框架、多用户发布或新集合。
+- MCP 只复用应用接口和业务规则，不让模型直接访问数据库；不引入 Agent 框架或多用户发布，不另建语义重复的内容集合。令牌授权记录不是第二套 Card 模型。
 
 ## Brand Commitments
 
@@ -60,7 +60,8 @@ Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻
 - 实现：`src/app/`、`src/components/`、`src/lib/`。
 - 当前功能及安全契约：`SPEC.md`；入口与验证：`README.md`。
 - UI 审查与部署前验证：`docs/reviews/ui-impeccable-review.md`；真实 AGY 复审原文：`docs/reviews/agy-ui-review.txt`。
-- 接入边界及官方来源：`docs/roadmaps/ai-client-integration.md`。
+- 接入状态与下一步：`docs/roadmaps/ai-client-integration.md`；认证设计与实现证据：`docs/decisions/2026-10-09-gemini-mcp-auth.md`。
+- 短效令牌提交的真实 AGY 审查：`docs/reviews/agy-7cc88f8/closeout.md`；APPROVE 仅覆盖内部底座，不代表 OAuth/客户端验收完成。
 - 没有 Gemini 网页／手机 App 接入成功证明、MCP 生产验收或用户效果数据；不得编造。
 
 ## Product Principles

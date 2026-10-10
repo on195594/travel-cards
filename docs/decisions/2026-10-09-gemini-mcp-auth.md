@@ -67,11 +67,12 @@ Gemini Enterprise、Gemini CLI、Gemini API 和 Google 社区论坛不作为 Gem
 - 撤销只针对此短效令牌记录，幂等且跨连接生效；不影响其他记录，也不撤销尚未实现的长期客户端关联。撤销阻止后续认证，无法取消已认证的在途操作。当前无 refresh token，不支持后台续期或批量撤销客户端长期授权。
 - 凭证不输出日志、不进入 MCP 工具或模型上下文。测试覆盖数据库只存摘要、审计不含明文；服务端模块边界测试覆盖新增授权与工具模块。默认测试仅在隔离数据库生成临时凭证，不改 `.env` 或生产数据。
 
-### 最新验证与下一步
+### 7cc88f8 阶段验证与下一步
 
 - `npm test`：17 个文件、182 项通过，较前次提交增加 22 项（令牌生命周期、scopes、REST 直接发布拒绝及模块边界）。
 - `npm run lint`、`./scripts/build-with-test-env.sh`（执行 `npm run build` 和 TypeScript 检查）、`docker compose config`：通过。
 - `npm run test:http`：隔离 MongoDB 与本地生产启动路径通过，原 Token 的发布/更新/撤回/重新发布/删除及公开页面可见性回归正常。`git diff --check`：通过。
 - 官方 MCP Authorization 原文重新核对了 resource/audience 校验、无效/过期令牌 401、权限不足 403 与短效令牌建议。本批实现内部授权语义；HTTP `WWW-Authenticate` / discovery 尚未实现，不能宣称完整 OAuth 合规。
 - 下一批按顺序补 DCR/客户端注册与限额、发现元数据、S256 PKCE 一次性授权码、管理员同意/撤销界面，最后接入带正确协议错误映射的业务 MCP HTTP adapter。授权码及 refresh（若增加）需单独回归并发、重放与撤销。
-- 本批没有部署、提交/推送或真实 Gemini/R2 调用；完整 OAuth 和 Gemini 网页/原生手机验收仍 **pending / NOT_RUN**。
+- 本批实现随后已提交并推送为 `7cc88f8`，真实 AGY 静态审查为 **APPROVE**，见 [审查记录](../reviews/agy-7cc88f8/closeout.md)。该阶段没有部署或真实 Gemini/R2 调用；完整 OAuth 和 Gemini 网页/原生手机验收仍 **pending / NOT_RUN**。
+- 此处测试数量记录该提交当时的结果，不作为后续工作树的固定计数；当前状态见 [接入路线图](../roadmaps/ai-client-integration.md)，后续清理与验证见 [维护记录](../maintenance/2026-10-10-cleanup.md)。
