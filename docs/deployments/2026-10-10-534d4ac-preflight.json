@@ -1,0 +1,12 @@
+{
+  "commit": "534d4ac931457bb15000d45705c77eda3285c2b6",
+  "candidateImage": "travel-cards-web:commit-534d4ac931457",
+  "candidateImageId": "sha256:2ce274ca2fc5953fbe4e46bb9578aadd6fadaffb0f21b2061aeb71c4c253ddce",
+  "sourceSha256": "a51153b652f5f3b24477009ae1a30db38daedcf4f8ee0ff5c745cdba8810d35a",
+  "rollbackImage": "travel-cards-web:release-a1d2bf926e3b53a9",
+  "oldImageId": "sha256:41407b1fc3cc58dbdada16bc4795d6720cd19bc619f1aa1e3a91941cee393a5e",
+  "oldMcpFlag": "true",
+  "environmentUnchanged": true,
+  "sourceDrift": false,
+  "failClosedShell": true
+}

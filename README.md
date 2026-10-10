@@ -58,7 +58,7 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 - `/api/*`：REST API，保留攻略、上传、OAuth 等现有路径。
 - `/mcp`：唯一正式 MCP 入口，资源元数据为 `/.well-known/oauth-protected-resource/mcp`。
 - 本轮迁移不保留 `/api/mcp` 别名或旧路径式元数据；旧资源的意图、授权码和令牌失效，客户端需重新授权。固定数据 `/api/mcp-probe` 不变。
-- 路由迁移已获用户确认并上线：正式接入地址 `https://travel.keyi.win/mcp`，见[当前发布及回滚证据](./docs/deployments/2026-10-10-mcp-route.md)。历史发布/审查证据不改写。
+- 路由迁移已获用户确认并上线：正式接入地址 `https://travel.keyi.win/mcp`，路由迁移见[记录](./docs/deployments/2026-10-10-mcp-route.md)，当前生产已包含提交 `534d4ac` 的协议修复，见[最新发布及回滚证据](./docs/deployments/2026-10-10-534d4ac.md)。历史发布/审查证据不改写。
 
 ## 已审查镜像的生产发布
 
