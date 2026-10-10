@@ -9,8 +9,8 @@
 ## 当前状态
 
 - Next.js 16、Auth.js（支持管理后台 Session 与外部流程 Bearer API Token）、MongoDB、Guide CRUD/发布/撤回、Cloudflare R2 上传和 Gemini grounded assistant 已落地。
-- 外部 AI 路线图已推进权限基础：现有管理 API 使用显式能力检查；受限 AI 策略以 fake 身份和隔离 MongoDB 测试。该权限基础目前仅在工作区，未随探针部署；真实受限凭证、签发/撤销与业务 MCP 仍未实现，现有 Token 仍可删除，不能交给受限 AI。
-- 按 Gemini 官方原文确定 OAuth + DCR 方向；五个攻略 MCP 工具核心已在工作区实现，复用业务服务与审计，154 项测试通过。业务 HTTP/协议 adapter、授权服务和撤销尚未实现；[认证决定](./docs/decisions/2026-10-09-gemini-mcp-auth.md) 区分已实现与待验收能力。
+- 外部 AI 路线图已本地实现显式能力守卫、五个攻略工具核心，以及短效受限令牌签发/校验/撤销底座。受限权限取角色与 scopes 交集，令牌只存摘要并绑定 MCP resource；182 项测试通过。以上未随公开探针部署；现有管理员 Token 仍可删除，不能交给受限 AI。
+- 按 Gemini 官方原文确定 OAuth + DCR 方向；完整 DCR/PKCE/管理员同意、长期客户端授权撤销和业务 HTTP/协议 adapter 尚未实现，没有公网受限凭证签发入口。[认证决定](./docs/decisions/2026-10-09-gemini-mcp-auth.md) 区分已实现与待验收能力。
 - 已按授权单独部署公开连接探针：`https://travel.keyi.win/api/mcp-probe`，仅提供固定返回值的 `connection_check`，不访问业务数据或凭证。公网协议 smoke 已通过，Gemini 实际连接与认证仍待验收；部署范围与回滚见接入文档。
 - 架构路线图当前批次已完成本地验收：T0-01～07（T0-05/06 的生产与真实 R2 证明仍需单独授权）、T1-01/02A/03/04、T2-01/02/03；T1-02B 与 T3 未混入本批次。
 - 当前代码状态以本仓库工作树和下方验证命令为准；历史实现审查、测试及 provider smoke 证据见 [`docs/reviews/agy-final-implementation/closeout.md`](./docs/reviews/agy-final-implementation/closeout.md)。
@@ -114,6 +114,7 @@ npm run verify
 - `src/app/`：页面和 Route Handlers
 - `src/lib/capabilities.ts`：服务端能力矩阵；`src/auth.ts` 的 `requireCapability` 在认证后校验
 - `src/lib/mcp/guide-tools.ts`：内部攻略工具定义与执行器，尚未接入业务 HTTP 或 OAuth
+- `src/lib/mcp/access-grants.ts`：内部短效访问令牌签发、资源/scopes 校验及撤销；无公网签发入口
 - `src/lib/guides/schema.ts`：Guide 输入输出结构与类型
 - `src/lib/guides/repository.ts`：Mongoose 持久化和摘要/详情读取
 - `src/lib/guides/service.ts`：Guide 业务规则；`src/lib/guides.ts` 仅保留兼容导出

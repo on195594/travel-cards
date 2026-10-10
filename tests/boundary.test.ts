@@ -12,6 +12,8 @@ const SERVER_ONLY = [
   "/lib/guides.ts",
   "/lib/guides/repository.ts",
   "/lib/guides/service.ts",
+  "/lib/mcp/access-grants.ts",
+  "/lib/mcp/guide-tools.ts",
 ];
 
 async function resolveSource(from: string, specifier: string, sourceRoot: string) {
@@ -57,7 +59,7 @@ describe("client/server module boundary", () => {
     }
   });
 
-  it.each(["lib/guides/repository.ts", "lib/storage/r2.ts", "lib/guides.ts"])("detects an indirect server-only import of %s", async (module) => {
+  it.each(["lib/guides/repository.ts", "lib/storage/r2.ts", "lib/guides.ts", "lib/mcp/access-grants.ts", "lib/mcp/guide-tools.ts"])("detects an indirect server-only import of %s", async (module) => {
     const sourceRoot = await mkdtemp(path.join(tmpdir(), "travel-cards-boundary-"));
     try {
       await mkdir(path.join(sourceRoot, "components"), { recursive: true });

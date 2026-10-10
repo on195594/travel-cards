@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { logAdminAction } from "@/lib/admin";
-import { assertCapability, type ApiActor, type ApiCapability } from "@/lib/capabilities";
+import { assertCapability, hasCapability, type ApiActor, type ApiCapability } from "@/lib/capabilities";
 import { createGuide, getGuideById, listAdminGuides, publishGuide, updateGuide } from "@/lib/guides";
 import { expectedRevisionSchema, guideCreateInputSchema, guidePatchSchema, MAX_SEARCH_QUERY_LENGTH } from "@/lib/guides/schema";
 import { HttpError } from "@/lib/http";
@@ -24,7 +24,7 @@ const definitions: { name: keyof typeof inputs; capability: ApiCapability; descr
 export function listGuideTools(actor: ApiActor) {
   // Discovery is authenticated too; advertising tools is not the authorization boundary.
   assertCapability(actor, "guide.read");
-  return definitions.map(({ name, description, readOnly }) => ({
+  return definitions.filter(({ capability }) => hasCapability(actor, capability)).map(({ name, description, readOnly }) => ({
     name,
     description,
     inputSchema: z.toJSONSchema(inputs[name], { io: "input" }),

@@ -64,7 +64,7 @@ beforeEach(() => {
   vi.stubEnv("ADMIN_EMAIL", "admin@example.test");
   vi.stubEnv("AUTH_URL", "http://localhost:3000");
   mocks.auth.mockResolvedValue(null);
-  mocks.principal = { authKind: "restricted-ai", actorLabel: "fake-mcp-client" };
+  mocks.principal = { authKind: "restricted-ai", actorLabel: "fake-mcp-client", scopes: ["guide.read", "guide.create", "guide.update", "guide.publish"] };
 });
 afterEach(async () => {
   vi.unstubAllEnvs();
@@ -99,6 +99,15 @@ describe("restricted AI capability boundary (fake authentication, isolated Mongo
     const response = await create(request("POST", "/api/guides", { ...draft, ...publication }));
     expect(response.status).toBe(201);
     expect((await response.json()).guide).toMatchObject({ status: "published", revision: 1 });
+  });
+
+  it.each([{ publish: true }, { status: "published" }])("rejects REST direct publication %j without publish scope", async (publication) => {
+    mocks.principal = { authKind: "restricted-ai", actorLabel: "create-only", scopes: ["guide.read", "guide.create"] };
+    const response = await create(request("POST", "/api/guides", { ...draft, ...publication }));
+    expect(response.status).toBe(403);
+    expect((await response.json()).error.code).toBe("FORBIDDEN");
+    const listed = await list(request("GET", "/api/guides?scope=admin&q=杭州"));
+    expect((await listed.json()).guides).toEqual([]);
   });
 
   it.each([

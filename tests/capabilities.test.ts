@@ -4,7 +4,7 @@ import { assertCapability, type ApiActor, type ApiCapability } from "@/lib/capab
 const actors: ApiActor[] = [
   { authKind: "session", actorLabel: "admin", user: { id: "admin", email: "admin@example.test" } },
   { authKind: "token", actorLabel: "api-token", user: { id: "admin", email: "admin@example.test" } },
-  { authKind: "restricted-ai", actorLabel: "test-client" },
+  { authKind: "restricted-ai", actorLabel: "test-client", scopes: ["guide.read", "guide.create", "guide.update", "guide.publish"] },
 ];
 const matrix: [ApiCapability, boolean[]][] = [
   ["guide.read", [true, true, true]],
@@ -25,6 +25,19 @@ describe("server-side capability policy", () => {
       if (allowed[index]) expect(check).not.toThrow();
       else expect(check).toThrow(expect.objectContaining({ status: 403, code: "FORBIDDEN" }));
     });
+  });
+
+  it("enforces granted scopes as well as role, including missing scopes", () => {
+    const readOnly: ApiActor = { authKind: "restricted-ai", actorLabel: "readonly", scopes: ["guide.read"] };
+    expect(() => assertCapability(readOnly, "guide.read")).not.toThrow();
+    for (const capability of ["guide.create", "guide.update", "guide.publish", "guide.delete", "config.manage"] as const) {
+      expect(() => assertCapability(readOnly, capability)).toThrow(expect.objectContaining({ status: 403 }));
+    }
+    const missing = { authKind: "restricted-ai", actorLabel: "no-grant" } as ApiActor;
+    expect(() => assertCapability(missing, "guide.read")).toThrow(expect.objectContaining({ status: 403 }));
+    const forged = { ...readOnly, scopes: ["guide.delete", "config.manage"] } as unknown as ApiActor;
+    expect(() => assertCapability(forged, "guide.delete")).toThrow(expect.objectContaining({ status: 403 }));
+    expect(() => assertCapability(forged, "config.manage")).toThrow(expect.objectContaining({ status: 403 }));
   });
 
   it("fails closed for unknown capabilities and identity kinds", () => {

@@ -6,7 +6,7 @@ import { callGuideTool, listGuideTools } from "@/lib/mcp/guide-tools";
 
 const runId = process.env.TRAVEL_CARDS_TEST_RUN_ID;
 if (!runId || !/^[a-z0-9_]+$/.test(runId)) throw new Error("Run database tests through npm test");
-const actor: ApiActor = { authKind: "restricted-ai", actorLabel: "fake-oauth-client" };
+const actor: ApiActor = { authKind: "restricted-ai", actorLabel: "fake-oauth-client", scopes: ["guide.read", "guide.create", "guide.update", "guide.publish"] };
 const draft = {
   title: "西湖一日游", slug: "mcp-tool-hangzhou", destination: "杭州", excerpt: "西湖漫步", days: 1,
   coverImage: { objectKey: "guides/test.jpg", publicUrl: "https://images.example.test/test.jpg", alt: "西湖" },
