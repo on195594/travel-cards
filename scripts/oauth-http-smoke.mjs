@@ -38,7 +38,7 @@ for (const method of ["none", "client_secret_basic", "client_secret_post"]) {
   const client = await registration.json();
   const verifier = randomBytes(32).toString("base64url");
   const requestedScopes = method === "none" ? "guide.read guide.create guide.update guide.publish" : "guide.read";
-  const query = new URLSearchParams({ client_id: client.client_id, redirect_uri: callbackUri, response_type: "code", state: "local-smoke-state", scope: requestedScopes, resource, code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256" });
+  const query = new URLSearchParams({ client_id: client.client_id, redirect_uri: callbackUri, response_type: "code", state: "s".repeat(1144), scope: requestedScopes, resource, code_challenge: createHash("sha256").update(verifier).digest("base64url"), code_challenge_method: "S256" });
   const anonymous = await send("/api/oauth/authorize?" + query);
   assert.equal(anonymous.status, 303);
   const login = new URL(anonymous.headers.get("location"), base);
@@ -67,7 +67,7 @@ for (const method of ["none", "client_secret_basic", "client_secret_post"]) {
   assert.equal(accepted.status, 303);
   const callback = new URL(accepted.headers.get("location"));
   assert.equal(callback.origin, new URL(callbackUri).origin);
-  assert.equal(callback.searchParams.get("state"), "local-smoke-state");
+  assert.equal(callback.searchParams.get("state"), "s".repeat(1144));
   assert.equal(callback.searchParams.get("iss"), base);
   const body = { grant_type: "authorization_code", client_id: client.client_id, code: callback.searchParams.get("code"), redirect_uri: callbackUri, code_verifier: verifier, resource };
   const headers = method === "client_secret_basic" ? { authorization: "Basic " + Buffer.from(`${client.client_id}:${client.client_secret}`).toString("base64") } : {};

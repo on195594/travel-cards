@@ -132,6 +132,31 @@ describe("OAuth authorization code flow, fake authenticated admin and isolated M
     expect((await exchange(c, liveCode)).status).toBe(200);
   });
 
+  it("preserves long opaque client state through login, consent and callbacks", async () => {
+    const c = await client();
+    for (const length of [1144, 4096]) {
+      const state = "s".repeat(length);
+      for (const decision of ["approve", "deny"]) {
+        const flow = await begin(c, { state });
+        expect((await getConsentIntent(admin, flow.intent)).intent.state).toBe(state);
+        const res = await consent(form("/api/oauth/consent", { intent: flow.intent, decision }, { Origin: origin }));
+        expect(res.status).toBe(303);
+        expect(new URL(res.headers.get("location")!).searchParams.get("state")).toBe(state);
+      }
+      fakeAuth.mockResolvedValueOnce(null);
+      const query = authorizationQuery(c.client_id, randomBytes(32).toString("base64url"), { state });
+      const login = await authorize(new Request(origin + "/api/oauth/authorize?" + query));
+      expect(login.status).toBe(303);
+      const returnTo = new URL(login.headers.get("location")!, origin).searchParams.get("returnTo")!;
+      expect(getLoginReturnTo(returnTo)).toBe(returnTo);
+      expect(new URL(returnTo, origin).searchParams.get("state")).toBe(state);
+    }
+    for (const state of ["s".repeat(4097), "%".repeat(3000)]) {
+      const res = await authorize(new Request(origin + "/api/oauth/authorize?" + authorizationQuery(c.client_id, randomBytes(32).toString("base64url"), { state })));
+      expect(res.status).toBe(400);
+    }
+  });
+
   it("publishes fixed-origin metadata for only supported capabilities, not request Host or refresh", async () => {
     const as = await serverMetadata();
     expect(as.headers.get("cache-control")).toContain("no-store");

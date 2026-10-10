@@ -16,7 +16,7 @@ const authorizationInput = z.object({
   redirect_uri: z.string().min(1).max(2048),
   response_type: z.literal("code"),
   scope: z.string().min(1).max(256).default("guide.read"),
-  state: z.string().min(1).max(1024).regex(/^[\x20-\x7e]+$/),
+  state: z.string().min(1).max(4096).regex(/^[\x20-\x7e]+$/),
   code_challenge: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   code_challenge_method: z.literal("S256"),
   resource: z.string().min(1).max(2048),
