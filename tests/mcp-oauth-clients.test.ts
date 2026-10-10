@@ -84,7 +84,11 @@ describe("MCP OAuth DCR (fake clients, isolated MongoDB, no consent or tokens)",
     expect(JSON.stringify(row)).not.toContain("client-supplied-secret");
     const second = await (await POST(request({ redirect_uris: metadata.redirect_uris }))).json();
     expect(second.client_id).not.toBe(body.client_id);
-    expect(second.scope).toBe("guide.read");
+    expect(second.scope).toBe(metadata.scope);
+    const defaultRow = await clients.findRegisteredMcpClient(second.client_id);
+    expect(defaultRow?.scopes).toEqual(metadata.scope.split(" "));
+    expect(defaultRow?.authorizedAt).toBeUndefined();
+    expect(defaultRow?.authorizedScopes).toBeUndefined();
     if (body.client_secret) expect(second.client_secret).not.toBe(body.client_secret);
     expect(await ownedDb().collection("mcp_access_grants").countDocuments({})).toBe(0);
     expect(await ownedDb().collection("mcp_oauth_clients").indexes()).toEqual(expect.arrayContaining([

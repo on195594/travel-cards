@@ -33,7 +33,7 @@ assert.equal(metadata.status, 200);
 assert.equal((await metadata.json()).issuer, base);
 assert.equal((await (await send("/.well-known/oauth-protected-resource/mcp")).json()).resource, resource);
 for (const method of ["none", "client_secret_basic", "client_secret_post"]) {
-  const registration = await send("/api/oauth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_name: "Fake client <script>alert(1)</script>", redirect_uris: [callbackUri], token_endpoint_auth_method: method, scope: "guide.read guide.create guide.update guide.publish" }) });
+  const registration = await send("/api/oauth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ client_name: "Fake client <script>alert(1)</script>", redirect_uris: [callbackUri], token_endpoint_auth_method: method, ...(method === "none" ? {} : { scope: "guide.read" }) }) });
   assert.equal(registration.status, 201);
   const client = await registration.json();
   const verifier = randomBytes(32).toString("base64url");

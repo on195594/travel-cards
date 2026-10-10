@@ -25,7 +25,7 @@ const metadataSchema = z.object({
   token_endpoint_auth_method: z.enum(["none", "client_secret_basic", "client_secret_post"]).default("client_secret_basic"),
   grant_types: z.tuple([z.literal("authorization_code")]).default(["authorization_code"]),
   response_types: z.tuple([z.literal("code")]).default(["code"]),
-  scope: z.string().max(256).default("guide.read").refine((value) => {
+  scope: z.string().max(256).default(AI_GUIDE_SCOPES.join(" ")).refine((value) => {
     const scopes = value.split(" ");
     return scopes.includes("guide.read") && new Set(scopes).size === scopes.length &&
       scopes.every((scope) => AI_GUIDE_SCOPES.some((allowed) => allowed === scope));

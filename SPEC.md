@@ -74,6 +74,7 @@
 
 - 使用成熟 OAuth 服务端库提供仅授权码模式，强制 S256 PKCE、精确注册的 HTTPS redirect URI、`state`、规范 MCP `resource` 与批准 scopes。不启用 implicit、密码、client credentials 或 refresh grant。
 - DCR 支持 public `none` 及 `client_secret_basic` / `client_secret_post`；缺省按注册规范使用 basic。动态 secret 仅签发时返回，数据库仅存摘要。注册不授权内容；注册入口限制实际请求体与每小时全局配额，注册和授权记录最多保留 30 天，过期查询必须显式拒绝。
+- DCR 省略 `scope` 时，可申请范围默认仅为 `guide.read guide.create guide.update guide.publish`（2026-10-10 用户批准）；显式 scope 保持其子集限制，空值/未知权限仍拒绝。此范围不是授权，必须经过管理员同意才可签发对应令牌；授权请求省略 scope 仍默认只读。已有注册与令牌不自动扩权。
 - 管理员在登录后看到未验证客户端名称、精确回调地址与权限，明确同意后才生成一次性 5 分钟授权码。确认意图同样短效、单次消费且服务器存储；表单不能自报 scopes、角色或客户端。所有同意/撤销 POST 校验管理员 Session 与固定服务端同源，旧管理员 Token 不能代替同意。
 - 客户端撤销持久化并统一使其已有授权码、令牌及尚未确认的授权意图失效；已撤销客户端需重新注册并获得明确同意。并发换码最多成功一次，撤销阻止后续认证，不取消已认证的在途工作。
 - 路由边界（2026-10-10 用户确认）：`/api/*` 保留 REST API（含 `/api/oauth/*`），`/mcp` 为唯一正式业务 MCP 入口；路径式资源元数据为 `/.well-known/oauth-protected-resource/mcp`。不保留旧 `/api/mcp` 或旧路径式元数据别名，不重写既有授权记录；旧 resource 的意图、授权码和令牌须拒绝，客户端重新授权。公开 `/api/mcp-probe` 保持独立且不变。

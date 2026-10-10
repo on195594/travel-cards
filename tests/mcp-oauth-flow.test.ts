@@ -132,6 +132,25 @@ describe("OAuth authorization code flow, fake authenticated admin and isolated M
     expect((await exchange(c, liveCode)).status).toBe(200);
   });
 
+  it("defaults omitted registration scope to requestable guide capabilities, never consent or tokens", async () => {
+    const res = await register(new Request(origin + "/api/oauth/register", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ redirect_uris: [redirectUri], token_endpoint_auth_method: "none" }) }));
+    expect(res.status).toBe(201);
+    const c = await res.json();
+    expect(c.scope).toBe(scopes);
+    expect(await ownedDb().collection("mcp_access_grants").countDocuments({})).toBe(0);
+    expect(await listMcpClientAuthorizations(admin)).toEqual([]);
+    const pending = await begin(c);
+    expect((await getConsentIntent(admin, pending.intent)).intent.scopes).toEqual(scopes.split(" "));
+    expect(await ownedDb().collection("mcp_access_grants").countDocuments({})).toBe(0);
+    const granted = await exchange(c, await approve(c));
+    expect(granted.status).toBe(200);
+    expect((await granted.json()).scope).toBe(scopes);
+    const readOnly = await exchange(c, await approve(c, { scope: "guide.read" }));
+    expect((await readOnly.json()).scope).toBe("guide.read");
+    const unknown = await authorize(new Request(origin + "/api/oauth/authorize?" + authorizationQuery(c.client_id, randomBytes(32).toString("base64url"), { scope: "guide.read guide.delete" })));
+    expect(unknown.status).toBe(400);
+  });
+
   it("preserves long opaque client state through login, consent and callbacks", async () => {
     const c = await client();
     for (const length of [1144, 4096]) {
