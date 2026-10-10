@@ -1,0 +1,86 @@
+{
+  "timestampUtc": "2026-10-10T06:57:50Z",
+  "checks": [
+    {
+      "path": "/",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/admin/login",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/api/health/live",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/api/health/ready",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/.well-known/oauth-protected-resource",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/.well-known/oauth-protected-resource/mcp",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/.well-known/oauth-authorization-server",
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "path": "/mcp",
+      "method": "GET",
+      "status": 401
+    },
+    {
+      "path": "/mcp",
+      "method": "POST",
+      "status": 401
+    },
+    {
+      "path": "/api/mcp",
+      "method": "GET",
+      "status": 404
+    },
+    {
+      "path": "/api/guides",
+      "method": "GET",
+      "status": 401
+    },
+    {
+      "path": "/api/oauth/authorize",
+      "method": "GET",
+      "status": 400,
+      "syntheticStateLength": 1144,
+      "expectedError": "invalid_client"
+    },
+    {
+      "path": "/api/oauth/authorize",
+      "method": "GET",
+      "status": 400,
+      "syntheticStateLength": 4096,
+      "expectedError": "invalid_client"
+    },
+    {
+      "path": "/api/oauth/authorize",
+      "method": "GET",
+      "status": 400,
+      "syntheticStateLength": 4097,
+      "expectedError": "invalid_request"
+    }
+  ],
+  "imageId": "sha256:a7f16f1aeebc138db0867cea4b3e91d1fe48a0021c0b6cf6c783c69df7fdf12c",
+  "guideWrites": false,
+  "productionCredentialIssued": false,
+  "realGeminiRetry": "PENDING_USER",
+  "rollbackExecuted": false
+}

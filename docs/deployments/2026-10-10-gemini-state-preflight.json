@@ -1,0 +1,10 @@
+{
+  "commit": "097e54b3e43e8ce5ef8c1f97bf29bbba72cc85a9",
+  "image": "travel-cards-web:commit-097e54b3e43e",
+  "imageId": "sha256:a7f16f1aeebc138db0867cea4b3e91d1fe48a0021c0b6cf6c783c69df7fdf12c",
+  "sourceSha256": "af2a32b61eeba632486fa678b851b652052969e03c34603f539851c9a4bb8932",
+  "rollbackImage": "travel-cards-web:commit-534d4ac931457",
+  "oldImageId": "sha256:2ce274ca2fc5953fbe4e46bb9578aadd6fadaffb0f21b2061aeb71c4c253ddce",
+  "environmentUnchanged": true,
+  "sourceDrift": false
+}
