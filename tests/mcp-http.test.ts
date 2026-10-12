@@ -84,7 +84,7 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     expect((await POST(request(revoked.accessToken, rpc("tools/list")))).status).toBe(401);
   });
 
-  it("negotiates versions, advertises only five tools and supports authenticated stateless lifecycle", async () => {
+  it("negotiates versions, advertises six scoped tools and supports authenticated stateless lifecycle", async () => {
     const g = await grant();
     for (const version of ["2025-11-25", "2025-06-18", "2025-03-26", "2099-01-01"]) {
       const res = await POST(request(g.accessToken, rpc("initialize", { protocolVersion: version, capabilities: {}, clientInfo: { name: "fake-client", version: "1" } })));

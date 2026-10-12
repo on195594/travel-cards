@@ -8,7 +8,7 @@
 
 - 保留管理员 Session 和既有受信任自动化 Token 的完整原有能力，包括删除；现有 Token 不是受限 AI 凭证。
 - 受限外部 AI 可读取、创建、修改和直接发布同一份 Guide，不额外要求应用内逐篇审批。仍遵守客户端写入确认、完整性校验、slug 约束、revision 冲突和审计。
-- 受限 AI 不得删除或管理配置；撤回、上传图片未获批准，默认拒绝。应用内 Gemini 仍只生成候选或问答，不自主写库。
+- 受限 AI 不得删除或管理配置；撤回仍默认拒绝；图片上传已获批准，需 image.upload，直接替换封面还需 guide.update 与 expectedRevision。应用内 Gemini 仍只生成候选或问答，不自主写库。
 - 外部来源 URL 仅为客户端提供的引用，不能自动标记为 Gemini grounding 已验证。不新建重复 Card 内容模型或 Agent 框架。
 
 ## 仓库实现与验收状态
@@ -16,13 +16,13 @@
 | 能力 | 已实现 | 尚未完成 |
 | --- | --- | --- |
 | 管理 API 权限 | 显式能力检查；原 Session/Token 兼容性回归 | 受限凭证未接入管理员 REST；不能把既有 Token 给 AI |
-| Guide MCP 工具核心 | list/get/create/update/publish，共享 schema、业务服务与审计；受鉴权无状态 HTTP/协议 adapter 和错误映射已实现 | 扩展审查、生产门禁及 Gemini 真实验收 |
-| 受限访问令牌 | OAuth 授权码衔接、15 分钟摘要令牌、精确 resource/scopes、逐次 active 客户端检查和持久化撤销；业务 HTTP 仅调用正式校验、拒绝裸内部令牌 | 生产与真实账号验证 |
-| OAuth/DCR | 注册/限额、标准发现、S256 PKCE、一次性码、管理员同意与客户端列表/撤销；默认关闭 | 扩展独立审查、真实 Gemini 网页/手机握手 |
+| Guide MCP 工具核心 | list/get/create/update/publish/upload_image，共享 schema、业务服务与审计；受鉴权 HTTP 已上线 | Gemini 真实验收 |
+| 受限访问令牌 | OAuth 授权码衔接、100 × 365 天长效摘要令牌、精确 resource/scopes、逐次 active 客户端检查和持久化撤销；业务 HTTP 仅调用正式校验、拒绝裸内部令牌 | 真实账号验证 |
+| OAuth/DCR | 注册/限额、标准发现、S256 PKCE、一次性码、管理员同意与客户端列表/撤销；生产已启用，新环境默认关闭 | 真实 Gemini 网页/手机握手 |
 | 连接探针 | `/api/mcp-probe` 固定数据工具及公开部署记录 | 不提供认证或业务能力，不替代 Gemini 双端验收 |
 | 非敏感配置后台 | 管理员专属能力策略 | 字段清单、存储与管理界面 |
 
-`restricted-ai` 的有效权限为角色上界与实际 scopes 的交集。缺少 scopes 默认拒绝；发现工具时过滤并不替代调用时鉴权。当前令牌仅绑定 `AUTH_URL` 对应的 `/mcp`（本轮从旧 `/api/mcp` 迁移，需重新授权）；每次认证查询过期/撤销状态，不依赖 TTL 及时删除。内部撤销针对短效记录；新客户端撤销统一阻止其令牌、授权码和未确认意图的后续使用，但不能取消已认证的在途操作，也不代表真实 Google 账号关联已验收。当前没有 refresh token。
+`restricted-ai` 的有效权限为角色上界与实际 scopes 的交集。缺少 scopes 默认拒绝；发现工具时过滤并不替代调用时鉴权。当前令牌仅绑定 `AUTH_URL` 对应的 `/mcp`（本轮从旧 `/api/mcp` 迁移，需重新授权）；每次认证查询过期/撤销状态，不依赖 TTL 及时删除。内部撤销针对令牌记录；新客户端撤销统一阻止其令牌、授权码和未确认意图的后续使用，但不能取消已认证的在途操作，也不代表真实 Google 账号关联已验收。当前没有 refresh token。
 
 内部底座已提交至 `7cc88f8`；该提交获得真实 AGY 的 **APPROVE**，证据见 [审查记录](../reviews/agy-7cc88f8/closeout.md)。后续 DCR/OAuth 增量不在该历史审查范围内；本轮另获扩展审查并已部署，仍不能将历史审查当作 OAuth 接入通过。
 
@@ -38,7 +38,15 @@
 
 用户已确认添加入口可见，截图中的高级选项显示 OAuth Client ID / Client secret。**这不是认证握手或连接成功证据。** 按官方原文和 [MCP Authorization](https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization) 开发，不再以逐屏截图为前置条件；不得用 Gemini API/CLI 或 Enterprise 文档代替 Gemini Apps 的验收契约。地区及功能限制在真实验收时需重新核实。
 
-## 公开探针与生产版本
+## 当前发布与下一步
+
+最近部署为 `225b405`，详见[发布记录](../deployments/2026-10-10-ui-performance-release.md)。六个工具与五项 scopes 已上线；客户端注册及令牌均为 100 × 365 天有限有效期，旧记录不自动扩权/延寿。优先完成 Gemini 网页/手机真实验收与图片上传安全复核，再确认配置后台字段。
+
+已知待核对：URL 图片拉取当前只做主机名/字面 IP 与逐跳重定向过滤，没有 DNS 解析结果校验及连接地址固定，不能称为完整 SSRF 防护；Base64 虽受 10 MiB 图片限制，但 MCP JSON 请求体仍最多 2 MiB。本文记录限制，不借文档清理改变接口。
+
+以下各节保留历史阶段快照；其中 15 分钟、30 天、五个工具、默认关闭及 NOT_RUN 均描述当时批次，不代表当前状态。
+
+## 历史：公开探针与生产版本
 
 - 联调 URL：`https://travel.keyi.win/api/mcp-probe`。唯一工具 `connection_check` 无参数，只返回固定非敏感信息，无数据库/应用凭证/外部服务依赖。
 - 实现是无状态 Streamable HTTP 的直接 JSON 响应；不提供 SSE 长连接、OAuth、业务资源或写工具。公开无认证仅适用于此合成探针，不是业务 MCP 的认证方案。
@@ -46,7 +54,7 @@
 - 2026-10-10 只读核对：当前容器使用 `travel-cards-web`，image ID `sha256:3db6a4206c751c927ed250a6c19971fe32ae91b244347fe1d1e591f0d58dcfdd`；首页 GET 为 200，探针 GET 为预期的 405。镜像未提供源提交标签，**不能据此确认线上对应哪个 Git 提交或哪些内部模块已部署**。
 - 原探针回滚标签 `travel-cards-web:before-mcp-probe-20261009-6r4x61` 已不存在，旧临时 helper 也不适配当前镜像。已移除过时操作指令和临时产物；回滚前需重新明确目标镜像/提交及配置，获得授权后执行，不能照抄旧命令。
 
-## 本轮增量：DCR 注册（2026-10-10）
+## 历史：DCR 注册增量（2026-10-10）
 
 以下记录注册子步骤当时的范围与验证；后续 OAuth 闭环见下一节，现状以顶部能力表为准。
 
@@ -60,7 +68,7 @@
 
 本轮本地验证：`npm test` 18 个文件、216 项通过；DCR 与模块边界定向测试 45 项通过；lint、TypeScript、`scripts/build-with-test-env.sh`（执行 `npm run build`）、`docker compose config` 通过。`npm run test:http` 在隔离 MongoDB/本地 production server 验证原管理员 Token 的发布、修改、撤回、再发布、删除及 HTML/RSC 可见性；DCR 使用直接 Route Handler + 真实隔离 MongoDB 的 fake 客户端测试，不是 Gemini 实际握手。生产部署、AGY 新审查及 Gemini 双端验收均 **NOT_RUN**。
 
-## 后续增量：本地 OAuth 授权闭环（2026-10-10）
+## 历史：本地 OAuth 授权闭环（2026-10-10）
 
 - `/.well-known/oauth-authorization-server` 与 `/.well-known/oauth-protected-resource`（含 `/api/mcp` 路径式元数据）：issuer/endpoints/resource 只来自服务器 `AUTH_URL`，不使用请求 Host；仅声明授权码、S256 和三种已批准客户端认证方法。
 - `GET /api/oauth/authorize` 要求精确注册回调、state、S256 challenge、规范 resource 及注册 scopes 的子集。未登录只跳转到本站登录页，不创建意图；登录后仍须在 `/admin/oauth/consent` 明确确认，每次连接都不自动批准。
@@ -75,7 +83,7 @@
 
 浏览器视觉检查覆盖 1440×1000 与 390×844、明暗主题及 reduced-motion；手机视口撤销按钮修复后高度 50px、无横向溢出。原生同意、拒绝、已消费意图恢复和撤销功能通过；实际 POST Origin 等于固定服务地址，回调响应 `no-referrer`，键盘焦点轮廓为 3px。功能检查在本地拦截回调响应，不访问真实外部应用。真实设备、读屏、Gemini 双端、扩展 AGY 审查和部署均 **NOT_RUN**；历史 AGY 结论不覆盖本轮。
 
-## 业务 MCP 与上线批次（2026-10-10）
+## 历史：业务 MCP 首次上线批次（2026-10-10）
 
 `POST /mcp` 提供无状态 Streamable HTTP 的 JSON 响应，支持三版协议协商、初始化/通知/ping 和五个攻略工具。GET/DELETE 不建立 SSE/session，有效身份得到 405；无身份返回 401 discovery challenge。提供 Origin 时只接受固定服务端同源；不依赖请求 Host，不接受管理员 Cookie、旧 API Token 或裸内部令牌。
 
@@ -83,11 +91,11 @@
 
 上线使用无凭证的隔离源码快照、真实 AGY 只读审查、带源码 SHA-256 标签的不可变 Docker 镜像和该镜像的隔离 HTTP 验证。`docker-compose.production.yml` 必须显式选定镜像，默认不启用 MCP。部署只替换 Web；旧镜像和原开关状态作为回滚目标，生产 smoke 只做公开/未授权只读检查，不签发临时生产凭证或修改攻略。本轮服务端已通过门禁部署并显式启用，见[发布及回滚记录](../deployments/2026-10-10-oauth-mcp.md)；真实 Gemini 双端验收仍 NOT_RUN。
 
-## 路由迁移（2026-10-10 用户确认）
+## 历史：路由迁移（2026-10-10 用户确认）
 
 REST 保留 `/api/*`，正式 MCP 迁至 `/mcp`，路径式元数据迁至 `/.well-known/oauth-protected-resource/mcp`；根资源元数据保持可用，OAuth endpoints 不变。旧 `/api/mcp` 与旧路径式元数据返回 404，不建立跳转/别名，也不改写旧授权记录的 resource。旧意图、码、令牌拒绝；客户端重新授权。历史源清单、审查和发布记录仍保留当时的旧路径。本轮已通过真实 AGY 审查和精确镜像回归并上线，见[迁移发布记录](../deployments/2026-10-10-mcp-route.md)；真实 Gemini 网页/手机验收仍 NOT_RUN。
 
-## 实施顺序与验收
+## 历史：实施顺序与验收
 
 1. **业务 MCP HTTP**：复用五个工具及能力策略，正确区分协议错误和 `isError: true` 业务错误，保留 `REVISION_CONFLICT` 信息，不自动重试覆盖。以 fake 客户端验证 REST/MCP 绕过、重放、并发及撤销后的拒绝。
 2. **扩展审查与部署/Gemini 双端验收**：权限、输入、脱敏日志及授权撤销全部通过后，另行授权部署。由用户完成必要的账号授权；网页/原生手机调用、发布确认、冲突和来源展示均保留真实证据。

@@ -76,10 +76,6 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
 
   const filtered = useMemo(() => remoteSearch?.query === query.trim() ? remoteSearch.guides : filterGuides(initialGuides, query), [initialGuides, query, remoteSearch]);
 
-  function handleQueryChange(value: string) {
-    setQuery(value);
-  }
-
   function handleClear() {
     setRemoteSearch(undefined);
     setQuery("");
@@ -118,7 +114,7 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
               className="search-input"
               type="search"
               value={query}
-              onChange={(e) => handleQueryChange(e.target.value)}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="搜索目的地或关键词"
               aria-label="搜索攻略"
               aria-controls="guide-results"

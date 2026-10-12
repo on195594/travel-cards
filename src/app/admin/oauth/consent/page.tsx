@@ -30,7 +30,7 @@ export default async function ConsentPage({ searchParams }: { searchParams: Prom
     <h2>回调地址</h2><p className="preline">{data.intent.redirectUri}</p>
     <h2>允许此应用</h2><ul>{data.intent.scopes.map((scope) => <li key={scope}>{OAUTH_SCOPE_LABELS[scope]}</li>)}</ul>
     <p className="hint">不能删除、撤回攻略或修改配置。写操作仍需遵守客户端自身的确认规则。</p>
-    <p className="hint">确认请求 5 分钟内有效；授权后访问令牌长效有效（不过期）。你可在<Link href="/admin/oauth">外部应用授权</Link>中随时撤销访问。</p>
+    <p className="hint">确认请求 5 分钟内有效；授权后访问令牌默认有效期为 100 年（按每年 365 天计算）。你可在<Link href="/admin/oauth">外部应用授权</Link>中随时撤销访问。</p>
     <form method="post" action="/api/oauth/consent" className="actions">
       <input type="hidden" name="intent" value={intent} />
       <button type="submit" name="decision" value="deny" className="secondary">拒绝连接</button>

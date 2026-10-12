@@ -4,18 +4,16 @@
 
 **当前实现**：管理员可编辑、发布、删除攻略、上传 R2 封面；应用内 Gemini + Google Search 只生成待采纳候选，通过普通保存流程持久化。现有受信任自动化 API Token 接口继续可用。
 
-**服务端已上线、真实客户端待验收**：首先面向 Gemini 网页和手机 App 的业务 MCP/OAuth；受限外部 AI 可创建、修改及直接发布，但不得删除或管理配置。内部权限、工具、短效令牌及本地 OAuth/DCR/PKCE 同意撤销流程已实现，业务 MCP 已通过本轮门禁并部署，真实 Gemini 客户端验收和非敏感配置后台仍待完成。服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
+**服务端已上线、真实客户端待验收**：首先面向 Gemini 网页和手机 App 的业务 MCP/OAuth；受限外部 AI 可创建、修改及直接发布，但不得删除或管理配置。权限、六个工具、长效令牌及 OAuth/DCR/PKCE 同意撤销流程已实现，业务 MCP 已通过本轮门禁并部署，真实 Gemini 客户端验收和非敏感配置后台仍待完成。服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
 
 ## 当前状态
 
-- Next.js 16、Auth.js（支持管理后台 Session 与外部流程 Bearer API Token）、MongoDB、Guide CRUD/发布/撤回、Cloudflare R2 上传和 Gemini grounded assistant 已落地。
-- 仓库已实现显式能力守卫、五个攻略工具核心和短效受限令牌底座（提交 `7cc88f8`）。权限取角色与 scopes 交集，令牌只存摘要并绑定 MCP resource；该历史提交仅有内部签发，当前 OAuth 增量默认关闭，业务 MCP 入口已通过本轮门禁并在生产显式启用。该提交的真实 AGY 审查为 `APPROVE`，见 [审查证据](./docs/reviews/agy-7cc88f8/closeout.md)，不代表完整 OAuth 或客户端验收通过。
-- 按 Gemini 官方原文采用 OAuth + DCR 方向；发现、注册/限额、S256 PKCE、一次性授权码换令牌、管理员同意及客户端授权列表/撤销已本地实现，默认关闭。`npm run test:oauth` 验证本地 production HTTP 路径与三种客户端认证；业务 MCP HTTP/协议 adapter 已本地实现；扩展审查及服务端生产门禁已通过，真实 Gemini 双端验收仍待完成，见[发布证据](./docs/deployments/2026-10-10-oauth-mcp.md)。[认证决定](./docs/decisions/2026-10-09-gemini-mcp-auth.md) 记录实现细节，当前待办集中在 [接入路线图](./docs/roadmaps/ai-client-integration.md)。
-- 生产曾获授权部署固定数据探针：`https://travel.keyi.win/api/mcp-probe`。2026-10-10 只读核对首页 GET 200、探针 GET 405；当时镜像为 `travel-cards-web`，未标源提交，不能断言线上对应 `7cc88f8`。历史公网协议 smoke 不等于 Gemini 实际连接通过；现有镜像/旧回滚失效情况见接入路线图。
-- 架构路线图当前批次已完成本地验收：T0-01～07（T0-05/06 的生产与真实 R2 证明仍需单独授权）、T1-01/02A/03/04、T2-01/02/03；T1-02B 与 T3 未混入本批次。
-- 当前代码状态以本仓库工作树和下方验证命令为准；历史实现审查、测试及 provider smoke 证据见 [`docs/reviews/agy-final-implementation/closeout.md`](./docs/reviews/agy-final-implementation/closeout.md)。
-- 真实 Gemini grounded structured-output smoke 与 R2 S3 上传/读回/删除 smoke 均已通过；R2 使用现有私有备份 bucket 验证传输，旅行图片专用 bucket/public base 仍需部署时配置。
-- 历史核心实现的独立 AGY 审查返回 `APPROVE`；后续真实 smoke 暴露并验证修复了 Gemini schema 兼容问题。该历史结论不覆盖后来的 OAuth/MCP 扩展。
+- Next.js 16、Auth.js、MongoDB、攻略 CRUD/发布/撤回、R2 上传和 Gemini 候选助手已实现。
+- MCP 提供 list/get/create/update/publish 五个攻略工具及 `upload_image`。独立 `image.upload` scope 控制上传；直接替换封面还需 `guide.update` 和 expectedRevision，禁止删除、撤回及配置管理。
+- OAuth/DCR/PKCE、管理员同意/撤销已实现。新环境默认关闭，当前生产显式启用。令牌与客户端注册默认 100 × 365 天有效，并非永不过期；无 refresh token。旧注册与令牌不自动扩权或续期，需要重新注册授权。
+- 最近部署应用提交 `225b405`，固定镜像与回滚信息见[发布记录](./docs/deployments/2026-10-10-ui-performance-release.md)。本轮只读核对容器 revision 一致；Git HEAD 中的文档更新不代表镜像重建。
+- 真实 Gemini 网页/手机授权及图片上传仍待验收，非敏感配置后台尚未实现。服务端单测通过不等于真实客户端成功。
+- 历史核心实现与内部令牌审查分别见[核心审查](./docs/reviews/agy-final-implementation/closeout.md)、[7cc88f8 审查](./docs/reviews/agy-7cc88f8/closeout.md)；历史 APPROVE 仅覆盖当时范围。
 - 当前开发目录：`/home/lin/travel-cards`
 - 权威需求与权限契约：[SPEC.md](./SPEC.md)
 - 已确认产品定位：[PRODUCT.md](./PRODUCT.md)
@@ -41,7 +39,7 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 - `AUTH_SECRET`：至少 32 个字符
 - `ADMIN_EMAIL`
 - `HERMES_API_TOKEN`：Hermes 等外部流程调用 API 的 Bearer Token（至少 16 字符，可选；兼容读取旧变量名 `API_TOKEN`）
-- `MCP_OAUTH_ENABLED`：默认关闭；控制本地 OAuth 发现/注册/授权/换码及管理员同意/撤销页面。业务 MCP 已本地实现；生产启用须通过扩展审查与上线门禁；开启不代表 Gemini 已接入
+- `MCP_OAUTH_ENABLED`：默认关闭；控制本地 OAuth 发现/注册/授权/换码及管理员同意/撤销页面。当前生产已显式启用；新环境启用与部署仍需授权，开启不代表 Gemini 已接入
 - `MONGODB_URI`（Compose 使用 Meemo 共用的 `mongodb` 服务）
 - R2 与 Gemini 变量；未配置时只有对应操作不可用，已有攻略浏览不受影响
 
@@ -58,11 +56,11 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 - `/api/*`：REST API，保留攻略、上传、OAuth 等现有路径。
 - `/mcp`：唯一正式 MCP 入口，资源元数据为 `/.well-known/oauth-protected-resource/mcp`。
 - 本轮迁移不保留 `/api/mcp` 别名或旧路径式元数据；旧资源的意图、授权码和令牌失效，客户端需重新授权。固定数据 `/api/mcp-probe` 不变。
-- 路由迁移已获用户确认并上线：正式接入地址 `https://travel.keyi.win/mcp`，路由迁移见[记录](./docs/deployments/2026-10-10-mcp-route.md)，当前生产已包含提交 `534d4ac` 的协议修复，见[最新发布及回滚证据](./docs/deployments/2026-10-10-534d4ac.md)。历史发布/审查证据不改写。
+- 路由迁移已获用户确认并上线：正式接入地址 `https://travel.keyi.win/mcp`，路由迁移见[记录](./docs/deployments/2026-10-10-mcp-route.md)，当前发布见[最新发布及回滚证据](./docs/deployments/2026-10-10-ui-performance-release.md)。历史发布/审查证据不改写。
 
 ## 已审查镜像的生产发布
 
-本轮按独立源码快照构建，不要求 commit/push；禁止把 dirty 工作树自动混入后续部署。镜像使用 `win.keyi.travel-cards.source-sha256` 标识冻结的实际源码，不将 Git HEAD 当作该未提交快照的版本。
+生产从明确的 Git 提交快照构建不可变镜像，记录 revision 与源码归档 SHA-256；禁止把 dirty 工作树混入部署。提交、push 和部署分别需要用户授权。
 
 `docker-compose.production.yml` 显式选择已经通过审查/隔离验证的不可变镜像；用 `--no-deps --no-build --pull never web` 只替换 Web，不改共用 MongoDB或凭证。新功能默认关闭；生产启用需要本轮上线授权，真实 Gemini 验收由管理员自行完成。部署记录必须保存源清单、审查、镜像、原镜像/开关及公开 smoke；回滚复用原镜像和开关。不要用旧 `deploy.sh` 覆盖这一固定镜像发布。
 
@@ -79,7 +77,7 @@ docker compose up -d --build
 docker compose ps
 ```
 
-若本地已有仓库根目录的 `deploy.sh`，更新代码可运行 `./deploy.sh`；脚本会确认在 `main` 分支且工作树干净，快进同步 `origin/main`，构建并重启 Web，再检查 live/ready 健康状态。它不会停止或重建共用 MongoDB。该本地辅助脚本不随当前仓库分发，新检出使用上述 Compose 命令。
+以上构建命令用于本地开发/新环境。现有生产更新使用上一节的固定镜像流程；本地遗留 `deploy.sh` 不随仓库分发，不作为生产发布入口。
 
 默认入口：
 
@@ -127,8 +125,8 @@ npm run verify
 
 - `src/app/`：页面和 Route Handlers
 - `src/lib/capabilities.ts`：服务端能力矩阵；`src/auth.ts` 的 `requireCapability` 在认证后校验
-- `src/lib/mcp/guide-tools.ts`：内部攻略工具定义与执行器，尚未接入业务 HTTP 或 OAuth
-- `src/lib/mcp/access-grants.ts`：内部短效访问令牌签发、资源/scopes 校验及撤销；无公网签发入口
+- `src/lib/mcp/guide-tools.ts`：六个受限 MCP 工具定义与执行器，已接入 OAuth 鉴权后的 HTTP adapter
+- `src/lib/mcp/access-grants.ts`：长效访问令牌签发、资源/scopes 校验及撤销；公网签发仅经过授权码/PKCE 流程
 - `src/lib/guides/schema.ts`：Guide 输入输出结构与类型
 - `src/lib/guides/repository.ts`：Mongoose 持久化和摘要/详情读取
 - `src/lib/guides/service.ts`：Guide 业务规则；`src/lib/guides.ts` 仅保留兼容导出
@@ -140,4 +138,4 @@ npm run verify
 
 正式审查证据保存在 `docs/reviews/`，临时源码快照和日志归档必要证据后清理；旧回滚脚本不得作为当前运维入口。保留凭证、备份、静态资源、历史审查、依赖和构建缓存；不改动共享 MongoDB 或其他项目。
 
-`src/lib/guides.ts` 仍被调用；MCP 授权/工具模块虽未接公网，但属于已批准实现且有测试，不按“仅测试引用”当死代码删除。测试仅合并重复建库和跨层重复的业务断言，保留权限拒绝、scope/resource、过期撤销、409 和输入边界覆盖。本次清理与验证记录见 [维护记录](./docs/maintenance/2026-10-10-cleanup.md)。
+`src/lib/guides.ts` 仍被调用；MCP 授权/工具模块已在线使用，不按“仅测试引用”当死代码删除。测试保留权限拒绝、scope/resource、过期撤销、409 和输入边界覆盖；本次未发现可安全删除的重复测试套件。最新清理记录见 [维护记录](./docs/maintenance/2026-10-12-cleanup.md)，此前记录保留在历史文档中。

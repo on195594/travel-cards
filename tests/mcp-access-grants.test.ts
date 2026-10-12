@@ -44,7 +44,7 @@ afterAll(async () => {
 });
 
 describe("internal MCP access grant lifecycle (fake admin consent, isolated MongoDB)", () => {
-  it("generates unique short-lived tokens and stores only a digest, with expiry and indexes", async () => {
+  it("generates unique long-lived tokens and stores only a digest, with expiry and indexes", async () => {
     const audit = vi.spyOn(console, "info").mockImplementation(() => {});
     const grant = await issue();
     const second = await issue();
