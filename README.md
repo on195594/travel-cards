@@ -11,7 +11,7 @@
 - Next.js 16、Auth.js、MongoDB、攻略 CRUD/发布/撤回、R2 上传和 Gemini 候选助手已实现。
 - MCP 提供 list/get/create/update/publish 五个攻略工具及 `upload_image`。独立 `image.upload` scope 控制上传；直接替换封面还需 `guide.update` 和 expectedRevision，禁止删除、撤回及配置管理。
 - OAuth/DCR/PKCE、管理员同意/撤销已实现。新环境默认关闭，当前生产显式启用。令牌与客户端注册默认 100 × 365 天有效，并非永不过期；无 refresh token。旧注册与令牌不自动扩权或续期，需要重新注册授权。
-- 最近部署应用提交 `b0daf2b`，固定镜像与回滚信息见[发布记录](./docs/deployments/2026-10-12-guide-navigation-release.md)。本轮只读核对容器 revision 一致；Git HEAD 中的文档更新不代表镜像重建。
+- 最近部署应用提交 `587df41`，固定镜像与回滚信息见[发布记录](./docs/deployments/2026-10-12-guide-navigation-release.md)。本轮只读核对容器 revision 一致；Git HEAD 中的文档更新不代表镜像重建。
 - 真实 Gemini 网页/手机双端验收已完成，依据为 2026-10-12 用户确认，见[验收状态记录](./docs/roadmaps/ai-client-integration.md#真实双端验收用户确认)。图片上传专项验收未单独确认，非敏感配置后台尚未实现。服务端单测与用户真实验收分别记录。
 - 历史核心实现与内部令牌审查分别见[核心审查](./docs/reviews/agy-final-implementation/closeout.md)、[7cc88f8 审查](./docs/reviews/agy-7cc88f8/closeout.md)；历史 APPROVE 仅覆盖当时范围。
 - 当前开发目录：`/home/lin/travel-cards`
