@@ -112,8 +112,7 @@ export default async function GuidePage({ params }: Props) {
                       href={`#day-${day.day}`}
                       title={`第 ${day.day} 天${subTitle ? `：${subTitle}` : ""}`}
                     >
-                      <span className="day-jump-num">第 {day.day} 天</span>
-                      {subTitle && <span className="day-jump-sub">· {subTitle}</span>}
+                      第 {day.day} 天
                     </a>
                   );
                 })}
@@ -123,7 +122,8 @@ export default async function GuidePage({ params }: Props) {
                 {guide.sections.map((section, index) => {
                   const sectionId = getSectionId(section.kind, index, guide.sections);
                   const kindLabel = sectionKindLabels[section.kind] ?? "实用建议";
-                  const hasCustomTitle = section.title && section.title !== kindLabel;
+                  const isKindUnique = guide.sections.filter((s) => s.kind === section.kind).length === 1;
+                  const label = isKindUnique ? kindLabel : (section.title || kindLabel);
                   return (
                     <a
                       className="day-jump-pill section-jump-pill"
@@ -131,8 +131,7 @@ export default async function GuidePage({ params }: Props) {
                       href={`#${sectionId}`}
                       title={`${kindLabel}：${section.title}`}
                     >
-                      <span className="section-jump-kind">{kindLabel}</span>
-                      {hasCustomTitle && <span className="day-jump-sub">· {section.title}</span>}
+                      {label}
                     </a>
                   );
                 })}
@@ -141,7 +140,7 @@ export default async function GuidePage({ params }: Props) {
                 )}
                 {guide.sources.length > 0 && (
                   <a className="day-jump-pill source-jump-pill" href="#sources" title="出行参考资料">
-                    <span>参考资料</span>
+                    参考资料
                   </a>
                 )}
               </nav>
