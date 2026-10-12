@@ -11,7 +11,7 @@
 - Next.js 16、Auth.js、MongoDB、攻略 CRUD/发布/撤回、R2 上传和 Gemini 候选助手已实现。
 - MCP 提供 list/get/create/update/publish 五个攻略工具及 `upload_image`。独立 `image.upload` scope 控制上传；直接替换封面还需 `guide.update` 和 expectedRevision，禁止删除、撤回及配置管理。
 - OAuth/DCR/PKCE、管理员同意/撤销已实现。新环境默认关闭，当前生产显式启用。令牌与客户端注册默认 100 × 365 天有效，并非永不过期；无 refresh token。旧注册与令牌不自动扩权或续期，需要重新注册授权。
-- 最近部署应用提交 `225b405`，固定镜像与回滚信息见[发布记录](./docs/deployments/2026-10-10-ui-performance-release.md)。本轮只读核对容器 revision 一致；Git HEAD 中的文档更新不代表镜像重建。
+- 最近部署应用提交 `d260439`，固定镜像与回滚信息见[发布记录](./docs/deployments/2026-10-12-cleanup-release.md)。本轮只读核对容器 revision 一致；Git HEAD 中的文档更新不代表镜像重建。
 - 真实 Gemini 网页/手机授权及图片上传仍待验收，非敏感配置后台尚未实现。服务端单测通过不等于真实客户端成功。
 - 历史核心实现与内部令牌审查分别见[核心审查](./docs/reviews/agy-final-implementation/closeout.md)、[7cc88f8 审查](./docs/reviews/agy-7cc88f8/closeout.md)；历史 APPROVE 仅覆盖当时范围。
 - 当前开发目录：`/home/lin/travel-cards`
@@ -56,7 +56,7 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 - `/api/*`：REST API，保留攻略、上传、OAuth 等现有路径。
 - `/mcp`：唯一正式 MCP 入口，资源元数据为 `/.well-known/oauth-protected-resource/mcp`。
 - 本轮迁移不保留 `/api/mcp` 别名或旧路径式元数据；旧资源的意图、授权码和令牌失效，客户端需重新授权。固定数据 `/api/mcp-probe` 不变。
-- 路由迁移已获用户确认并上线：正式接入地址 `https://travel.keyi.win/mcp`，路由迁移见[记录](./docs/deployments/2026-10-10-mcp-route.md)，当前发布见[最新发布及回滚证据](./docs/deployments/2026-10-10-ui-performance-release.md)。历史发布/审查证据不改写。
+- 路由迁移已获用户确认并上线：正式接入地址 `https://travel.keyi.win/mcp`，路由迁移见[记录](./docs/deployments/2026-10-10-mcp-route.md)，当前发布见[最新发布及回滚证据](./docs/deployments/2026-10-12-cleanup-release.md)。历史发布/审查证据不改写。
 
 ## 已审查镜像的生产发布
 
