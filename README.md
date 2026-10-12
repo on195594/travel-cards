@@ -4,7 +4,7 @@
 
 **当前实现**：管理员可编辑、发布、删除攻略、上传 R2 封面；应用内 Gemini + Google Search 只生成待采纳候选，通过普通保存流程持久化。现有受信任自动化 API Token 接口继续可用。
 
-**服务端已上线、真实客户端待验收**：首先面向 Gemini 网页和手机 App 的业务 MCP/OAuth；受限外部 AI 可创建、修改及直接发布，但不得删除或管理配置。权限、六个工具、长效令牌及 OAuth/DCR/PKCE 同意撤销流程已实现，业务 MCP 已通过本轮门禁并部署，真实 Gemini 客户端验收和非敏感配置后台仍待完成。服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
+**服务端已上线、Gemini 双端验收已完成（用户确认）**：首先面向 Gemini 网页和手机 App 的业务 MCP/OAuth；受限外部 AI 可创建、修改及直接发布，但不得删除或管理配置。权限、六个工具、长效令牌及 OAuth/DCR/PKCE 同意撤销流程已实现，业务 MCP 已通过本轮门禁并部署，用户已确认真实 Gemini 网页/手机双端验收完成；非敏感配置后台仍待完成。服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
 
 ## 当前状态
 
@@ -12,7 +12,7 @@
 - MCP 提供 list/get/create/update/publish 五个攻略工具及 `upload_image`。独立 `image.upload` scope 控制上传；直接替换封面还需 `guide.update` 和 expectedRevision，禁止删除、撤回及配置管理。
 - OAuth/DCR/PKCE、管理员同意/撤销已实现。新环境默认关闭，当前生产显式启用。令牌与客户端注册默认 100 × 365 天有效，并非永不过期；无 refresh token。旧注册与令牌不自动扩权或续期，需要重新注册授权。
 - 最近部署应用提交 `d260439`，固定镜像与回滚信息见[发布记录](./docs/deployments/2026-10-12-cleanup-release.md)。本轮只读核对容器 revision 一致；Git HEAD 中的文档更新不代表镜像重建。
-- 真实 Gemini 网页/手机授权及图片上传仍待验收，非敏感配置后台尚未实现。服务端单测通过不等于真实客户端成功。
+- 真实 Gemini 网页/手机双端验收已完成，依据为 2026-10-12 用户确认，见[验收状态记录](./docs/roadmaps/ai-client-integration.md#真实双端验收用户确认)。图片上传专项验收未单独确认，非敏感配置后台尚未实现。服务端单测与用户真实验收分别记录。
 - 历史核心实现与内部令牌审查分别见[核心审查](./docs/reviews/agy-final-implementation/closeout.md)、[7cc88f8 审查](./docs/reviews/agy-7cc88f8/closeout.md)；历史 APPROVE 仅覆盖当时范围。
 - 当前开发目录：`/home/lin/travel-cards`
 - 权威需求与权限契约：[SPEC.md](./SPEC.md)
@@ -22,7 +22,7 @@
 - 外部 AI / MCP 接入边界与 Gemini 官方限制：[docs/roadmaps/ai-client-integration.md](./docs/roadmaps/ai-client-integration.md)
 - UI 精修及 AGY 复审：[docs/reviews/ui-impeccable-review.md](./docs/reviews/ui-impeccable-review.md)
 
-Gemini 自定义 MCP 应用目前有地区、年龄、账号和语言限制，并要求客户端确认写操作；网页连接后才可在手机 App 使用。尚无本项目的双端接入成功证明，详见接入文档。
+Gemini 自定义 MCP 应用目前有地区、年龄、账号和语言限制，并要求客户端确认写操作；网页连接后才可在手机 App 使用。本项目双端接入已由用户确认验收完成；该结果不代表所有账号或地区均可用，详见接入文档。
 
 Impeccable 已初始化 `PRODUCT.md`，用户选择的新页面构建默认是代码优先，保存在 `.impeccable/config.json`。开发期 live setup 已记录，但未注入或启动；本轮未重做视觉系统。
 
@@ -49,7 +49,7 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 
 配置 `HERMES_API_TOKEN`（至少 16 字符；服务端也兼容读取 `API_TOKEN`）后，受信任自动化流水线（如 Hermes）可通过 HTTP 请求头携带 `Authorization: Bearer <TOKEN>` 调用管理接口（如 `GET /api/guides?scope=admin`、`POST /api/guides`、`PATCH /api/guides/[id]`、发布/撤回与图片上传），无需浏览器 Cookie 且豁免同源限制；创建攻略时若指定 `publish: true` 且满足完整性校验可直接发布。
 
-**注意**：这是现有管理员等价凭证，Token 删除攻略接口按用户确认继续保留。受限凭证及业务 MCP 服务端已部署，但真实客户端验收待完成，配置后台尚未完成，不要把本节的凭证交给外部 AI 来满足“不允许删除”的产品目标。
+**注意**：这是现有管理员等价凭证，Token 删除攻略接口按用户确认继续保留。受限凭证及业务 MCP 服务端已部署，真实 Gemini 双端验收已由用户确认完成，配置后台尚未完成，不要把本节的凭证交给外部 AI 来满足“不允许删除”的产品目标。
 
 ## REST / MCP 路由边界
 

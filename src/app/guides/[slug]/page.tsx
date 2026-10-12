@@ -5,20 +5,12 @@ import { cache } from "react";
 import { CopyLink } from "@/components/copy-link";
 import { getSiteOrigin } from "@/lib/env";
 import { getPublishedGuideBySlug } from "@/lib/guides";
+import { getDayDisplayTitle, getSectionId, sectionKindLabels } from "@/lib/guides/navigation";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ slug: string }> };
 const getGuide = cache(getPublishedGuideBySlug);
-
-const sectionKindLabels: Record<string, string> = {
-  transport: "交通出行",
-  stay: "住宿推荐",
-  food: "餐饮美食",
-  budget: "费用预算",
-  safety: "安全防范",
-  other: "实用建议",
-};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const guide = await getGuide((await params).slug);
@@ -52,6 +44,7 @@ export default async function GuidePage({ params }: Props) {
   const guide = await getGuide((await params).slug);
   if (!guide) notFound();
   const totalStops = guide.itinerary.reduce((sum, day) => sum + day.items.length, 0);
+  const totalNavTargets = guide.itinerary.length + guide.sections.length + (guide.sources.length > 0 ? 1 : 0);
 
   const origin = getSiteOrigin();
   const jsonLd = {
@@ -99,7 +92,7 @@ export default async function GuidePage({ params }: Props) {
 
         {guide.coverImage && <a className="cover-original" href={guide.coverImage.publicUrl} target="_blank" rel="noopener noreferrer">查看封面原图（新窗口） <span aria-hidden="true">↗</span></a>}
 
-        <section className="itinerary-section">
+        <section className="itinerary-section" id="itinerary">
           <div className="section-header-row">
             <div>
               <div className="section-badge-wrapper">
@@ -107,14 +100,50 @@ export default async function GuidePage({ params }: Props) {
               </div>
               <h2>逐日行程</h2>
             </div>
-            {guide.itinerary.length > 1 && (
-              <nav className="day-jump-nav" aria-label="行程日期快速跳转">
+            {totalNavTargets > 1 && (
+              <nav className="day-jump-nav" aria-label="攻略快速跳转">
                 <span className="day-jump-label">跳转：</span>
-                {guide.itinerary.map((day) => (
-                  <a className="day-jump-pill" key={day.day} href={`#day-${day.day}`}>
-                    第 {day.day} 天
+                {guide.itinerary.map((day) => {
+                  const subTitle = getDayDisplayTitle(day.title, day.day);
+                  return (
+                    <a
+                      className="day-jump-pill"
+                      key={day.day}
+                      href={`#day-${day.day}`}
+                      title={`第 ${day.day} 天${subTitle ? `：${subTitle}` : ""}`}
+                    >
+                      <span className="day-jump-num">第 {day.day} 天</span>
+                      {subTitle && <span className="day-jump-sub">· {subTitle}</span>}
+                    </a>
+                  );
+                })}
+                {guide.itinerary.length > 0 && guide.sections.length > 0 && (
+                  <span className="day-jump-divider" aria-hidden="true" />
+                )}
+                {guide.sections.map((section, index) => {
+                  const sectionId = getSectionId(section.kind, index, guide.sections);
+                  const kindLabel = sectionKindLabels[section.kind] ?? "实用建议";
+                  const hasCustomTitle = section.title && section.title !== kindLabel;
+                  return (
+                    <a
+                      className="day-jump-pill section-jump-pill"
+                      key={sectionId}
+                      href={`#${sectionId}`}
+                      title={`${kindLabel}：${section.title}`}
+                    >
+                      <span className="section-jump-kind">{kindLabel}</span>
+                      {hasCustomTitle && <span className="day-jump-sub">· {section.title}</span>}
+                    </a>
+                  );
+                })}
+                {(guide.itinerary.length > 0 || guide.sections.length > 0) && guide.sources.length > 0 && (
+                  <span className="day-jump-divider" aria-hidden="true" />
+                )}
+                {guide.sources.length > 0 && (
+                  <a className="day-jump-pill source-jump-pill" href="#sources" title="出行参考资料">
+                    <span>参考资料</span>
                   </a>
-                ))}
+                )}
               </nav>
             )}
           </div>
@@ -144,19 +173,22 @@ export default async function GuidePage({ params }: Props) {
           </div>
         </section>
 
-        {guide.sections.map((section, index) => (
-          <section className="section-block panel" key={`${section.kind}-${index}`}>
-            <div className="section-badge-wrapper">
-              <span className={`kind-badge kind-${section.kind}`}>
-                {sectionKindLabels[section.kind] ?? "实用建议"}
-              </span>
-            </div>
-            <h2>{section.title}</h2>
-            <p className="preline">{section.body}</p>
-          </section>
-        ))}
+        {guide.sections.map((section, index) => {
+          const sectionId = getSectionId(section.kind, index, guide.sections);
+          return (
+            <section className="section-block panel" id={sectionId} key={`${section.kind}-${index}`}>
+              <div className="section-badge-wrapper">
+                <span className={`kind-badge kind-${section.kind}`}>
+                  {sectionKindLabels[section.kind] ?? "实用建议"}
+                </span>
+              </div>
+              <h2>{section.title}</h2>
+              <p className="preline">{section.body}</p>
+            </section>
+          );
+        })}
 
-        <section className="section-block panel">
+        <section className="section-block panel" id="sources">
           <div className="section-badge-wrapper"><span className="kind-badge">参考来源</span></div>
           <h2>出行参考资料</h2>
           {guide.sources.length ? (

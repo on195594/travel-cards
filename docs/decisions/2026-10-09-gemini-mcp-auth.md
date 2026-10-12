@@ -1,6 +1,8 @@
 # Gemini Apps MCP：以官方文档驱动接入
 
-初始日期：2026-10-09；更新：2026-10-10。状态：Guide 工具核心、短效令牌及默认关闭的本地 OAuth/DCR/PKCE 同意撤销流程已实现；业务 MCP HTTP endpoint 已通过真实 AGY 扩展审查并上线；真实 Gemini 验收待完成（见发布记录）。本文不是新一轮生产部署或凭证变更授权。
+初始日期：2026-10-09；状态对齐：2026-10-12。OAuth/DCR/PKCE 与业务 MCP 已上线；真实 Gemini 网页/手机双端验收已完成（用户确认），依据与范围见[接入路线图](../roadmaps/ai-client-integration.md#真实双端验收用户确认)。本文不是新一轮生产部署或凭证变更授权。
+
+下文保留各批次的历史设计与验证，包括短效令牌、五个工具、未验收及 NOT_RUN 等当时状态，不代表当前状态；现行期限、工具范围及剩余事项以接入路线图为准。
 
 ## 官方依据与提取纠正
 
@@ -79,7 +81,7 @@ Gemini Enterprise、Gemini CLI、Gemini API 和 Google 社区论坛不作为 Gem
 
 ## 后续增量：客户端注册与限额（2026-10-10）
 
-`src/lib/mcp/oauth-clients.ts` 与 `POST /api/oauth/register` 落实 SPEC 3.3.2 的注册子步骤，行为和剩余缺口见 [接入路线图](../roadmaps/ai-client-integration.md#本轮增量dcr-注册2026-10-10)。该入口默认关闭，不创建内容访问令牌，也不代表管理员同意、长期授权撤销或 Gemini 握手已经完成。
+`src/lib/mcp/oauth-clients.ts` 与 `POST /api/oauth/register` 落实 SPEC 3.3.2 的注册子步骤，行为和剩余缺口见 [接入路线图](../roadmaps/ai-client-integration.md#历史dcr-注册增量2026-10-10)。该入口默认关闭，不创建内容访问令牌，也不代表管理员同意、长期授权撤销或 Gemini 握手已经完成。
 
 注册增量直接核对 [RFC 7591](https://www.rfc-editor.org/rfc/rfc7591) 的注册默认 basic、201 响应、secret 到期时间与顶层错误结构，以及 [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700) 的回调精确匹配要求。没有预设 Google 回调地址、访问客户端 metadata URL 或调用真实 Gemini/R2。历史 AGY 结论不覆盖本轮增量。
 
@@ -89,7 +91,7 @@ Gemini Enterprise、Gemini CLI、Gemini API 和 Google 社区论坛不作为 Gem
 
 管理员页面沿用现有布局，名称始终标为未验证。HTML 使用 `same-origin` referrer 保留原生 POST 的 Origin，回调响应仍 `no-referrer`；不通过允许 `null` Origin 修复浏览器提交问题。新入口和正式 OAuth 验证默认关闭，该 OAuth 子批当时没有接通业务 `/api/mcp`；后续业务 HTTP 实现见路线图。
 
-本轮直接核对 [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)、[RFC 9728](https://www.rfc-editor.org/rfc/rfc9728)、[RFC 9207](https://www.rfc-editor.org/rfc/rfc9207) 及 MCP 2025-11-25 Authorization 原文。local fake 客户端/合成 Session 的完整 HTTP 验证、并发/重放/撤销测试不替代 Google 的真实注册/授权/换码和手机验收；详见 [最新路线图](../roadmaps/ai-client-integration.md#后续增量本地-oauth-授权闭环2026-10-10)。
+本轮直接核对 [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)、[RFC 9728](https://www.rfc-editor.org/rfc/rfc9728)、[RFC 9207](https://www.rfc-editor.org/rfc/rfc9207) 及 MCP 2025-11-25 Authorization 原文。local fake 客户端/合成 Session 的完整 HTTP 验证、并发/重放/撤销测试不替代 Google 的真实注册/授权/换码和手机验收；详见 [最新路线图](../roadmaps/ai-client-integration.md#历史本地-oauth-授权闭环2026-10-10)。
 
 
 ## 2026-10-10 独立路由迁移（已上线）

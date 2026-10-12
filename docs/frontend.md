@@ -84,6 +84,14 @@
 - 本轮验证：277 项测试、lint、production build、Compose 配置及 `git diff --check` 通过；新增 `checkCardScrollStability(page, css)` 浏览器回归通过。
 - 未重跑完整站点交互矩阵、真实设备或线上 LCP；此前浏览器验证记录只适用于对应轮次。
 
+## 攻略详情全章节导航优化（2026-10-12）
+
+- 逐日小标题提取与规整：`src/lib/guides/navigation.ts` 提供 `getDayDisplayTitle`，清洗 `Day X：` / `第X天：` / `DX` 等前缀，在跳转胶囊中完整展示当日主题；
+- 扩展全章节与来源跳转：涵盖逐日行程、实用板块（交通、住宿、美食、预算、安全、实用建议）及出行参考资料，多类别之间通过细分隔线区分；
+- 语义锚点与定位：为专题小节生成唯一语义 ID（`#section-${kind}` 或 `#section-${kind}-${index}`），为行程（`#itinerary`）、章节（`.section-block`）和参考资料（`#sources`）补充 `scroll-margin-top`（桌面 5rem / 移动端 2rem）与 `:target` 绿色高亮边框；
+- 胶囊排版与截断：小标题文本桌面端最大 `13ch`、移动端 `10ch` 截断，`title` 属性保留完整悬停提示，避免撑破水平滚动容器；
+- 验证：283 项测试、lint、typecheck 与全量 verify 通过。
+
 ## 修改后验证
 
 按 `AGENTS.md` 运行测试、lint、构建和 Compose 配置检查。UI 行为用浏览器验证，明确记录模拟 viewport、模拟动态偏好、真实设备或读屏哪些未测；不能仅凭 CSS 或截图宣称全部无障碍合规。
