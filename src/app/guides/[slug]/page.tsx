@@ -147,28 +147,36 @@ export default async function GuidePage({ params }: Props) {
             )}
           </div>
           <div className="days-stack">
-            {guide.itinerary.map((day) => (
-              <div className="day-card panel" id={`day-${day.day}`} key={day.day}>
-                <div className="section-badge-wrapper">
-                  <span className="kind-badge kind-day">
-                    第 {day.day} 天
-                  </span>
+            {guide.itinerary.map((day) => {
+              const dayDisplayTitle = getDayDisplayTitle(day.title, day.day) || day.title;
+              return (
+                <div className="day-card panel" id={`day-${day.day}`} key={day.day}>
+                  <div className="day-card-header">
+                    <div className="section-badge-wrapper">
+                      <span className="kind-badge kind-day">
+                        第 {day.day} 天
+                      </span>
+                    </div>
+                    {day.items.length > 0 && (
+                      <span className="day-stops-count">{day.items.length} 个地点</span>
+                    )}
+                  </div>
+                  <h3 className="day-title">{dayDisplayTitle}</h3>
+                  <ol className="timeline-list">
+                    {day.items.map((item, index) => (
+                      <li className="timeline-item" key={`${item.place}-${index}`}>
+                        <div className="timeline-header">
+                          {item.time && <span className="time-badge">{item.time}</span>}
+                          <strong className="place-name">{item.place}</strong>
+                        </div>
+                        <p className="item-desc">{item.description}</p>
+                        {item.tips && <p className="tip">提示：{item.tips}</p>}
+                      </li>
+                    ))}
+                  </ol>
                 </div>
-                <h3 className="day-title">{day.title}</h3>
-                <ol className="timeline-list">
-                  {day.items.map((item, index) => (
-                    <li className="timeline-item" key={`${item.place}-${index}`}>
-                      <div className="timeline-header">
-                        {item.time && <span className="time-badge">{item.time}</span>}
-                        <strong className="place-name">{item.place}</strong>
-                      </div>
-                      <p className="item-desc">{item.description}</p>
-                      {item.tips && <p className="tip">提示：{item.tips}</p>}
-                    </li>
-                  ))}
-                </ol>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
@@ -211,7 +219,10 @@ export default async function GuidePage({ params }: Props) {
         </section>
 
         <div className="detail-footer-actions">
-          <Link className="button secondary" href="/">← 返回全部攻略</Link>
+          <div className="footer-action-group">
+            <Link className="button secondary" href="/">← 返回全部攻略</Link>
+            <a className="button secondary" href="#itinerary">回到行程顶部 ↑</a>
+          </div>
           <CopyLink />
         </div>
       </article>

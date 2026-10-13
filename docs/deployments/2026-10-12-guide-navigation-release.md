@@ -24,4 +24,4 @@ TRAVEL_CARDS_IMAGE=travel-cards-web:commit-587df4122176 MCP_OAUTH_ENABLED=true \
 - 详情页跳转导航实测输出包含逐日小标题、各专题小节（交通出行、住宿推荐、餐饮美食、实用建议、安全防范）以及对应锚点 ID。
 - 运行容器 image/revision 与应用提交完全一致。
 
-本文属于部署后记录提交，镜像对应应用提交 b0daf2b，不包含该记录提交。回滚需要授权，使用相同生产 Compose 命令改为原镜像并保持 OAuth=true；本轮未执行回滚。
+本文属于部署后记录提交，镜像对应应用提交 587df41，不包含该记录提交。回滚需要授权，使用相同生产 Compose 命令改为原镜像并保持 OAuth=true；本轮未执行回滚。

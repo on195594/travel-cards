@@ -32,6 +32,7 @@ describe("Guide Route Handlers with API Token", () => {
     vi.clearAllMocks();
     vi.stubEnv("HERMES_API_TOKEN", TEST_TOKEN);
     vi.stubEnv("ADMIN_EMAIL", "admin@example.test");
+    vi.spyOn(console, "info").mockImplementation(() => {});
     mocks.auth.mockResolvedValue(null);
   });
 

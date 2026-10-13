@@ -26,7 +26,7 @@ Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻
 
 - 已有 Next.js 应用、管理员后台、公开页面、MongoDB 持久化、R2 图片上传与服务端 Gemini 助手。
 - 路由边界：`/api/*` 是现有 REST API，正式 MCP 独立位于 `/mcp`；迁移旧 `/api/mcp` 后需重新授权，不保留业务别名。
-- 现有 Bearer API Token 接口保留；MCP 固定数据探针已部署，内部攻略工具、受限令牌与本地 OAuth/DCR/PKCE 已实现，业务 MCP 服务端已上线，真实客户端验收仍待完成。
+- 现有 Bearer API Token 接口保留；MCP 固定数据探针已部署，内部攻略工具、受限令牌与本地 OAuth/DCR/PKCE 已实现，业务 MCP 服务端已上线，真实 Gemini 双端验收已由用户确认完成，图片上传专项测试与配置后台未完成。
 - Gemini 网页／手机 App 是首个验收目标，但客户端地区、账号及认证支持需单独验收，不能用 Gemini API 或 CLI 测试替代。
 - 产品契约以 `SPEC.md` 为准。代码优先的构建默认记录在 `.impeccable/config.json`，不是产品权限或平台设置。
 
