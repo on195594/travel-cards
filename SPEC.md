@@ -1,9 +1,11 @@
 # Travel Cards MVP Specification
 
-- **状态**：核心应用已实现；MCP 权限/工具/令牌底座及本地 OAuth/DCR/PKCE 同意撤销流程已实现，业务 MCP 服务端已通过本轮门禁上线，Gemini 网页/手机双端验收已完成（用户确认），配置后台未完成；生产状态以 README 的实测记录为准
-- **更新日期**：2026-10-12
+- **状态**：核心应用、MCP 权限/工具/令牌与 OAuth/DCR/PKCE 已实现；用户已确认正式 `/mcp` 迁移至 2026-07-28 协议。历史服务端上线与 Gemini 双端验收不自动覆盖本次协议迁移；迁移的部署和真实客户端验收另行记录。配置后台未完成；生产状态以 README 的实测记录为准
+- **更新日期**：2026-10-21（用户确认 MCP 2026 协议迁移；业务权限不变）
 - **项目根目录**：`/home/lin/travel-cards`
 - **产品语言**：首版中文界面与中文内容
+
+本文件中“已上线／双端验收已完成”描述历史 MCP 批次及 2026-10-12 用户确认，不覆盖 3.3.3 的协议迁移；该迁移尚未部署、未重新验收真实客户端。
 
 ## 1. 目标
 
@@ -53,7 +55,7 @@
 
 每个管理端页面校验管理员 session；每个写 API 校验管理员 session 或有效 API Token。有效 Token 写请求不受针对浏览器的同源 CSRF 拦截。
 
-### 3.3 外部 AI 客户端（服务端已上线，真实双端验收已完成）
+### 3.3 外部 AI 客户端（历史版本已上线并完成双端验收；新协议见 3.3.3）
 
 - 保留 3.2 的现有 API Token 接口，**包括有效 Token 调用 DELETE 删除攻略的能力**，不因后续 MCP 接入而移除。新增 MCP 使用独立受限 AI 身份；外部客户端只通过受鉴权应用接口调用共享 Guide 业务规则，不直接访问 MongoDB。
 - 受限外部 AI 身份允许读取、创建、修改及直接发布攻略；发布仍须通过现有完整性、slug 唯一性及 revision 校验，不额外要求管理员在应用内审核。不得绕过客户端自身的写入确认。
@@ -70,7 +72,7 @@
 - 令牌绑定由服务端 `AUTH_URL` 确定的正式 `/mcp` 资源，不接受任意客户端 resource，不用于公开探针或管理员 REST。正式 OAuth 认证逐次查询有效令牌及 active 客户端授权，拒绝裸内部令牌；TTL 清理延迟不能延长权限。撤销阻止其后开始的认证，不能取消已通过认证的在途操作。
 - 不提供 refresh token；fake 客户端与隔离 MongoDB 测试不能代替 Gemini 双端验收。内部签发函数不等于可直接向外部客户端授权，正式接入须满足下节。
 
-#### 3.3.2 OAuth / MCP 闭环契约（已实现，双端验收用户确认完成）
+#### 3.3.2 OAuth / MCP 闭环契约（既有实现；历史双端验收不覆盖新协议）
 
 - 使用成熟 OAuth 服务端库提供仅授权码模式，强制 S256 PKCE、精确注册的 HTTPS redirect URI、`state`、规范 MCP `resource` 与批准 scopes。不启用 implicit、密码、client credentials 或 refresh grant。
 - DCR 支持 public `none` 及 `client_secret_basic` / `client_secret_post`；缺省按注册规范使用 basic。动态 secret 仅签发时返回，数据库仅存摘要。注册不授权内容；注册入口限制实际请求体与每小时全局配额，注册和授权记录默认长效保持（100 年，2026-10-10 用户指示），管理员可随时主动撤销。
@@ -81,6 +83,17 @@
 - 正式 `/mcp` 仅接受已批准、绑定 active 客户端授权的受限令牌，不接受裸内部令牌、管理员 Token 或 Cookie。发现、注册、授权/换码、业务 MCP 由环境开关 `MCP_OAUTH_ENABLED=true` 启用，默认关闭；无效令牌 401、权限不足 403 并提供标准 discovery challenge，409 等业务错误保留原代码且不自动重试。
 - 本批增加管理员授权列表/撤销和授权同意页面，复用既有样式。OAuth 不要求逐篇发布审批；外部 AI 的操作范围仍仅 Guide read/create/update/publish 与 image.upload。
 - 先完成本地 fake 客户端完整流程、输入/重放/并发/撤销/跨资源/REST 绕过回归及 AGY 审查。生产部署、开关启用、真实账号和 Gemini 双端验收需单独授权，不修改既有生产凭证。
+
+#### 3.3.3 MCP 2026-07-28 协议迁移（2026-10-21 用户确认）
+
+- 正式 `/mcp` 仅支持 `2026-07-28`，不保留旧 `initialize`、`notifications/initialized`、`ping` 或协议版本回退。受保护的发现方法为 `server/discover`；每个请求独立处理，无 session 或初始化状态。
+- 每次 POST 必须携带 `MCP-Protocol-Version`、`Mcp-Method`，分别与 `params._meta['io.modelcontextprotocol/protocolVersion']`、JSON-RPC method 一致；`tools/call` 的 `Mcp-Name` 使用原样安全 ASCII，或 `=?base64?{UTF-8 的标准 Base64}?=` 标记格式，解码后与参数 name 一致；不做百分号解码。非 ASCII、控制字符、首尾空白及原值匹配该标记格式时必须使用 Base64。缺失、非法或不匹配的必需头返回 HTTP 400 / `-32020`。
+- 每个请求的 `_meta` 必须含 protocolVersion 字符串和 clientCapabilities 对象；缺失/类型错误返回 HTTP 400 / `-32602`。客户端自报信息和能力不能提升 OAuth 权限，不从此前请求推断能力。
+- 不支持的版本返回 HTTP 400 / `-32022`，附 `data.supported` 和 `data.requested`；先校验公共必需头及逐请求元数据，再将未知方法返回 HTTP 404 / `-32601`，不受版本支持情况影响；缺头的旧 initialize 请求也先返回 HTTP 400 / `-32020`。无法取得请求 ID 的错误省略 id，不返回 null；拒绝 batch 与客户端通知，不执行无确认写入。
+- 所有正常完成的结果（含 `isError: true` 的工具执行错误）带 `resultType: 'complete'` 和服务端身份 `_meta`。仅广告 `tools: {}`，不声明订阅、SSE、异步任务或 elicitation；GET/DELETE 等继续 405，仅 POST。工具发现按当前 OAuth scopes 过滤，不缓存跨身份的工具列表。
+- 六个工具及业务权限、resource URI、已有令牌有效期和撤销语义不变。按官方工具安全要求，每个受限令牌的工具调用采用 MongoDB 原子固定窗口计数，最多 120 次/分钟，跨 worker 生效；超限 HTTP 429，JSON-RPC 应用错误码 429，附 Retry-After，不执行工具。计数过期由 TTL 清理，TTL 延迟不延长或缩短窗口；计数初始化/更新故障返回 HTTP 500 / JSON-RPC `-32603`，不执行工具，也不返回伪造的工具业务结果。
+- DCR 在 2026 规范中已弃用但仍保留；本轮继续现有 OAuth 注册流程，不引入 CIMD URL 拉取或新的网络信任面。原公开探针仍是独立的旧协议诊断入口，不用它证明正式服务的 2026 合规或真实 Gemini 兼容。
+- 先跑 fake 客户端、隔离 MongoDB 与生产启动路径 HTTP 回归；不自动部署或重验真实账号。完整协议变更与官方依据见 `docs/decisions/2026-10-21-mcp-2026-migration.md`。
 
 ### 3.4 临时 MCP 连接探针（2026-10-09 已授权）
 
@@ -230,6 +243,7 @@ type AiResult<T> =
 - `days >= 1`，行程 day 编号不得重复且不得超出 `days`；
 - `published` 攻略必须有标题、slug、目的地、简介、带 alt 的封面图片和至少一天行程；
 - 来源 URL 必须是 `http` 或 `https`；
+- `sources[].accessedAt` 输出仍为 ISO datetime；现有输入归一化支持 `YYYY-MM-DD` 及常见日期时间格式，无时区时按 UTC 解释，带时区时转换为 UTC，拒绝无效日历日期。该说明对应 `f0c870b` 已有实现，不改变来源可信度或 grounding 契约。
 - 图片只存 R2 object key、公开 URL 和 alt 文本，不把二进制写入 MongoDB；
 - 删除攻略不会默认删除可能被复用的 R2 对象，孤儿清理后置为显式维护任务。
 - `revision` 从 1 开始；管理端 PATCH 必须提交读取时的 revision，冲突时返回 409 并保留双方内容，避免多标签页静默覆盖。

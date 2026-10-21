@@ -135,8 +135,10 @@ const definitions: { name: keyof typeof inputs; capability: AiGuideScope; descri
   { name: "create_guide", capability: "guide.create", description: "Create a travel guide. Explicit publish:true or status:published publishes immediately if complete. Sources are client-supplied references, not verified Gemini grounding. This creates content; never retry blindly after an ambiguous failure.", readOnly: false },
   { name: "update_guide", capability: "guide.update", description: "Update a guide using 24-character hex id (not slug) and expectedRevision. Changes to published guides are public immediately. On 409 REVISION_CONFLICT, reread and resolve with the user; never retry an overwrite automatically. Source URLs are not verified grounding.", readOnly: false },
   { name: "publish_guide", capability: "guide.publish", description: "Publish a complete guide using 24-character hex id and expectedRevision, without an additional application review. Respect the client's confirmation. On 409 REVISION_CONFLICT, reread and resolve with the user; do not retry automatically.", readOnly: false },
-  { name: "upload_image", capability: "image.upload", description: "Upload a travel guide cover image from a public HTTPS URL or Base64 data (JPEG, PNG, WebP up to 10MB). Returns { objectKey, publicUrl, alt } for use in create_guide or update_guide. Optionally supply guideId (24-character hex ID) and expectedRevision to update the guide's cover image directly.", readOnly: false },
+  { name: "upload_image", capability: "image.upload", description: "Upload a travel guide cover image from a public HTTPS URL or Base64 data (JPEG, PNG, WebP). URL images can be up to 10 MiB; Base64 must fit in the 2 MiB total JSON request (less than 1.5 MiB of raw image data). Returns { objectKey, publicUrl, alt } for use in create_guide or update_guide. Optionally supply guideId (24-character hex ID) and expectedRevision to update the guide's cover image directly.", readOnly: false },
 ];
+
+const toolSchemas = Object.fromEntries(Object.entries(inputs).map(([name, schema]) => [name, z.toJSONSchema(schema, { io: "input" })]));
 
 export function guideToolScopes(name: string, input: unknown): AiGuideScope[] | null {
   const definition = definitions.find((tool) => tool.name === name);
@@ -153,8 +155,8 @@ export function listGuideTools(actor: ApiActor) {
   return definitions.filter(({ capability }) => hasCapability(actor, capability)).map(({ name, description, readOnly }) => ({
     name,
     description,
-    inputSchema: z.toJSONSchema(inputs[name], { io: "input" }),
-    annotations: { readOnlyHint: readOnly, destructiveHint: !readOnly, idempotentHint: readOnly, openWorldHint: false },
+    inputSchema: toolSchemas[name],
+    annotations: { readOnlyHint: readOnly, destructiveHint: !readOnly, idempotentHint: readOnly, openWorldHint: name === "upload_image" },
   }));
 }
 

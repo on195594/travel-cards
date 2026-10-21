@@ -4,25 +4,28 @@
 
 **当前实现**：管理员可编辑、发布、删除攻略、上传 R2 封面；应用内 Gemini + Google Search 只生成待采纳候选，通过普通保存流程持久化。现有受信任自动化 API Token 接口继续可用。
 
-**服务端已上线、Gemini 双端验收已完成（用户确认）**：首先面向 Gemini 网页和手机 App 的业务 MCP/OAuth；受限外部 AI 可创建、修改及直接发布，但不得删除或管理配置。权限、六个工具、长效令牌及 OAuth/DCR/PKCE 同意撤销流程已实现，业务 MCP 已通过本轮门禁并部署，用户已确认真实 Gemini 网页/手机双端验收完成；非敏感配置后台仍待完成。服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
+**MCP 源码已迁移至 2026-07-28；尚未部署或重新验收真实客户端**：受限外部 AI 仍可创建、修改及直接发布，但不得删除或管理配置。六个工具、长效令牌及 OAuth/DCR/PKCE 不变；历史服务端上线与 Gemini 双端用户验收不自动覆盖本次不兼容的协议迁移。非敏感配置后台仍待完成，服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
 
 ## 当前状态
 
 - Next.js 16、Auth.js、MongoDB、攻略 CRUD/发布/撤回、R2 上传和 Gemini 候选助手已实现。
 - MCP 提供 list/get/create/update/publish 五个攻略工具及 `upload_image`。独立 `image.upload` scope 控制上传；直接替换封面还需 `guide.update` 和 expectedRevision，禁止删除、撤回及配置管理。
+- 正式 `/mcp` 仅支持 `2026-07-28`：`server/discover` 取代初始化，逐请求 `_meta` 与 HTTP 头绑定，正常结果带 `resultType: complete`。旧客户端不能直接使用新版；每个受限令牌的工具调用上限为 120 次/分钟，超限返回 429 / Retry-After。见[迁移契约与实测](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
 - OAuth/DCR/PKCE、管理员同意/撤销已实现。新环境默认关闭，当前生产显式启用。令牌与客户端注册默认 100 × 365 天有效，并非永不过期；无 refresh token。旧注册与令牌不自动扩权或续期，需要重新注册授权。
-- 最近部署应用提交 `587df41`，固定镜像与回滚信息见[发布记录](./docs/deployments/2026-10-12-guide-navigation-release.md)。本轮只读核对容器 revision 一致；Git HEAD 中的文档更新不代表镜像重建。
-- 真实 Gemini 网页/手机双端验收已完成，依据为 2026-10-12 用户确认，见[验收状态记录](./docs/roadmaps/ai-client-integration.md#真实双端验收用户确认)。图片上传专项验收未单独确认，非敏感配置后台尚未实现。服务端单测与用户真实验收分别记录。
+- 最近有正式记录的部署应用提交为 `587df41`，固定镜像与回滚信息见[历史发布记录](./docs/deployments/2026-10-12-guide-navigation-release.md)。2026-10-21 只读检查发现运行镜像使用可变标签 `travel-cards-web`，无 revision 标签，不能确认对应提交；不再将历史记录当作当前镜像证明，见[本轮审查](./docs/maintenance/2026-10-21-review-cleanup.md)。
+- 源码截至本轮基线 `f0c870b` 已增加 MCP 工具错误字段诊断及来源日期输入归一化；本地验证通过不代表该提交已部署。
+- 历史协议的真实 Gemini 网页/手机双端验收已完成，依据为 2026-10-12 用户确认，见[验收状态记录](./docs/roadmaps/ai-client-integration.md#真实双端验收用户确认)。2026 协议的真实客户端兼容性待重新验收；图片上传专项未单独确认，非敏感配置后台尚未实现。
 - 历史核心实现与内部令牌审查分别见[核心审查](./docs/reviews/agy-final-implementation/closeout.md)、[7cc88f8 审查](./docs/reviews/agy-7cc88f8/closeout.md)；历史 APPROVE 仅覆盖当时范围。
 - 当前开发目录：`/home/lin/travel-cards`
 - 权威需求与权限契约：[SPEC.md](./SPEC.md)
 - 已确认产品定位：[PRODUCT.md](./PRODUCT.md)
 - 项目约束：[AGENTS.md](./AGENTS.md)
+- 目录与文档导航：[docs/README.md](./docs/README.md)
 - 现有 UI 与 Impeccable 工作流：[docs/frontend.md](./docs/frontend.md)
 - 外部 AI / MCP 接入边界与 Gemini 官方限制：[docs/roadmaps/ai-client-integration.md](./docs/roadmaps/ai-client-integration.md)
 - UI 精修及 AGY 复审：[docs/reviews/ui-impeccable-review.md](./docs/reviews/ui-impeccable-review.md)
 
-Gemini 自定义 MCP 应用目前有地区、年龄、账号和语言限制，并要求客户端确认写操作；网页连接后才可在手机 App 使用。本项目双端接入已由用户确认验收完成；该结果不代表所有账号或地区均可用，详见接入文档。
+Gemini 自定义 MCP 应用目前有地区、年龄、账号和语言限制，并要求客户端确认写操作；网页连接后才可在手机 App 使用。本项目历史协议的双端接入已由用户确认验收完成；该结果不代表所有账号、地区或本次 2026 协议均可用，详见接入文档。
 
 Impeccable 已初始化 `PRODUCT.md`，用户选择的新页面构建默认是代码优先，保存在 `.impeccable/config.json`。开发期 live setup 已记录，但未注入或启动；本轮未重做视觉系统。
 
@@ -49,14 +52,33 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 
 配置 `HERMES_API_TOKEN`（至少 16 字符；服务端也兼容读取 `API_TOKEN`）后，受信任自动化流水线（如 Hermes）可通过 HTTP 请求头携带 `Authorization: Bearer <TOKEN>` 调用管理接口（如 `GET /api/guides?scope=admin`、`POST /api/guides`、`PATCH /api/guides/[id]`、发布/撤回与图片上传），无需浏览器 Cookie 且豁免同源限制；创建攻略时若指定 `publish: true` 且满足完整性校验可直接发布。
 
-**注意**：这是现有管理员等价凭证，Token 删除攻略接口按用户确认继续保留。受限凭证及业务 MCP 服务端已部署，真实 Gemini 双端验收已由用户确认完成，配置后台尚未完成，不要把本节的凭证交给外部 AI 来满足“不允许删除”的产品目标。
+**注意**：这是现有管理员等价凭证，Token 删除攻略接口按用户确认继续保留。受限凭证及历史业务 MCP 服务端已部署并获得 Gemini 双端用户验收；2026 协议迁移尚未部署或重新验收，配置后台尚未完成，不要把本节的凭证交给外部 AI 来满足“不允许删除”的产品目标。
 
 ## REST / MCP 路由边界
 
 - `/api/*`：REST API，保留攻略、上传、OAuth 等现有路径。
 - `/mcp`：唯一正式 MCP 入口，资源元数据为 `/.well-known/oauth-protected-resource/mcp`。
 - 本轮迁移不保留 `/api/mcp` 别名或旧路径式元数据；旧资源的意图、授权码和令牌失效，客户端需重新授权。固定数据 `/api/mcp-probe` 不变。
-- 路由迁移已获用户确认并上线：正式接入地址 `https://travel.keyi.win/mcp`，路由迁移见[记录](./docs/deployments/2026-10-10-mcp-route.md)，当前发布见[最新发布及回滚证据](./docs/deployments/2026-10-12-guide-navigation-release.md)。历史发布/审查证据不改写。
+- 路由迁移已获用户确认并上线：正式接入地址 `https://travel.keyi.win/mcp`，路由迁移见[记录](./docs/deployments/2026-10-10-mcp-route.md)，最近有记录的发布见[历史发布及回滚证据](./docs/deployments/2026-10-12-guide-navigation-release.md)。历史发布/审查证据不改写。
+
+## MCP 2026 客户端请求
+
+每次调用都必须携带下列头部和元数据；不再先发送 `initialize` 或 `ping`。以下是取得受限 OAuth Token 后的发现请求示例，Token 占位符不能使用管理员 API Token 替代：
+
+```http
+POST /mcp HTTP/1.1
+Authorization: Bearer <受限 OAuth Token>
+Content-Type: application/json
+Accept: application/json, text/event-stream
+MCP-Protocol-Version: 2026-07-28
+Mcp-Method: server/discover
+
+{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}
+```
+
+`tools/list` 同样每次携带 `_meta` 和对应的 `Mcp-Method`；调用工具时再携带原样安全 ASCII 或 `=?base64?{标准 Base64}?=` 形式的 `Mcp-Name`，解码后与 `params.name` 一致，不做百分号解码。客户端能力不是授权，服务端仍逐请求验证令牌、scopes、resource 与客户端撤销状态。仅支持 JSON 响应，不提供 SSE/订阅/会话；`/api/mcp-probe` 是保留的旧协议固定数据探针，不代表正式服务的 2026 兼容性。
+
+现有 OAuth 资源与令牌未轮换；客户端升级协议不等于需要重新授权或自动扩权。DCR 虽已在 2026 规范弃用，本项目继续现有注册流程，不宣称支持 CIMD。迁移尚未部署，不建议让不支持 2026 的真实客户端连接新版服务。Codex 独立审查与修复记录见[复核记录](./docs/reviews/2026-10-21-mcp-2026-codex.md)。
 
 ## 已审查镜像的生产发布
 
@@ -138,4 +160,6 @@ npm run verify
 
 正式审查证据保存在 `docs/reviews/`，临时源码快照和日志归档必要证据后清理；旧回滚脚本不得作为当前运维入口。保留凭证、备份、静态资源、历史审查、依赖和构建缓存；不改动共享 MongoDB 或其他项目。
 
-`src/lib/guides.ts` 仍被调用；MCP 授权/工具模块已在线使用，不按“仅测试引用”当死代码删除。测试保留权限拒绝、scope/resource、过期撤销、409 和输入边界覆盖；本次未发现可安全删除的重复测试套件。最新清理记录见 [维护记录](./docs/maintenance/2026-10-12-cleanup.md)，此前记录保留在历史文档中。
+`src/lib/guides.ts` 仍被调用；MCP 授权/工具模块不按“仅测试引用”当死代码删除。2026-10-21 的入口可达性、未使用符号和 CSS 引用检查未发现可安全删除的业务代码或重复测试套件。保留权限拒绝、scope/resource、过期撤销、409 和输入边界覆盖。
+
+`tmp/` 的旧发布快照、日志及重复证据已校验归档到本地忽略目录 `backups/cleanup-2026-10-21/` 后清空；独有的候选源码未丢弃，归档不代替正式发布证据。最新审查、遗留风险及验证见[维护记录](./docs/maintenance/2026-10-21-review-cleanup.md)。

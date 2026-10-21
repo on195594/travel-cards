@@ -16,7 +16,7 @@ web
 
 Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻略从对话中的建议变为结构化、可修改、可分享的逐日行程，并保持清楚的权限与来源边界。
 
-成功标准是读者能找到并读懂攻略，管理员和授权 AI 能更新同一份内容。管理员及现有受信任自动化 Token 保留删除能力；受限 AI 身份不得删除或管理配置。权限、工具、长效令牌及 OAuth 同意撤销已实现，业务 MCP 服务端已上线并启用 OAuth。访问令牌与客户端注册默认有效期为 100 × 365 天，并非无限期；管理员可随时撤销，不支持 refresh token。Gemini 网页/手机真实双端验收已由用户确认完成；图片上传专项测试与配置后台未完成。
+成功标准是读者能找到并读懂攻略，管理员和授权 AI 能更新同一份内容。管理员及现有受信任自动化 Token 保留删除能力；受限 AI 身份不得删除或管理配置。权限、工具、长效令牌及 OAuth 同意撤销已实现，历史 MCP 服务端已上线并启用 OAuth；当前 2026 协议迁移尚未部署。访问令牌与客户端注册默认有效期为 100 × 365 天，并非无限期；管理员可随时撤销，不支持 refresh token。历史协议的 Gemini 网页/手机真实双端验收已由用户确认完成；图片上传专项验收未单独确认，配置后台尚未实现。
 
 ## Positioning
 
@@ -26,9 +26,10 @@ Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻
 
 - 已有 Next.js 应用、管理员后台、公开页面、MongoDB 持久化、R2 图片上传与服务端 Gemini 助手。
 - 路由边界：`/api/*` 是现有 REST API，正式 MCP 独立位于 `/mcp`；迁移旧 `/api/mcp` 后需重新授权，不保留业务别名。
-- 现有 Bearer API Token 接口保留；MCP 固定数据探针已部署，内部攻略工具、受限令牌与本地 OAuth/DCR/PKCE 已实现，业务 MCP 服务端已上线，真实 Gemini 双端验收已由用户确认完成，图片上传专项测试与配置后台未完成。
+- 现有 Bearer API Token 接口保留；MCP 固定数据探针已部署，内部攻略工具、受限令牌与本地 OAuth/DCR/PKCE 已实现，业务 MCP 服务端已上线，真实 Gemini 双端验收已由用户确认完成，图片上传专项验收未单独确认，配置后台尚未实现。
 - Gemini 网页／手机 App 是首个验收目标，但客户端地区、账号及认证支持需单独验收，不能用 Gemini API 或 CLI 测试替代。
 - 产品契约以 `SPEC.md` 为准。代码优先的构建默认记录在 `.impeccable/config.json`，不是产品权限或平台设置。
+- 正式 MCP 源码已按用户确认迁移至 2026-07-28，不保留旧初始化握手；尚未部署或重验真实 Gemini 客户端。下文“已上线／双端验收”仅描述历史批次，不能作为新协议验收证明；业务权限及六个工具不变。
 
 ## Capabilities and Constraints
 
@@ -59,11 +60,11 @@ Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻
 ## Evidence on Hand
 
 - 实现：`src/app/`、`src/components/`、`src/lib/`。
-- 当前功能及安全契约：`SPEC.md`；入口与验证：`README.md`。
+- 当前功能及安全契约：`SPEC.md`；入口与验证：`README.md`；目录及文档分层：`docs/README.md`；2026 协议迁移与验证：`docs/decisions/2026-10-21-mcp-2026-migration.md`。
 - UI 审查与部署前验证：`docs/reviews/ui-impeccable-review.md`；真实 AGY 复审原文：`docs/reviews/agy-ui-review.txt`。
 - 接入状态与下一步：`docs/roadmaps/ai-client-integration.md`；认证设计与实现证据：`docs/decisions/2026-10-09-gemini-mcp-auth.md`。
 - 短效令牌提交的真实 AGY 审查：`docs/reviews/agy-7cc88f8/closeout.md`；APPROVE 仅覆盖内部底座，不代表 OAuth/客户端验收完成。
-- 上一轮已完成服务端测试、构建与部署，并检查健康接口及公开 OAuth challenge；真实 Gemini 网页/手机双端验收依据为 2026-10-12 用户确认记录，未提供专项证据的子项不编造已通过。
+- 历史部署与真实 Gemini 网页/手机双端验收分别保留当时证据和 2026-10-12 用户确认；未提供专项证据的子项不编造已通过。2026-10-21 只读检查无法从运行镜像确认提交版本，不能把历史上线记录视为当前版本证明，见 `docs/maintenance/2026-10-21-review-cleanup.md`。
 
 ## Product Principles
 

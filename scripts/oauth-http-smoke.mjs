@@ -79,17 +79,53 @@ for (const method of ["none", "client_secret_basic", "client_secret_post"]) {
   assert.equal(token.scope, requestedScopes);
   assert.ok(!("refresh_token" in token));
   assert.equal((await post("/api/oauth/token", body, headers)).status, 400);
-  const mcpHeaders = { authorization: `Bearer ${token.access_token}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream", "MCP-Protocol-Version": "2025-11-25" };
+  const mcpVersion = "2026-07-28";
+  const mcpHeaders = { authorization: `Bearer ${token.access_token}`, "Content-Type": "application/json", Accept: "application/json, text/event-stream", "MCP-Protocol-Version": mcpVersion };
+  const mcpMeta = { "io.modelcontextprotocol/protocolVersion": mcpVersion, "io.modelcontextprotocol/clientCapabilities": {}, "io.modelcontextprotocol/clientInfo": { name: "fake-http-client", version: "1" } };
   let rpcId = 1;
   async function mcp(rpcMethod, params = {}) {
-    const res = await send("/mcp", { method: "POST", headers: mcpHeaders, body: JSON.stringify({ jsonrpc: "2.0", id: rpcId++, method: rpcMethod, params }) });
-    return { response: res, body: await res.json() };
+    const res = await send("/mcp", { method: "POST", headers: {
+      ...mcpHeaders, "Mcp-Method": rpcMethod,
+      ...(rpcMethod === "tools/call" ? { "Mcp-Name": params.name } : {}),
+    }, body: JSON.stringify({ jsonrpc: "2.0", id: rpcId++, method: rpcMethod, params: { _meta: mcpMeta, ...params } }) });
+    const body = await res.json();
+    if (res.status === 200) {
+      assert.equal(body.result.resultType, "complete");
+      assert.equal(body.result._meta["io.modelcontextprotocol/serverInfo"].name, "travel-cards");
+    }
+    return { response: res, body };
   }
-  const initialized = await mcp("initialize", { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "fake-http-client", version: "1" } });
-  assert.equal(initialized.response.status, 200);
-  assert.equal(initialized.body.result.protocolVersion, "2025-11-25");
+  // Discovery is optional; tools/list must work on the first request.
+  assert.equal((await mcp("tools/list")).response.status, 200);
+  const discovered = await mcp("server/discover");
+  assert.equal(discovered.response.status, 200);
+  assert.deepEqual(discovered.body.result.supportedVersions, [mcpVersion]);
+  assert.deepEqual(discovered.body.result.capabilities, { tools: {} });
+  assert.equal(discovered.body.result.cacheScope, "private");
+  for (const removed of ["initialize", "ping"]) assert.equal((await mcp(removed)).response.status, 404);
+  const legacyHeaders = { ...mcpHeaders };
+  delete legacyHeaders["MCP-Protocol-Version"];
+  const legacy = await send("/mcp", { method: "POST", headers: legacyHeaders, body: JSON.stringify({ jsonrpc: "2.0", id: 0, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "legacy-client", version: "1" } } }) });
+  assert.equal(legacy.status, 400);
+  assert.equal((await legacy.json()).error.code, -32020);
+  for (const [nameHeader, status] of [["=?base64?bGlzdF9ndWlkZXM=?=", 200], ["%6Cist_guides", 400]]) {
+    const response = await send("/mcp", { method: "POST", headers: { ...mcpHeaders, "Mcp-Method": "tools/call", "Mcp-Name": nameHeader }, body: JSON.stringify({ jsonrpc: "2.0", id: 0, method: "tools/call", params: { _meta: mcpMeta, name: "list_guides", arguments: {} } }) });
+    assert.equal(response.status, status);
+    const body = await response.json();
+    if (status === 200) assert.equal(body.result.resultType, "complete"); else assert.equal(body.error.code, -32020);
+  }
+  const missingMeta = await mcp("tools/list", { _meta: {} });
+  assert.equal(missingMeta.response.status, 400);
+  assert.equal(missingMeta.body.error.code, -32602);
+  const wrongHeader = await send("/mcp", { method: "POST", headers: { ...mcpHeaders, "Mcp-Method": "tools/call" }, body: JSON.stringify({ jsonrpc: "2.0", id: 0, method: "tools/list", params: { _meta: mcpMeta } }) });
+  assert.equal(wrongHeader.status, 400);
+  assert.equal((await wrongHeader.json()).error.code, -32020);
+  const oldVersion = "2025-11-25";
+  const unsupported = await send("/mcp", { method: "POST", headers: { ...mcpHeaders, "MCP-Protocol-Version": oldVersion, "Mcp-Method": "server/discover" }, body: JSON.stringify({ jsonrpc: "2.0", id: 0, method: "server/discover", params: { _meta: { ...mcpMeta, "io.modelcontextprotocol/protocolVersion": oldVersion } } }) });
+  assert.equal(unsupported.status, 400);
+  assert.deepEqual((await unsupported.json()).error.data, { supported: [mcpVersion], requested: oldVersion });
   for (const id of ["", "x".repeat(129)]) {
-    const response = await send("/mcp", { method: "POST", headers: { ...mcpHeaders, Accept: "Application/JSON" }, body: JSON.stringify({ jsonrpc: "2.0", id, method: "ping" }) });
+    const response = await send("/mcp", { method: "POST", headers: { ...mcpHeaders, "Mcp-Method": "server/discover", Accept: "Application/JSON" }, body: JSON.stringify({ jsonrpc: "2.0", id, method: "server/discover", params: { _meta: mcpMeta } }) });
     assert.equal(response.status, 200);
     assert.equal((await response.json()).id, id);
   }
@@ -132,4 +168,4 @@ for (const method of ["none", "client_secret_basic", "client_secret_post"]) {
   assert.equal((await mcp("tools/list")).response.status, 401);
   assert.equal((await send("/api/oauth/authorize?" + query, { headers: session })).status, 400);
 }
-console.log("oauth-mcp-http-smoke PASS metadata/login/consent/PKCE/none+basic+post/tools/publish/conflict/403/revoke/REST-denial; fake admin session, isolated local MongoDB only");
+console.log("oauth-mcp-http-smoke PASS MCP-2026/discover/per-request-meta/header-binding/base64-name/legacy-rejection/metadata/login/consent/PKCE/none+basic+post/tools/publish/conflict/403/revoke/REST-denial; fake admin session, isolated local MongoDB only");

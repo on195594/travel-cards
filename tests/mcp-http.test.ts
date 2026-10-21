@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { POST, GET, DELETE } from "@/app/mcp/route";
 import { issueMcpAccessGrant, issueMcpOAuthAccessGrant } from "@/lib/mcp/access-grants";
 import { authorizeMcpClient, registerMcpClient, revokeMcpClient } from "@/lib/mcp/oauth-clients";
+import { consumeMcpToolCall, MCP_TOOL_CALLS_PER_MINUTE } from "@/lib/mcp/rate-limit";
 const fakeAuth = vi.hoisted(() => vi.fn());
 vi.mock("@/auth", () => ({ auth: fakeAuth }));
 const runId = process.env.TRAVEL_CARDS_TEST_RUN_ID;
@@ -20,10 +21,18 @@ async function grant(scopes = allScopes) {
   await authorizeMcpClient(admin, c.client_id, scopes as Parameters<typeof authorizeMcpClient>[2]);
   return { clientId: c.client_id, ...await issueMcpOAuthAccessGrant(admin, { clientId: c.client_id, scopes }) };
 }
+const version = "2026-07-28";
+const meta = { "io.modelcontextprotocol/protocolVersion": version, "io.modelcontextprotocol/clientCapabilities": {} };
 function request(accessToken: string | null, message: unknown, extraHeaders: Record<string, string> = {}) {
-  return new Request(origin + "/mcp", { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream", ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), ...extraHeaders }, body: JSON.stringify(message) });
+  const body = message as { method?: string; params?: { name?: string } };
+  return new Request(origin + "/mcp", { method: "POST", headers: {
+    "Content-Type": "application/json", Accept: "application/json, text/event-stream",
+    "MCP-Protocol-Version": version, "Mcp-Method": body.method ?? "server/discover",
+    ...(body.method === "tools/call" && typeof body.params?.name === "string" ? { "Mcp-Name": body.params.name } : {}),
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), ...extraHeaders,
+  }, body: JSON.stringify(message) });
 }
-function rpc(method: string, params: unknown = {}, id: string | number = 1) { return { jsonrpc: "2.0", id, method, params }; }
+function rpc(method: string, params: Record<string, unknown> = {}, id: string | number = 1) { return { jsonrpc: "2.0", id, method, params: { _meta: meta, ...params } }; }
 async function call(accessToken: string, name: string, args: unknown = {}) {
   const response = await POST(request(accessToken, rpc("tools/call", { name, arguments: args })));
   return { response, body: await response.json() };
@@ -44,6 +53,7 @@ afterEach(async () => {
   const db = ownedDb();
   for (const c of ["mcp_oauth_clients", "mcp_oauth_registration_windows", "mcp_access_grants"]) await db.collection(c).deleteMany({});
   await db.collection("guides").deleteMany({ slug: /^mcp-http-/ });
+  await db.collection<{ _id: string }>("mcp_tool_rate_limits").deleteMany({ _id: /^mcp-grant:/ });
 });
 afterAll(async () => { await mongoose.disconnect(); global.mongooseConnection = undefined; });
 
@@ -84,22 +94,19 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     expect((await POST(request(revoked.accessToken, rpc("tools/list")))).status).toBe(401);
   });
 
-  it("negotiates versions, advertises six scoped tools and supports authenticated stateless lifecycle", async () => {
+  it("discovers 2026 capabilities without initialization and lists six scoped tools", async () => {
     const g = await grant();
-    for (const version of ["2025-11-25", "2025-06-18", "2025-03-26", "2099-01-01"]) {
-      const res = await POST(request(g.accessToken, rpc("initialize", { protocolVersion: version, capabilities: {}, clientInfo: { name: "fake-client", version: "1" } })));
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.result.protocolVersion).toBe(version === "2099-01-01" ? "2025-11-25" : version);
-      expect(body.result.capabilities).toEqual({ tools: {} });
-      expect(res.headers.get("mcp-session-id")).toBeNull();
-    }
-    const initialized = await POST(request(g.accessToken, { jsonrpc: "2.0", method: "notifications/initialized" }));
-    expect(initialized.status).toBe(202);
-    expect(await initialized.text()).toBe("");
-    expect(await (await POST(request(g.accessToken, rpc("ping")))).json()).toMatchObject({ id: 1, result: {} });
+    // Calls work before discovery; no connection state or prior capabilities are required.
     const list = await (await POST(request(g.accessToken, rpc("tools/list")))).json();
+    expect(list.result).toMatchObject({ resultType: "complete", ttlMs: 0, cacheScope: "private" });
     expect(list.result.tools.map((t: { name: string }) => t.name)).toEqual(["list_guides", "get_guide", "create_guide", "update_guide", "publish_guide", "upload_image"]);
+    const res = await POST(request(g.accessToken, rpc("server/discover")));
+    expect(res.status).toBe(200);
+    expect((await res.json()).result).toMatchObject({
+      resultType: "complete", supportedVersions: [version], capabilities: { tools: {} }, ttlMs: 0, cacheScope: "private",
+      _meta: { "io.modelcontextprotocol/serverInfo": { name: "travel-cards", version: "2.0.0" } },
+    });
+    expect(res.headers.get("mcp-session-id")).toBeNull();
     for (const handler of [GET, DELETE]) {
       const res = await handler(new Request(origin + "/mcp", { headers: { Authorization: `Bearer ${g.accessToken}` } }));
       expect(res.status).toBe(405);
@@ -107,15 +114,18 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     }
   });
 
-  it("echoes valid string request IDs, including empty and long IDs", async () => {
+  it("echoes valid request IDs and omits unknown IDs instead of returning null", async () => {
     const g = await grant();
     for (const id of ["", "x".repeat(129), 0]) {
-      const response = await POST(request(g.accessToken, rpc("ping", {}, id)));
+      const response = await POST(request(g.accessToken, rpc("server/discover", {}, id)));
       expect(response.status).toBe(200);
-      expect(await response.json()).toEqual({ jsonrpc: "2.0", id, result: {} });
+      expect(await response.json()).toMatchObject({ jsonrpc: "2.0", id, result: { resultType: "complete" } });
       const error = await POST(request(g.accessToken, rpc("unknown-method", {}, id)));
+      expect(error.status).toBe(404);
       expect(await error.json()).toMatchObject({ id, error: { code: -32601 } });
     }
+    const malformed = await POST(request(g.accessToken, { jsonrpc: "2.0", id: null, method: "server/discover" }));
+    expect(await malformed.json()).not.toHaveProperty("id");
   });
 
   it("honors JSON Accept quality and specificity before any tool write", async () => {
@@ -127,8 +137,128 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     }
     expect(await ownedDb().collection("guides").countDocuments({ slug: /^mcp-http-/ })).toBe(0);
     for (const accept of ["Application/JSON", "application/*", "application/json;q=0.1, */*;q=0", "application/json;q=1, application/*;q=0", "application/json;Q=0.5", "application/json;q=0.1, application/json;q=0.8"]) {
-      expect((await POST(request(g.accessToken, rpc("ping"), { Accept: accept }))).status).toBe(200);
+      expect((await POST(request(g.accessToken, rpc("server/discover"), { Accept: accept }))).status).toBe(200);
     }
+  });
+
+  it("rejects missing per-request metadata and does not inherit earlier client declarations", async () => {
+    const g = await grant();
+    expect((await POST(request(g.accessToken, rpc("server/discover")))).status).toBe(200);
+    for (const _meta of [undefined, {}, { ...meta, "io.modelcontextprotocol/protocolVersion": undefined }, { ...meta, "io.modelcontextprotocol/clientCapabilities": undefined }, { ...meta, "io.modelcontextprotocol/clientCapabilities": [] }]) {
+      const res = await POST(request(g.accessToken, rpc("tools/list", { _meta })));
+      expect(res.status).toBe(400);
+      expect((await res.json()).error.code).toBe(-32602);
+    }
+  });
+
+  it("validates required method, version and tool-name bindings before writes", async () => {
+    const g = await grant();
+    for (const header of ["MCP-Protocol-Version", "Mcp-Method", "Mcp-Name"]) {
+      for (const value of [undefined, "mismatch", "%invalid", "%FF"]) {
+        const req = request(g.accessToken, rpc("tools/call", { name: "create_guide", arguments: draft }));
+        if (value === undefined) req.headers.delete(header); else req.headers.set(header, value);
+        const res = await POST(req);
+        expect(res.status).toBe(400);
+        expect((await res.json()).error.code).toBe(-32020);
+      }
+    }
+    expect(await ownedDb().collection("guides").countDocuments({ slug: /^mcp-http-/ })).toBe(0);
+  });
+
+  it("compares raw ASCII or strict Base64 UTF-8 names, never percent-decoding", async () => {
+    const g = await grant();
+    const encoded = await POST(request(g.accessToken, rpc("tools/call", { name: "list_guides" }), { "Mcp-Name": "=?base64?bGlzdF9ndWlkZXM=?=" }));
+    expect(encoded.status).toBe(200);
+    expect((await encoded.json()).result.isError).toBe(false);
+    for (const value of [
+      "%6Cist_guides", "=?base64?bGlzdF9ndWlkZXM?=", "=?base64?%%%%?=", "=?base64?/w==?=",
+      "=?BASE64?bGlzdF9ndWlkZXM=?=", `=?base64?${Buffer.from("\uFEFFlist_guides").toString("base64")}?=`,
+    ]) {
+      const res = await POST(request(g.accessToken, rpc("tools/call", { name: "list_guides" }), { "Mcp-Name": value }));
+      expect(res.status).toBe(400);
+      expect((await res.json()).error.code).toBe(-32020);
+    }
+    for (const name of ["list/guides", "%6Cist_guides"]) {
+      const res = await POST(request(g.accessToken, rpc("tools/call", { name })));
+      expect((await res.json()).error.code).toBe(-32602);
+    }
+    for (const name of [" padded ", "列出攻略", "line1\nline2", "list\tguides", "=?base64?bGlzdF9ndWlkZXM=?="]) {
+      const res = await POST(request(g.accessToken, rpc("tools/call", { name }), { "Mcp-Name": `=?base64?${Buffer.from(name).toString("base64")}?=` }));
+      expect((await res.json()).error).toMatchObject({ code: -32602, data: { code: "UNKNOWN_TOOL" } });
+    }
+    const literalSentinel = await POST(request(g.accessToken, rpc("tools/call", { name: "=?base64?bGlzdF9ndWlkZXM=?=" })));
+    expect((await literalSentinel.json()).error.code).toBe(-32020);
+    for (const name of ["líst_guides", "list\tguides"]) {
+      const rawUnsafe = await POST(request(g.accessToken, rpc("tools/call", { name })));
+      expect((await rawUnsafe.json()).error.code).toBe(-32020);
+    }
+  });
+
+  it("checks required headers and metadata even for unknown or legacy methods", async () => {
+    const g = await grant();
+    for (const method of ["initialize", "ping", "unknown-method"]) {
+      for (const header of ["MCP-Protocol-Version", "Mcp-Method"]) {
+        for (const value of [undefined, "mismatch"]) {
+          const req = request(g.accessToken, rpc(method));
+          if (value === undefined) req.headers.delete(header); else req.headers.set(header, value);
+          const res = await POST(req);
+          expect(res.status).toBe(400);
+          expect((await res.json()).error.code).toBe(-32020);
+        }
+      }
+      const missingMeta = await POST(request(g.accessToken, rpc(method, { _meta: {} })));
+      expect(missingMeta.status).toBe(400);
+      expect((await missingMeta.json()).error.code).toBe(-32602);
+    }
+    const legacy = request(g.accessToken, { jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {} } });
+    legacy.headers.delete("MCP-Protocol-Version");
+    legacy.headers.delete("Mcp-Method");
+    const res = await POST(legacy);
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatchObject({ code: -32020, message: expect.stringContaining(version) });
+  });
+
+  it("rejects old versions without fallback and removed methods with valid common fields with 404", async () => {
+    const g = await grant();
+    for (const requested of ["2025-11-25", "2025-06-18", "2025-03-26", "2099-01-01"]) {
+      const params = { _meta: { ...meta, "io.modelcontextprotocol/protocolVersion": requested } };
+      const res = await POST(request(g.accessToken, rpc("server/discover", params), { "MCP-Protocol-Version": requested }));
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toMatchObject({ code: -32022, data: { supported: [version], requested } });
+      for (const method of ["initialize", "ping", "unknown-method"]) {
+        const unknown = await POST(request(g.accessToken, rpc(method, params), { "MCP-Protocol-Version": requested }));
+        expect(unknown.status).toBe(404);
+        expect((await unknown.json()).error.code).toBe(-32601);
+      }
+    }
+    const notification = await POST(request(g.accessToken, { jsonrpc: "2.0", method: "notifications/initialized" }));
+    expect(notification.status).toBe(400);
+  });
+
+  it("returns 429 with Retry-After without writing, while preserving discovery and other grants", async () => {
+    const g = await grant();
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    const label = `mcp-grant:${g.grantId}`;
+    await consumeMcpToolCall(label);
+    const db = ownedDb().collection<{ _id: string; count: number }>("mcp_tool_rate_limits");
+    const seeded = await db.updateOne({ _id: `${label}:${Math.floor(now / 60_000)}` }, { $set: { count: MCP_TOOL_CALLS_PER_MINUTE } });
+    expect(seeded.matchedCount).toBe(1);
+    const limited = await call(g.accessToken, "create_guide", draft);
+    expect(limited.response.status).toBe(429);
+    expect(Number(limited.response.headers.get("retry-after"))).toBeGreaterThan(0);
+    expect(limited.body.error.code).toBe(429);
+    expect((await POST(request(g.accessToken, rpc("server/discover")))).status).toBe(200);
+    const other = await grant();
+    expect((await call(other.accessToken, "list_guides")).response.status).toBe(200);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(mongoose.models.McpToolRateLimit, "findOneAndUpdate").mockImplementationOnce(() => { throw new Error("fake counter storage failure"); });
+    const unavailable = await call(other.accessToken, "create_guide", draft);
+    expect(unavailable.response.status).toBe(500);
+    expect(unavailable.body).toMatchObject({ jsonrpc: "2.0", id: 1, error: { code: -32603 } });
+    expect(unavailable.body).not.toHaveProperty("result");
+    expect(console.error).toHaveBeenLastCalledWith("MCP rate limit failed", "Error");
+    expect(await ownedDb().collection("guides").countDocuments({ slug: /^mcp-http-/ })).toBe(0);
   });
 
   it("serves private drafts, creates/updates/publishes via shared rules and preserves conflicts without automatic retries", async () => {
@@ -142,7 +272,7 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     guide = updated.body.result.structuredContent.guide;
     const conflict = await call(g.accessToken, "update_guide", { id: guide.id, expectedRevision: 1, title: "不应覆盖" });
     expect(conflict.response.status).toBe(200);
-    expect(conflict.body.result).toMatchObject({ isError: true, structuredContent: { error: { status: 409, code: "REVISION_CONFLICT" } } });
+    expect(conflict.body.result).toMatchObject({ resultType: "complete", isError: true, _meta: { "io.modelcontextprotocol/serverInfo": { name: "travel-cards" } }, structuredContent: { error: { status: 409, code: "REVISION_CONFLICT" } } });
     const published = await call(g.accessToken, "publish_guide", { id: guide.id, expectedRevision: guide.revision });
     expect(published.body.result.structuredContent.guide.status).toBe("published");
     expect(published.body.result.structuredContent.guide.title).toBe("MCP HTTP 更新");
@@ -159,6 +289,11 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     const denied = await call(readOnly.accessToken, "create_guide", draft);
     expect(denied.response.status).toBe(403);
     expect(denied.response.headers.get("www-authenticate")).toContain('scope="guide.read guide.create"');
+    const selfDeclaredAdmin = await POST(request(readOnly.accessToken, rpc("tools/call", {
+      name: "create_guide", arguments: draft,
+      _meta: { ...meta, "io.modelcontextprotocol/clientInfo": { name: "admin", version: "1" }, "io.modelcontextprotocol/clientCapabilities": { admin: true, scopes: allScopes } },
+    })));
+    expect(selfDeclaredAdmin.status).toBe(403);
     const creator = await grant(["guide.read", "guide.create"]);
     const deniedPublish = await call(creator.accessToken, "create_guide", { ...draft, publish: true });
     expect(deniedPublish.response.status).toBe(403);
@@ -182,15 +317,15 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     const notification = await POST(request(g.accessToken, { jsonrpc: "2.0", method: "tools/call", params: { name: "create_guide", arguments: draft } }));
     expect(notification.status).toBe(400);
     expect(await ownedDb().collection("guides").countDocuments({ slug: /^mcp-http-/ })).toBe(0);
-    for (const body of [[rpc("ping")], { jsonrpc: "2.0", id: null, method: "ping" }, { ...rpc("ping"), role: "admin" }]) expect((await POST(request(g.accessToken, body))).status).toBe(400);
+    for (const body of [[rpc("server/discover")], { jsonrpc: "2.0", id: null, method: "server/discover" }, { ...rpc("server/discover"), role: "admin" }]) expect((await POST(request(g.accessToken, body))).status).toBe(400);
   });
 
   it("rejects forbidden Origins and unsupported headers and bounds actual bytes before dispatch", async () => {
     const g = await grant();
-    for (const bad of ["null", "https://evil.example.test"]) expect((await POST(request(g.accessToken, rpc("ping"), { Origin: bad }))).status).toBe(403);
-    expect((await POST(request(g.accessToken, rpc("ping"), { Origin: origin }))).status).toBe(200);
-    expect((await POST(request(g.accessToken, rpc("ping"), { "MCP-Protocol-Version": "2099-01-01" }))).status).toBe(400);
-    expect((await POST(request(g.accessToken, rpc("ping"), { Accept: "text/event-stream" }))).status).toBe(406);
+    for (const bad of ["null", "https://evil.example.test"]) expect((await POST(request(g.accessToken, rpc("server/discover"), { Origin: bad }))).status).toBe(403);
+    expect((await POST(request(g.accessToken, rpc("server/discover"), { Origin: origin }))).status).toBe(200);
+    expect((await POST(request(g.accessToken, rpc("server/discover"), { "MCP-Protocol-Version": "2099-01-01" }))).status).toBe(400);
+    expect((await POST(request(g.accessToken, rpc("server/discover"), { Accept: "text/event-stream" }))).status).toBe(406);
     const headers = { Authorization: `Bearer ${g.accessToken}`, "Content-Type": "application/json" };
     const malformed = await POST(new Request(origin + "/mcp", { method: "POST", headers, body: "{" }));
     expect((await malformed.json()).error.code).toBe(-32700);

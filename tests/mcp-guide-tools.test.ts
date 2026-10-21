@@ -46,10 +46,12 @@ describe("MCP Guide tool core (fake authenticated actor, real isolated persisten
     for (const tool of tools) {
       expect(tool.inputSchema).toMatchObject({ type: "object", additionalProperties: false });
       expect(tool.annotations.readOnlyHint).toBe(["list_guides", "get_guide"].includes(tool.name));
+      expect(tool.annotations.openWorldHint).toBe(tool.name === "upload_image");
     }
     expect(tools.find((tool) => tool.name === "update_guide")!.description).toContain("never retry");
     expect(tools.find((tool) => tool.name === "create_guide")!.description).toContain("not verified");
     expect(tools.find((tool) => tool.name === "upload_image")!.description).toContain("cover image");
+    expect(tools.find((tool) => tool.name === "upload_image")!.description).toContain("2 MiB total JSON request");
   });
 
   it("creates, searches, reads, updates and publishes with the existing audit identity", async () => {
