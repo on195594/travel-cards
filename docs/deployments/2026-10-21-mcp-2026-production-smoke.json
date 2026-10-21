@@ -1,0 +1,113 @@
+{
+  "status": "PASS",
+  "checkedAt": "2026-10-21T10:41:41.689119+00:00",
+  "origin": "https://travel.keyi.win",
+  "checks": [
+    {
+      "method": "GET",
+      "path": "/",
+      "status": 200,
+      "cacheControl": "no-store, max-age=0",
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/login",
+      "status": 200,
+      "cacheControl": "private, no-store, max-age=0",
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "method": "GET",
+      "path": "/robots.txt",
+      "status": 200,
+      "cacheControl": "max-age=3600",
+      "contentType": "text/plain; charset=utf-8"
+    },
+    {
+      "method": "GET",
+      "path": "/sitemap.xml",
+      "status": 200,
+      "cacheControl": "no-store, max-age=0",
+      "contentType": "application/xml"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health/live",
+      "status": 200,
+      "cacheControl": "no-store, max-age=0",
+      "contentType": "application/json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health/ready",
+      "status": 200,
+      "cacheControl": "no-store, max-age=0",
+      "contentType": "application/json"
+    },
+    {
+      "method": "GET",
+      "path": "/.well-known/oauth-protected-resource/mcp",
+      "status": 200,
+      "cacheControl": "no-store, max-age=0",
+      "contentType": "application/json"
+    },
+    {
+      "method": "GET",
+      "path": "/.well-known/oauth-authorization-server",
+      "status": 200,
+      "cacheControl": "no-store, max-age=0",
+      "contentType": "application/json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/guides",
+      "status": 200,
+      "cacheControl": "no-store, max-age=0",
+      "contentType": "application/json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/guides?scope=admin",
+      "status": 401,
+      "cacheControl": "private, no-store, max-age=0",
+      "contentType": "application/json"
+    },
+    {
+      "method": "POST",
+      "path": "/mcp",
+      "status": 401,
+      "cacheControl": "no-store, max-age=0",
+      "contentType": "application/json"
+    },
+    {
+      "method": "GET",
+      "path": "/mcp",
+      "status": 401,
+      "cacheControl": "no-store, max-age=0",
+      "contentType": "application/json"
+    },
+    {
+      "method": "GET",
+      "path": "/api/mcp",
+      "status": 404,
+      "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate",
+      "contentType": "text/html; charset=utf-8"
+    },
+    {
+      "method": "GET",
+      "path": "/.well-known/oauth-protected-resource/api/mcp",
+      "status": 404,
+      "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate",
+      "contentType": "text/html; charset=utf-8"
+    }
+  ],
+  "oauthMetadataResourceVerified": true,
+  "pkceS256Verified": true,
+  "mcpUnauthorizedChallengeVerified": true,
+  "legacyBusinessAliasesAbsent": true,
+  "productionGuideWritesPerformed": false,
+  "realGeminiOrR2CallsPerformed": false,
+  "realGeminiCompatibilityReaccepted": false,
+  "legacySyntheticProbe": "PASS (independent legacy fixed data only)"
+}

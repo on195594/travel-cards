@@ -1,0 +1,40 @@
+{
+  "createdAt": "2026-10-21T10:32:26.507014+00:00",
+  "previousImage": "travel-cards-web",
+  "previousImageId": "sha256:aa02a082ff55cade13821534649d68107ee90ff28d612e288c08f279650eb9bf",
+  "previousWebId": "99b7a95704dbe93159804710b839f6ac39d1c7a346294bafe8d7e4dcf6cabf48",
+  "previousOAuth": true,
+  "authOrigin": "https://travel.keyi.win",
+  "composeFiles": [
+    "docker-compose.yml",
+    "docker-compose.production.yml"
+  ],
+  "environmentComparedVariables": 14,
+  "environmentPreserved": true,
+  "composeRenderedDollarEscapingVerified": true,
+  "privateCandidateOverrideUsed": false,
+  "portsPreserved": true,
+  "networksPreserved": true,
+  "protectedContainers": {
+    "mongodb": {
+      "id": "6776e4c54f675d15f08e5be11195135c2dd20d9f28ae56d06dc7cba030396164",
+      "startedAt": "2026-10-21T00:27:29.14032868Z",
+      "imageId": "sha256:04dcb7a617991492a227370aee9ba49ed92fd4b22c0606b155a1cdd99dec280f"
+    },
+    "nginx": {
+      "id": "f82f4358303623fdd2ce19ca3d64f59163fb2166681a05f94ad48e7e03230aed",
+      "startedAt": "2026-10-21T05:28:09.74486268Z",
+      "imageId": "sha256:c61623d9912d6330d35d717edd83fbadf5101667b9ef40cad48dc75946066ea2"
+    }
+  },
+  "artifacts": "tmp/mcp-2026-release-20261021T102947Z",
+  "applicationCommit": "80a2b8ac565dbe145dc0ce887600552391945e3f",
+  "imageTag": "travel-cards-web:commit-80a2b8ac565dbe145dc0ce887600552391945e3f",
+  "imageId": "sha256:01b7fafbcb0a196e767341d11cf23fdbc50f1ce06f810acaf136e4929a2ec8f1",
+  "rollbackTag": "travel-cards-web:rollback-20261021-aa02a082ff55",
+  "sourceArchiveSha256": "fd23b83c77be95b801ddd573f669fcb50cc513ac800ca24fa57a93e30812317c",
+  "sourceFileCount": 208,
+  "gitPushedBeforeDeploy": true,
+  "codexFollowup": "PASS",
+  "localVerifyTests": 292
+}

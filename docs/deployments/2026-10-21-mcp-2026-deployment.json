@@ -1,0 +1,17 @@
+{
+  "status": "PASS",
+  "deployedAt": "2026-10-21T10:39:05.3117726Z",
+  "verifiedAt": "2026-10-21T10:39:44.133235+00:00",
+  "webContainerId": "eee5bd615a05a2c3cf931f9560ae6f79fd1284a267dfb9b9c6d4b191f24b051b",
+  "image": "travel-cards-web:commit-80a2b8ac565dbe145dc0ce887600552391945e3f",
+  "imageId": "sha256:01b7fafbcb0a196e767341d11cf23fdbc50f1ce06f810acaf136e4929a2ec8f1",
+  "revision": "80a2b8ac565dbe145dc0ce887600552391945e3f",
+  "sourceArchiveSha256": "fd23b83c77be95b801ddd573f669fcb50cc513ac800ca24fa57a93e30812317c",
+  "oauthEnabled": true,
+  "applicationEnvironmentPreserved": true,
+  "envLocalUnchanged": true,
+  "portsAndNetworksPreserved": true,
+  "mongodbAndNginxUnchanged": true,
+  "rollbackImageRetained": true,
+  "privateOverrideUsed": false
+}
