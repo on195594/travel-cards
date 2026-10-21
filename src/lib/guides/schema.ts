@@ -4,10 +4,43 @@ const httpUrl = z.string().url().refine((value) => ["http:", "https:"].includes(
 const slugSchema = z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "slug 只能包含小写字母、数字和连字符");
 const optionalSlug = z.preprocess((value) => value === "" ? undefined : value, slugSchema.optional());
 
+function isValidCalendarDate(year: number, month: number, day: number): boolean {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+  const daysInMonth = [31, (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  return day <= daysInMonth[month - 1];
+}
+
+const accessedAtSchema = z.preprocess((value) => {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/);
+    if (match) {
+      const year = Number(match[1]);
+      const month = Number(match[2]);
+      const day = Number(match[3]);
+      if (!isValidCalendarDate(year, month, day)) {
+        return trimmed;
+      }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        return `${trimmed}T00:00:00.000Z`;
+      }
+      const normalized = trimmed.includes(" ") ? trimmed.replace(" ", "T") : trimmed;
+      const withColonOffset = normalized.replace(/([+-]\d{2})(\d{2})$/, "$1:$2");
+      const target = /(?:Z|[+-]\d{2}:?\d{2})$/.test(withColonOffset) ? withColonOffset : `${withColonOffset}Z`;
+      const timestamp = Date.parse(target);
+      if (!Number.isNaN(timestamp)) {
+        return new Date(timestamp).toISOString();
+      }
+    }
+    return trimmed;
+  }
+  return value;
+}, z.string().datetime());
+
 export const sourceRefSchema = z.object({
   title: z.string().trim().min(1).max(200),
   url: httpUrl,
-  accessedAt: z.string().datetime(),
+  accessedAt: accessedAtSchema,
   citedText: z.string().max(2000).optional(),
 });
 

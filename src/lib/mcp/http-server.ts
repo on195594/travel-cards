@@ -57,6 +57,7 @@ function toolFailure(error: unknown) {
   let status = 500;
   let code = "INTERNAL_ERROR";
   let message = "服务器暂时无法处理工具请求";
+  let issues: Array<{ path: string; message: string }> | undefined;
   if (error instanceof HttpError) {
     status = error.status;
     code = error.code;
@@ -64,7 +65,11 @@ function toolFailure(error: unknown) {
   } else if (error instanceof ZodError) {
     status = 400;
     code = "VALIDATION_ERROR";
-    message = "工具参数无效，请按工具 schema 修正";
+    issues = error.issues.map((issue) => {
+      const field = issue.path.join(".") || ("keys" in issue && Array.isArray(issue.keys) ? issue.keys.join(".") : "");
+      return { path: field, message: field ? `${field}: ${issue.message}` : issue.message };
+    });
+    message = `工具参数无效: ${issues.map((i) => i.message).join("; ")}`;
   } else if (typeof error === "object" && error && "code" in error && error.code === 11000) {
     status = 409;
     code = "SLUG_CONFLICT";
@@ -72,7 +77,10 @@ function toolFailure(error: unknown) {
   } else {
     console.error("MCP tool failed", error instanceof Error ? error.name : "UnknownError");
   }
-  const data = { error: { status, code, message } };
+  if (status < 500) {
+    console.warn("mcp_tool_rejected", { status, code, message });
+  }
+  const data: Record<string, unknown> = { error: { status, code, message, ...(issues ? { issues } : {}) } };
   return { content: [{ type: "text", text: JSON.stringify(data) }], structuredContent: data, isError: true };
 }
 

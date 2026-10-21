@@ -176,4 +176,26 @@ describe("Guide aggregate", () => {
       code: "PUBLISH_REQUIREMENTS",
     });
   });
+
+  it("tolerates YYYY-MM-DD format and timezone offsets in sources.accessedAt and converts to UTC ISO datetime", async () => {
+    const created = await createGuide({
+      ...threeDayGuide("date-format-test"),
+      sources: [
+        { title: "日期格式测试", url: "https://example.test/date", accessedAt: "2026-10-21" },
+        { title: "带偏移格式测试", url: "https://example.test/offset", accessedAt: "2026-10-21 12:00:00+08:00" },
+        { title: "带紧凑偏移格式测试", url: "https://example.test/compact-offset", accessedAt: "2026-10-21 12:00:00+0800" },
+      ],
+    });
+    expect(created.sources[0].accessedAt).toBe("2026-10-21T00:00:00.000Z");
+    expect(created.sources[1].accessedAt).toBe("2026-10-21T04:00:00.000Z");
+    expect(created.sources[2].accessedAt).toBe("2026-10-21T04:00:00.000Z");
+
+    // Invalid calendar dates must be rejected and not rolled over
+    await expect(
+      createGuide({
+        ...threeDayGuide("invalid-date-test"),
+        sources: [{ title: "二月三十日", url: "https://example.test/invalid", accessedAt: "2026-02-30T12:00:00Z" }],
+      })
+    ).rejects.toThrow();
+  });
 });

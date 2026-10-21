@@ -175,6 +175,8 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     for (const name of ["delete_guide", "unpublish_guide", "manage_config"]) expect((await call(g.accessToken, name, { id: "a".repeat(24) })).body.error).toMatchObject({ code: -32602, data: { code: "UNKNOWN_TOOL" } });
     const invalid = await call(g.accessToken, "create_guide", { ...draft, role: "admin" });
     expect(invalid.body.result).toMatchObject({ isError: true, structuredContent: { error: { code: "VALIDATION_ERROR", status: 400 } } });
+    expect(invalid.body.result.structuredContent.error.message).toContain("工具参数无效");
+    expect(invalid.body.result.structuredContent.error.issues).toEqual(expect.arrayContaining([expect.objectContaining({ path: "role" })]));
     const missing = await call(g.accessToken, "get_guide", { id: "a".repeat(24) });
     expect(missing.body.result.isError).toBe(true);
     const notification = await POST(request(g.accessToken, { jsonrpc: "2.0", method: "tools/call", params: { name: "create_guide", arguments: draft } }));
