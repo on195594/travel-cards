@@ -1,7 +1,7 @@
 # Travel Cards MVP Specification
 
-- **状态**：核心应用、MCP 权限/工具/令牌与 OAuth/DCR/PKCE 已实现；用户已确认正式 `/mcp` 迁移至 2026-07-28 协议。协议迁移已按授权以应用提交 `80a2b8a` 部署；历史 Gemini 双端验收不自动覆盖新协议，真实客户端仍待重新验收，部署事实见 README 及本轮发布记录。配置后台未完成；生产状态以 README 的实测记录为准
-- **更新日期**：2026-10-21（用户确认 MCP 2026 协议迁移；业务权限不变）
+- **状态**：核心应用、MCP 权限/工具/令牌与 OAuth/DCR/PKCE 已实现；正式 `/mcp` 支持 2026 协议并向前兼容标准 MCP（支持 Gemini Apps）。配置后台未完成；生产状态以 README 的实测记录为准
+- **更新日期**：2026-10-22（用户确认 MCP 双协议兼容以支持 Gemini 官方客户端；业务权限不变）
 - **项目根目录**：`/home/lin/travel-cards`
 - **产品语言**：首版中文界面与中文内容
 
@@ -84,10 +84,12 @@
 - 本批增加管理员授权列表/撤销和授权同意页面，复用既有样式。OAuth 不要求逐篇发布审批；外部 AI 的操作范围仍仅 Guide read/create/update/publish 与 image.upload。
 - 先完成本地 fake 客户端完整流程、输入/重放/并发/撤销/跨资源/REST 绕过回归及 AGY 审查。生产部署、开关启用、真实账号和 Gemini 双端验收需单独授权，不修改既有生产凭证。
 
-#### 3.3.3 MCP 2026-07-28 协议迁移（2026-10-21 用户确认）
+#### 3.3.3 MCP 协议支持与向后兼容（2026-10-22 用户确认）
 
-- 正式 `/mcp` 仅支持 `2026-07-28`，不保留旧 `initialize`、`notifications/initialized`、`ping` 或协议版本回退。受保护的发现方法为 `server/discover`；每个请求独立处理，无 session 或初始化状态。
-- 每次 POST 必须携带 `MCP-Protocol-Version`、`Mcp-Method`，分别与 `params._meta['io.modelcontextprotocol/protocolVersion']`、JSON-RPC method 一致；`tools/call` 的 `Mcp-Name` 使用原样安全 ASCII，或 `=?base64?{UTF-8 的标准 Base64}?=` 标记格式，解码后与参数 name 一致；不做百分号解码。非 ASCII、控制字符、首尾空白及原值匹配该标记格式时必须使用 Base64。缺失、非法或不匹配的必需头返回 HTTP 400 / `-32020`。
+- 正式 `/mcp` 采用双协议支持：既支持 `2026-07-28` 现代协议，又兼容以 Google Gemini Apps 为代表的标准 MCP 客户端规范（`initialize`、`notifications/initialized`、`ping`）。
+- 现代 2026 模式：当请求携带 `MCP-Protocol-Version: 2026-07-28`、`Mcp-Method` 或请求参数声明 2026 元数据时，执行 2026 严格校验（头与元数据绑定、`Mcp-Name` 解码校验、`server/discover` 发现及 404/400 严格错误码）。
+- 标准兼容模式：当客户端未携带 2026 特殊头时，支持标准的 `initialize` 握手、`ping`、`notifications/initialized` 确认以及无头部的 `tools/list` 与 `tools/call`。
+- 两个协议分支均严格共享 OAuth 认证、权限 scopes 过滤、MongoDB 原子固定窗口限流（120 次/分钟）与攻略 revision 保护。缺失、非法或不匹配的 2026 头返回 HTTP 400 / `-32020`。
 - 每个请求的 `_meta` 必须含 protocolVersion 字符串和 clientCapabilities 对象；缺失/类型错误返回 HTTP 400 / `-32602`。客户端自报信息和能力不能提升 OAuth 权限，不从此前请求推断能力。
 - 不支持的版本返回 HTTP 400 / `-32022`，附 `data.supported` 和 `data.requested`；先校验公共必需头及逐请求元数据，再将未知方法返回 HTTP 404 / `-32601`，不受版本支持情况影响；缺头的旧 initialize 请求也先返回 HTTP 400 / `-32020`。无法取得请求 ID 的错误省略 id，不返回 null；拒绝 batch 与客户端通知，不执行无确认写入。
 - 所有正常完成的结果（含 `isError: true` 的工具执行错误）带 `resultType: 'complete'` 和服务端身份 `_meta`。仅广告 `tools: {}`，不声明订阅、SSE、异步任务或 elicitation；GET/DELETE 等继续 405，仅 POST。工具发现按当前 OAuth scopes 过滤，不缓存跨身份的工具列表。

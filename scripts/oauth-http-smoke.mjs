@@ -106,8 +106,11 @@ for (const method of ["none", "client_secret_basic", "client_secret_post"]) {
   const legacyHeaders = { ...mcpHeaders };
   delete legacyHeaders["MCP-Protocol-Version"];
   const legacy = await send("/mcp", { method: "POST", headers: legacyHeaders, body: JSON.stringify({ jsonrpc: "2.0", id: 0, method: "initialize", params: { protocolVersion: "2025-11-25", capabilities: {}, clientInfo: { name: "legacy-client", version: "1" } } }) });
-  assert.equal(legacy.status, 400);
-  assert.equal((await legacy.json()).error.code, -32020);
+  assert.equal(legacy.status, 200);
+  assert.equal((await legacy.json()).result.capabilities.tools !== undefined, true);
+  const missingMcpMethod = await send("/mcp", { method: "POST", headers: mcpHeaders, body: JSON.stringify({ jsonrpc: "2.0", id: 0, method: "tools/list", params: { _meta: mcpMeta } }) });
+  assert.equal(missingMcpMethod.status, 400);
+  assert.equal((await missingMcpMethod.json()).error.code, -32020);
   for (const [nameHeader, status] of [["=?base64?bGlzdF9ndWlkZXM=?=", 200], ["%6Cist_guides", 400]]) {
     const response = await send("/mcp", { method: "POST", headers: { ...mcpHeaders, "Mcp-Method": "tools/call", "Mcp-Name": nameHeader }, body: JSON.stringify({ jsonrpc: "2.0", id: 0, method: "tools/call", params: { _meta: mcpMeta, name: "list_guides", arguments: {} } }) });
     assert.equal(response.status, status);

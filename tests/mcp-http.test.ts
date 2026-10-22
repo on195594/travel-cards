@@ -214,8 +214,20 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     legacy.headers.delete("MCP-Protocol-Version");
     legacy.headers.delete("Mcp-Method");
     const res = await POST(legacy);
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toMatchObject({ code: -32020, message: expect.stringContaining(version) });
+    expect(res.status).toBe(200);
+    expect((await res.json()).result).toMatchObject({
+      protocolVersion: "2025-11-25", capabilities: { tools: {} }, serverInfo: { name: "travel-cards", version: "2.0.0" },
+    });
+    const legacyNotif = request(g.accessToken, { jsonrpc: "2.0", method: "notifications/initialized" });
+    legacyNotif.headers.delete("MCP-Protocol-Version");
+    legacyNotif.headers.delete("Mcp-Method");
+    expect((await POST(legacyNotif)).status).toBe(202);
+    const legacyList = request(g.accessToken, { jsonrpc: "2.0", id: 2, method: "tools/list" });
+    legacyList.headers.delete("MCP-Protocol-Version");
+    legacyList.headers.delete("Mcp-Method");
+    const listRes = await POST(legacyList);
+    expect(listRes.status).toBe(200);
+    expect((await listRes.json()).result.tools.length).toBe(6);
   });
 
   it("rejects old versions without fallback and removed methods with valid common fields with 404", async () => {
