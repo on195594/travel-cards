@@ -4,16 +4,16 @@
 
 **当前实现**：管理员可编辑、发布、删除攻略、上传 R2 封面；应用内 Gemini + Google Search 只生成待采纳候选，通过普通保存流程持久化。现有受信任自动化 API Token 接口继续可用。
 
-**MCP 双协议支持（2026-07-28 与标准 MCP 兼容模式）**：受限外部 AI 仍可创建、修改及直接发布，但不得删除或管理配置。六个工具、长效令牌及 OAuth/DCR/PKCE 不变；双协议兼容已在当前源码实现，真实 Gemini 双端用户验收仍待重新验证。非敏感配置后台仍待完成，服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
+**MCP 双协议支持（2026-07-28 与标准 MCP 兼容模式）**：受限外部 AI 仍可创建、修改及直接发布，但不得删除或管理配置。六个工具、长效令牌及 OAuth/DCR/PKCE 不变；双协议兼容已在当前源码实现，真实 Gemini 双端用户验收仍待重新验证。2026-10-23 只读检查发现运行镜像缺少源码溯源，不能确认线上是否包含双协议改动。非敏感配置后台仍待完成，服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
 
 ## 当前状态
 
 - Next.js 16、Auth.js、MongoDB、攻略 CRUD/发布/撤回、R2 上传和 Gemini 候选助手已实现。
 - MCP 提供 list/get/create/update/publish 五个攻略工具及 `upload_image`。独立 `image.upload` scope 控制上传；直接替换封面还需 `guide.update` 和 expectedRevision，禁止删除、撤回及配置管理。
-- 正式 `/mcp` 现已在源码支持双协议：现代 2026 协议（`server/discover`、逐请求 `_meta` 与 HTTP 头绑定、`resultType: complete`）及标准 MCP 兼容模式（`initialize`、`notifications/*`、`ping`）。当前生产部署镜像对应 `80a2b8a`（纯 2026 协议），双协议版本已在本地测试通过，未正式发布部署；每个受限令牌的工具调用上限为 120 次/分钟，超限返回 429 / Retry-After。见[协议与补充说明](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
+- 正式 `/mcp` 现已在源码支持双协议：现代 2026 协议（`server/discover`、逐请求 `_meta` 与 HTTP 头绑定、`resultType: complete`）及标准 MCP 兼容模式（`initialize`、`notifications/*`、`ping`）。双协议版本已有本地测试，尚无可核对的正式发布证据；每个受限令牌的工具调用上限为 120 次/分钟，超限返回 429 / Retry-After。见[协议与补充说明](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
 - OAuth/DCR/PKCE、管理员同意/撤销已实现。新环境默认关闭，当前生产显式启用。令牌与客户端注册默认 100 × 365 天有效，并非永不过期；无 refresh token。旧注册与令牌不自动扩权或续期，需要重新注册授权。
-- 当前部署应用提交为 `80a2b8a`，运行镜像 revision 与源码归档 SHA 已核对一致，见[发布、验收及回滚记录](./docs/deployments/2026-10-21-mcp-2026-release.md)。本轮只替换 Web，现有凭证、OAuth 开关、MongoDB 与 Nginx 保持不变；已解决此前运行镜像缺少提交溯源的问题。
-- 生产 `80a2b8a` 部署版本包含 MCP 2026 协议、Codex 审查后的三项修复及既有来源日期归一化。292 项测试、固定镜像隔离 smoke 和公开健康/鉴权检查通过；发布后文档提交不包含在该应用镜像中。
+- 最近有完整溯源证据的发布为 `80a2b8a`，见[历史发布、验收及回滚记录](./docs/deployments/2026-10-21-mcp-2026-release.md)。2026-10-23 只读核对：`travel-cards-web-1` 正在运行可变标签 `travel-cards-web`，镜像 ID 为 `sha256:65c52396c46e804fa4814d41e7e4a17f1fcebd10dfc4c094a2c43ba7f836ac26`，镜像无 `org.opencontainers.image.revision`、源码标签为 `unknown`；不能继续声称当前运行版本是 `80a2b8a`。
+- 历史 `80a2b8a` 发布包含 MCP 2026 协议、三项审查修复及来源日期归一化，当时通过 292 项测试、固定镜像隔离 smoke 和公开健康/鉴权检查；这些证据不自动覆盖今天的运行镜像。本次审查未部署、重启或改动生产数据及配置。
 - 历史协议的真实 Gemini 网页/手机双端验收已完成，依据为 2026-10-12 用户确认，见[验收状态记录](./docs/roadmaps/ai-client-integration.md#真实双端验收用户确认)。2026 协议的真实客户端兼容性待重新验收；图片上传专项未单独确认，非敏感配置后台尚未实现。
 - 历史核心实现与内部令牌审查分别见[核心审查](./docs/reviews/agy-final-implementation/closeout.md)、[7cc88f8 审查](./docs/reviews/agy-7cc88f8/closeout.md)；历史 APPROVE 仅覆盖当时范围。
 - 当前开发目录：`/home/lin/travel-cards`
@@ -76,13 +76,23 @@ Mcp-Method: server/discover
 {"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}
 ```
 
-`tools/list` 同样每次携带 `_meta` 和对应的 `Mcp-Method`；调用工具时再携带原样安全 ASCII 或 `=?base64?{标准 Base64}?=` 形式的 `Mcp-Name`，解码后与 `params.name` 一致，不做百分号解码。客户端能力不是授权，服务端仍逐请求验证令牌、scopes、resource 与客户端撤销状态。仅支持 JSON 响应，不提供 SSE/订阅/会话；`/api/mcp-probe` 是保留的旧协议固定数据探针，不代表正式服务的 2026 兼容性。
+现代模式的 `tools/list` 同样每次携带 `_meta` 和对应的 `Mcp-Method`；调用工具时再携带原样安全 ASCII 或 `=?base64?{标准 Base64}?=` 形式的 `Mcp-Name`，解码后与 `params.name` 一致，不做百分号解码。客户端能力不是授权，服务端仍逐请求验证令牌、scopes、resource 与客户端撤销状态。仅支持 JSON 响应，不提供 SSE/订阅/会话；`/api/mcp-probe` 是保留的旧协议固定数据探针，不代表正式服务的 2026 兼容性。
 
-现有 OAuth 资源与令牌未轮换；客户端升级协议不等于需要重新授权或自动扩权。DCR 虽已在 2026 规范弃用，本项目继续现有注册流程，不宣称支持 CIMD。正式 `/mcp` 现已在源码中支持双协议分流（标准客户端兼容模式与 2026 规范模式，未部署；生产当前 `80a2b8a` 仍为纯 2026），真实 Gemini 兼容性待重新验收。相关背景与决定见[协议与补充说明](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
+现有 OAuth 资源与令牌未轮换；客户端升级协议不等于需要重新授权或自动扩权。DCR 虽已在 2026 规范弃用，本项目继续现有注册流程，不宣称支持 CIMD。正式 `/mcp` 现已在源码中支持双协议分流；当前运行镜像无法溯源，真实 Gemini 兼容性待重新验收。相关背景与决定见[协议与补充说明](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
 
 ## 已审查镜像的生产发布
 
 生产从明确的 Git 提交快照构建不可变镜像，记录 revision 与源码归档 SHA-256；禁止把 dirty 工作树混入部署。提交、push 和部署分别需要用户授权。
+
+`scripts/build-release.sh` 只归档指定提交，排除工作树中未提交及未跟踪文件；镜像使用完整提交标签，已有同名镜像会被拒绝覆盖。构建后校验 `org.opencontainers.image.revision` 与 `win.keyi.travel-cards.source-sha256`，并输出镜像 ID，标签不符即失败。开发用 Compose 构建仍可带 `unknown` 标签，不能作为可溯源发布。
+
+```bash
+reviewed_commit="已审查的完整提交哈希"
+./scripts/build-release.sh "$reviewed_commit"
+TRAVEL_CARDS_TEST_IMAGE="travel-cards:git-$reviewed_commit" npm run test:oauth
+```
+
+这两个步骤只构建并隔离验证镜像，不会替换运行服务。本轮修复尚未提交或部署，当前线上镜像的溯源缺口仍需在获准发布后闭合。
 
 `docker-compose.production.yml` 显式选择已经通过审查/隔离验证的不可变镜像；用 `--no-deps --no-build --pull never web` 只替换 Web，不改共用 MongoDB或凭证。新功能默认关闭；生产启用需要本轮上线授权，真实 Gemini 验收由管理员自行完成。部署记录必须保存源清单、审查、镜像、原镜像/开关及公开 smoke；回滚复用原镜像和开关。不要用旧 `deploy.sh` 覆盖这一固定镜像发布。
 
@@ -99,7 +109,7 @@ docker compose up -d --build
 docker compose ps
 ```
 
-以上构建命令用于本地开发/新环境。现有生产更新使用上一节的固定镜像流程；本地遗留 `deploy.sh` 不随仓库分发，不作为生产发布入口。
+以上构建命令用于本地开发/新环境。现有生产更新使用上一节的固定镜像流程；本地遗留 `deploy.sh` 已校验归档并移出根目录，不作为生产发布入口。
 
 默认入口：
 
@@ -121,8 +131,10 @@ docker compose down
 
 ```bash
 npm ci
-npm run dev
+npm run dev -- --port 3100
 ```
+
+开发端口需与 `AUTH_URL` 一致；Next.js 默认的 3000 端口与示例配置的 3100 不同。
 
 ## 验证
 
@@ -140,6 +152,7 @@ npm run verify
 - `npm run typecheck`：Next.js 路由类型生成与 TypeScript 静态检查
 - `npm run test:recovery`：隔离合成数据库与图片恢复测试
 - `npm run test:http`：生产启动路径与健康检查 HTTP smoke；先运行 `./scripts/build-with-test-env.sh` 生成隔离配置的生产构建
+- 浏览器回归：`scripts/check-public-ui.mjs` 包含搜索失败/重试与响应布局检查；`scripts/check-editor-ui.mjs` 检查离开保护、首次/后续保存期间输入保留、字段错误与时区。后者只允许本机隔离预览，需合成账号、两日攻略及 Asia/Shanghai 浏览器时区，不连接生产后台。
 
 数据库测试使用 `npm test` 或 `npm run test:watch`，不要直接运行 `vitest` 或 `npm run test:vitest`；后者仅供临时 Mongo 包装脚本调用。
 
@@ -153,6 +166,7 @@ npm run verify
 - `src/lib/guides/repository.ts`：Mongoose 持久化和摘要/详情读取
 - `src/lib/guides/service.ts`：Guide 业务规则；`src/lib/guides.ts` 仅保留兼容导出
 - `src/lib/storage/r2.ts`：受限图片上传
+- `src/lib/storage/fetch-image.ts`：MCP 公网 HTTPS 图片下载，逐跳 DNS 校验与固定连接地址
 - `scripts/`：测试环境准备、HTTP smoke、恢复演练与管理员密码生成脚本
 - `docker-compose.yml`：接入 Meemo 共用 MongoDB 的 Web 服务
 
@@ -160,6 +174,8 @@ npm run verify
 
 正式审查证据保存在 `docs/reviews/`，临时源码快照和日志归档必要证据后清理；旧回滚脚本不得作为当前运维入口。保留凭证、备份、静态资源、历史审查、依赖和构建缓存；不改动共享 MongoDB 或其他项目。
 
-`src/lib/guides.ts` 仍被调用；MCP 授权/工具模块不按“仅测试引用”当死代码删除。2026-10-21 的入口可达性、未使用符号和 CSS 引用检查未发现可安全删除的业务代码或重复测试套件。保留权限拒绝、scope/resource、过期撤销、409 和输入边界覆盖。
+`src/lib/guides.ts` 仍被调用；SPEC 明确保留的内部令牌签发/撤销能力不按“仅测试引用”删除。2026-10-23 清理移除鉴权辅助函数中无人调用的无 Request 分支和两个 AI schema 转发函数，并合并一处重复 MCP 请求断言；权限拒绝、scope/resource、过期撤销、409 和输入边界测试均保留，没有删除测试套件。
 
-`tmp/` 的旧发布快照、日志及重复证据已校验归档到本地忽略目录 `backups/cleanup-2026-10-21/` 后清空；独有的候选源码未丢弃，归档不代替正式发布证据。最新审查、遗留风险及验证见[维护记录](./docs/maintenance/2026-10-21-review-cleanup.md)。
+`tmp/` 的旧发布快照、日志及重复证据已校验归档到本地忽略目录 `backups/cleanup-2026-10-21/` 后清空，2026-10-23 检查时仍为空；独有的候选源码未丢弃。旧发布脚本另存于 `backups/cleanup-2026-10-23/legacy-deploy.tar.gz`，归档内容与原文件逐字节核对后才移除原件；原文件 SHA-256 为 `c505c6656ae00c14d912aa4d102bd17862df29846b80f7cb73c117288839e93d`。归档不代替正式发布证据，历史风险与检查见[维护记录](./docs/maintenance/2026-10-21-review-cleanup.md)。
+
+2026-10-23 审查修复后验证：24 个测试文件、303 项通过；lint、额外未使用符号检查、默认 Turbopack 构建（fake 环境）和 Compose 配置检查通过；隔离 HTTP/OAuth smoke 通过。DNS/IPv6/重定向/大小/超时边界与上传前权限已通过 fake transport 回归；发布脚本使用 fake Docker 验证提交快照、标签校验与拒绝覆盖，不冒充真实发布镜像验收。编辑内容保护、保存期间继续输入、错误提示、本地时间/UTC 往返和搜索故障恢复均已通过本地浏览器验证，详见[前端记录](./docs/frontend.md#浏览器审查2026-10-23)。本轮未提交或部署，真实 Gemini/R2、真实手机与生产恢复未验收；线上镜像溯源仍需授权发布后闭合。

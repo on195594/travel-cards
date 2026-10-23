@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GuideSummary } from "@/lib/guides/schema";
+import { guideSummarySchema } from "@/lib/guides/schema";
 import { GuideCard } from "@/components/guide-card";
 
 type Props = {
@@ -31,7 +32,8 @@ function syncUrl(q: string) {
 export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
   const searchInput = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState(initialQuery);
-  const [remoteSearch, setRemoteSearch] = useState<{ query: string; guides: GuideSummary[] }>();
+  const [remoteSearch, setRemoteSearch] = useState<{ query: string; status: "success" | "error"; guides: GuideSummary[] }>();
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const q = query.trim();
@@ -42,24 +44,25 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       syncUrl(q);
-      fetch(`/api/guides?q=${encodeURIComponent(q)}`, { cache: "no-store", signal: controller.signal })
+      fetch(`/api/guides?q=${encodeURIComponent(q)}`, { cache: "no-store", signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15_000)]) })
         .then((response) => {
           if (!response.ok) throw new Error("search failed");
-          return response.json() as Promise<{ guides?: GuideSummary[] }>;
+          return response.json() as Promise<{ guides?: unknown }>;
         })
         .then((data) => {
-          if (!controller.signal.aborted) setRemoteSearch({ query: q, guides: Array.isArray(data.guides) ? data.guides : [] });
+          const guides = guideSummarySchema.array().parse(data.guides);
+          if (!controller.signal.aborted) setRemoteSearch({ query: q, status: "success", guides });
         })
-        .catch((error: unknown) => {
-          if (controller.signal.aborted || (error instanceof DOMException && error.name === "AbortError")) return;
-          setRemoteSearch({ query: q, guides: filterGuides(initialGuides, q) });
+        .catch(() => {
+          if (controller.signal.aborted) return;
+          setRemoteSearch({ query: q, status: "error", guides: filterGuides(initialGuides, q) });
         });
     }, 250);
     return () => {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [initialGuides, query]);
+  }, [attempt, initialGuides, query]);
 
   const destinations = useMemo(() => {
     const list: string[] = [];
@@ -75,17 +78,22 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
   }, [initialGuides]);
 
   const filtered = useMemo(() => remoteSearch?.query === query.trim() ? remoteSearch.guides : filterGuides(initialGuides, query), [initialGuides, query, remoteSearch]);
+  const searchStatus = query.trim() ? (remoteSearch?.query === query.trim() ? remoteSearch.status : "pending") : "idle";
+
+  function changeQuery(value: string) {
+    setRemoteSearch(undefined);
+    setQuery(value);
+  }
 
   function handleClear() {
-    setRemoteSearch(undefined);
-    setQuery("");
+    changeQuery("");
     syncUrl("");
     searchInput.current?.focus();
   }
 
   function handleChipSelect(dest: string) {
     const next = query.trim().toLowerCase() === dest.toLowerCase() ? "" : dest;
-    setQuery(next);
+    changeQuery(next);
     syncUrl(next);
   }
 
@@ -114,7 +122,7 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
               className="search-input"
               type="search"
               value={query}
-              onChange={(e) => setQuery(e.target.value)}
+              onChange={(e) => changeQuery(e.target.value)}
               placeholder="搜索目的地或关键词"
               aria-label="搜索攻略"
               aria-controls="guide-results"
@@ -165,11 +173,21 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
         <div className="feed-meta-row">
           <h2 id="guide-list-title" className="feed-title">{query.trim() ? "搜索结果" : "发现旅行攻略"}</h2>
           <span className="section-count" role="status" aria-atomic="true">
-            {query.trim()
-              ? `找到 ${filtered.length} 篇攻略`
+            {searchStatus === "pending" ? "正在搜索…"
+              : searchStatus === "error" ? "搜索暂时不可用"
+              : searchStatus === "success" ? `找到 ${filtered.length} 篇攻略`
               : `共 ${initialGuides.length} 篇攻略`}
           </span>
         </div>
+
+        {searchStatus === "error" && (
+          <div className="empty search-empty">
+            <p className="error" role="alert">未能完成搜索，请重试。</p>
+            <p className="hint">{filtered.length ? `下方仅展示已加载攻略中的 ${filtered.length} 项匹配，可能不完整。` : "已加载的攻略中没有匹配项，其他结果暂时无法查询。"}</p>
+            <button className="secondary" type="button" onClick={() => { setRemoteSearch(undefined); setAttempt((value) => value + 1); }}>重新搜索</button>
+          </div>
+        )}
+        {searchStatus === "pending" && filtered.length > 0 && <p className="hint">正在查询，下方暂为已加载攻略中的匹配。</p>}
 
         {filtered.length ? (
           <div className="grid">
@@ -177,7 +195,7 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
               <GuideCard key={guide.id} guide={guide} priority={index === 0} />
             ))}
           </div>
-        ) : !initialGuides.length ? (
+        ) : searchStatus === "error" || searchStatus === "pending" ? null : !query.trim() && !initialGuides.length ? (
           <div className="empty"><h3>旅程正在准备中</h3><p>暂时没有已发布攻略，稍后再来发现新的目的地。</p></div>
         ) : (
           <div className="empty search-empty">

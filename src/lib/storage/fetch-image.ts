@@ -1,0 +1,107 @@
+import { lookup } from "node:dns/promises";
+import { get } from "node:https";
+import type { IncomingMessage } from "node:http";
+import { BlockList, isIP } from "node:net";
+import { HttpError } from "@/lib/http";
+import { detectImageMime, MAX_FILE_BYTES } from "./r2";
+
+const blocked = new BlockList();
+for (const [address, prefix] of [
+  ["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8],
+  ["169.254.0.0", 16], ["172.16.0.0", 12], ["192.0.0.0", 24], ["192.0.2.0", 24],
+  ["192.88.99.0", 24], ["192.168.0.0", 16], ["198.18.0.0", 15],
+  ["198.51.100.0", 24], ["203.0.113.0", 24], ["224.0.0.0", 4], ["240.0.0.0", 4],
+] as const) blocked.addSubnet(address, prefix, "ipv4");
+
+// Only native public IPv6 unicast; special/tunnel ranges can encode private destinations.
+// https://www.iana.org/assignments/iana-ipv6-special-registry/
+const publicV6 = new BlockList();
+publicV6.addSubnet("2000::", 3, "ipv6");
+for (const [address, prefix] of [["2001::", 23], ["2001:db8::", 32], ["2002::", 16], ["3fff::", 20]] as const) {
+  blocked.addSubnet(address, prefix, "ipv6");
+}
+
+function isPublicAddress(address: string): boolean {
+  const family = isIP(address);
+  if (family === 4) return !blocked.check(address, "ipv4");
+  return family === 6 && publicV6.check(address, "ipv6") && !blocked.check(address, "ipv6");
+}
+
+function privateAddressError() {
+  return new HttpError(400, "INVALID_URL", "禁止请求本地、私有或保留网络地址");
+}
+
+export async function fetchImageFromUrl(rawUrl: string) {
+  let target: URL;
+  try {
+    target = new URL(rawUrl);
+  } catch {
+    throw new HttpError(400, "INVALID_URL", "图片 URL 格式无效");
+  }
+  const signal = AbortSignal.timeout(15_000);
+  try {
+    for (let hop = 0; hop < 5; hop++) {
+      if (target.protocol !== "https:" || target.username || target.password) {
+        throw new HttpError(400, "INVALID_URL", "图片 URL 必须为不含用户凭证的 HTTPS 地址");
+      }
+      const hostname = target.hostname.replace(/^\[|\]$/g, "").replace(/\.$/, "").toLowerCase();
+      if (/(^|\.)(localhost|local|internal)$/.test(hostname) || (isIP(hostname) && !isPublicAddress(hostname))) {
+        throw privateAddressError();
+      }
+      signal.throwIfAborted();
+      const response = await new Promise<IncomingMessage>((resolve, reject) => {
+        const request = get(target, {
+          agent: false,
+          signal,
+          headers: { "User-Agent": "TravelCards-Bot/1.0" },
+          lookup(host, options, callback) {
+            lookup(host, { all: true }).then((addresses) => {
+              if (signal.aborted) return callback(signal.reason, "", 4);
+              if (!addresses.length || addresses.some(({ address }) => !isPublicAddress(address))) {
+                return callback(privateAddressError(), "", 4);
+              }
+              // Resolve once: the socket receives the checked IP while TLS retains the URL host.
+              const address = addresses[0];
+              if (options.all) callback(null, [address]);
+              else callback(null, address.address, address.family);
+            }, () => callback(new HttpError(400, "IMAGE_FETCH_FAILED", "无法解析图片地址"), "", 4));
+          },
+        }, resolve);
+        request.on("error", reject);
+      });
+      try {
+        const status = response.statusCode ?? 0;
+        if (status >= 300 && status < 400) {
+          if (!response.headers.location) throw new HttpError(400, "IMAGE_FETCH_FAILED", "重定向未包含目标地址");
+          try {
+            target = new URL(response.headers.location, target);
+          } catch {
+            throw new HttpError(400, "INVALID_URL", "重定向目标地址无效");
+          }
+          continue;
+        }
+        if (status < 200 || status >= 300) throw new HttpError(400, "IMAGE_FETCH_FAILED", `获取图片失败 (HTTP ${status})`);
+        if (Number(response.headers["content-length"]) > MAX_FILE_BYTES) {
+          throw new HttpError(413, "FILE_TOO_LARGE", "图片文件不能超过 10 MiB");
+        }
+        const chunks: Buffer[] = [];
+        let total = 0;
+        for await (const chunk of response) {
+          total += chunk.length;
+          if (total > MAX_FILE_BYTES) throw new HttpError(413, "FILE_TOO_LARGE", "图片文件不能超过 10 MiB");
+          chunks.push(chunk);
+        }
+        const bytes = Buffer.concat(chunks, total);
+        const mime = detectImageMime(bytes);
+        if (!mime) throw new HttpError(400, "INVALID_IMAGE", "不支持的图片格式，仅支持 JPEG、PNG 和 WebP");
+        return { bytes, mime };
+      } finally {
+        response.destroy();
+      }
+    }
+    throw new HttpError(400, "IMAGE_FETCH_FAILED", "重定向次数过多");
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
+    throw new HttpError(400, "IMAGE_FETCH_FAILED", signal.aborted ? "获取图片超时，请重试" : "无法下载图片，请检查地址或稍后重试");
+  }
+}

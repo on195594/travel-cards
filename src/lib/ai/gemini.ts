@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { z } from "zod";
 import { getGeminiEnv } from "@/lib/env";
-import type { GuideAnswer, GuideCandidate } from "@/lib/guides";
+import { guideAnswerSchema, guideCandidateSchema, type GuideAnswer, type GuideCandidate } from "@/lib/guides/schema";
 import { HttpError } from "@/lib/http";
 import {
   type AiResult,
@@ -11,8 +11,6 @@ import {
   modelAnswerResultSchema,
   modelGuideResultSchema,
   reviseGuideInputSchema,
-  validateGuideAnswer,
-  validateGuideCandidate,
 } from "@/lib/ai/schemas";
 
 const REQUEST_OPTIONS = { timeout: 20_000, maxRetries: 0 } as const;
@@ -148,7 +146,7 @@ export async function generateGuideDraft(input: unknown): Promise<AiResult<Guide
   const { parsed, response } = await interact(prompt("生成一份完整、可编辑的中文结构化攻略候选。", values), modelGuideResultSchema);
   if (parsed.kind === "clarification") return parsed;
   try {
-    return { kind: "candidate", data: validateGuideCandidate({ ...parsed.data, sources: groundedSources(response) }) };
+    return { kind: "candidate", data: guideCandidateSchema.parse({ ...parsed.data, sources: groundedSources(response) }) };
   } catch {
     throw invalidResponse();
   }
@@ -159,7 +157,7 @@ export async function reviseGuide(existingGuide: unknown, instruction: unknown):
   const { parsed, response } = await interact(prompt("按调整要求返回完整攻略候选，不要覆盖输入。", values), modelGuideResultSchema);
   if (parsed.kind === "clarification") return parsed;
   try {
-    return { kind: "candidate", data: validateGuideCandidate({ ...parsed.data, sources: groundedSources(response) }) };
+    return { kind: "candidate", data: guideCandidateSchema.parse({ ...parsed.data, sources: groundedSources(response) }) };
   } catch {
     throw invalidResponse();
   }
@@ -170,7 +168,7 @@ export async function answerGuideQuestion(existingGuide: unknown, question: unkn
   const { parsed, response } = await interact(prompt("仅基于攻略上下文和必要的联网核验回答问题。", values), modelAnswerResultSchema);
   if (parsed.kind === "clarification") return parsed;
   try {
-    return { kind: "candidate", data: validateGuideAnswer({ answer: parsed.data.answer, sources: groundedSources(response) }) };
+    return { kind: "candidate", data: guideAnswerSchema.parse({ answer: parsed.data.answer, sources: groundedSources(response) }) };
   } catch {
     throw invalidResponse();
   }

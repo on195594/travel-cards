@@ -1,7 +1,5 @@
 import { z } from "zod";
 import {
-  guideAnswerSchema,
-  guideCandidateSchema,
   itineraryDaySchema,
   sectionSchema,
   sourceRefSchema,
@@ -68,14 +66,6 @@ export const modelAnswerResultSchema = z.union([
   z.strictObject({ kind: z.literal("candidate"), data: modelAnswerSchema }),
   clarificationSchema,
 ]);
-
-export function validateGuideCandidate(value: unknown) {
-  return guideCandidateSchema.parse(value);
-}
-
-export function validateGuideAnswer(value: unknown) {
-  return guideAnswerSchema.parse(value);
-}
 
 export type GenerateGuideInput = z.infer<typeof generateGuideInputSchema>;
 export type AiResult<T> = { kind: "candidate"; data: T } | { kind: "clarification"; questions: string[] };

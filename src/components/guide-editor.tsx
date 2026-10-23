@@ -1,8 +1,8 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- preview supports the configured R2/custom domain */
+/* eslint-disable @next/next/no-html-link-for-pages -- full navigation lets beforeunload protect unsaved edits */
 
-import { useRef, useState } from "react";
-import Link from "next/link";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import type { Guide, GuideAnswer, GuideCandidate, GuideDraftInput, SourceRef } from "@/lib/guides/schema";
 
@@ -73,11 +73,40 @@ type ClientRequestResult<T> =
   | { kind: "unknown" };
 
 function errorMessage(value: unknown): string | undefined {
-  if (!value || typeof value !== "object") return undefined;
-  const error = (value as { error?: unknown }).error;
-  if (!error || typeof error !== "object") return undefined;
-  const message = (error as { message?: unknown }).message;
-  return typeof message === "string" ? message : undefined;
+  if (!isRecord(value) || !isRecord(value.error)) return undefined;
+  const { message, issues } = value.error;
+  const labels: Record<string, string> = {
+    title: "标题", slug: "链接名称", destination: "目的地", excerpt: "简介", days: "天数",
+    coverImage: "封面图片", alt: "图片描述", itinerary: "逐日行程", items: "地点安排",
+    time: "时间", place: "地点", description: "说明", tips: "提示", sections: "实用章节",
+    kind: "类型", body: "正文", sources: "来源", url: "URL", accessedAt: "访问时间", citedText: "引用内容",
+  };
+  const details = Array.isArray(issues) ? issues.filter(isRecord).map((issue) => {
+    const path = Array.isArray(issue.path) ? issue.path : [];
+    const field = path.map((part, index) => typeof part === "number"
+      ? `第 ${part + 1} ${path[index - 1] === "itinerary" ? "天" : "项"}`
+      : labels[String(part)] ?? String(part)).join(" · ");
+    let reason = typeof issue.message === "string" ? issue.message : "请检查输入格式。";
+    if (issue.code === "too_small" && issue.minimum === 1) reason = "请填写此项。";
+    if (issue.code === "too_big") reason = issue.origin === "number" ? `不能大于 ${issue.maximum}。` : `最多 ${issue.maximum} ${issue.origin === "string" ? "个字符" : "项"}。`;
+    if (issue.code === "invalid_format" && issue.format !== "regex") reason = "格式不正确，请检查。";
+    return `${field || "表单"}：${reason}`;
+  }) : [];
+  return [typeof message === "string" ? message : "请求失败，请检查输入。", ...details].join("\n");
+}
+
+const subscribeToClient = () => () => {};
+
+export function localDateTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (part: number) => String(part).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+export function utcDateTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : date.toISOString();
 }
 
 export async function requestJson<T>(
@@ -161,12 +190,32 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
   const router = useRouter();
   const [saved, setSaved] = useState(initialGuide);
   const [draft, setDraft] = useState<GuideDraftInput>(initialGuide ? contentOf(initialGuide) : blank);
-  const [message, setMessage] = useState("");
+  const [daysInput, setDaysInput] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const messageRef = useRef<HTMLParagraphElement>(null);
+  // The server cannot know the editor's local timezone during hydration.
+  const isClient = useSyncExternalStore(subscribeToClient, () => true, () => false);
   const [busy, setBusy] = useState(false);
   const [freezeEditor, setFreezeEditor] = useState(false);
   const [unknownWrite, setUnknownWrite] = useState(false);
   const isSubmittingRef = useRef(false);
   const unknownWriteRef = useRef(false);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved ? contentOf(saved) : blank)
+    || (daysInput !== null && Number(daysInput) !== draft.days);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warnBeforeLeaving);
+    return () => window.removeEventListener("beforeunload", warnBeforeLeaving);
+  }, [dirty]);
+
+  useEffect(() => {
+    if (message?.kind === "error") messageRef.current?.focus();
+  }, [message]);
 
   const [candidate, setCandidate] = useState<GuideCandidate>();
   const [answer, setAnswer] = useState<GuideAnswer>();
@@ -183,7 +232,11 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
   }
 
   function setDays(days: number) {
-    const count = Math.max(1, Math.min(365, days || 1));
+    if (!Number.isInteger(days) || days < 1 || days > 365) return;
+    const count = days;
+    const removesContent = draft.itinerary.slice(count).some((day) =>
+      day.title.trim() || day.items.some((item) => Object.values(item).some((value) => value?.trim())));
+    if (removesContent && !window.confirm(`缩短为 ${count} 天会删除第 ${count + 1} 天及之后已填写的行程，确定继续？`)) return;
     setDraft((current) => ({
       ...current,
       days: count,
@@ -207,7 +260,7 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
   function beginOperation(blockOnUnknownWrite = false) {
     if (!claimGuideWrite(isSubmittingRef, unknownWriteRef, blockOnUnknownWrite)) return false;
     setBusy(true);
-    setMessage("");
+    setMessage(null);
     return true;
   }
 
@@ -223,9 +276,9 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
       headers: { "content-type": "application/json" },
     }, isGuideResponse, 15_000, true);
     if (result.kind === "error") {
-      setMessage(result.status === 409
+      setMessage({ kind: "error", text: result.status === 409
         ? "保存冲突：服务器已有更新。当前表单内容已保留，请另行复制后刷新页面再合并。"
-        : result.message);
+        : result.message });
       return { kind: "error" };
     }
     return result.kind === "ok"
@@ -253,7 +306,7 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
         }
       } catch {}
     }
-    setMessage(`${operation}结果未知，请勿直接重试。${observed}请刷新页面并核对列表后再继续。`);
+    setMessage({ kind: "error", text: `${operation}结果未知，请勿直接重试。${observed}请刷新页面并核对列表后再继续。` });
   }
 
   async function saveSnapshot(announce: boolean): Promise<Guide | undefined> {
@@ -273,9 +326,9 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
     const guide = result.guide;
     setSaved(guide);
     setDraft((current) => mergeSavedSnapshot(current, snapshot, guide));
-    if (announce) setMessage("已保存。");
-    if (!previous) router.replace(`/admin/guides/${guide.id}`);
-    router.refresh();
+    if (announce) setMessage({ kind: "success", text: "已保存。" });
+    // A route replacement remounts a new editor and loses input entered during the request.
+    if (!previous) window.history.replaceState(null, "", `/admin/guides/${guide.id}`);
     return guide;
   }
 
@@ -302,7 +355,7 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
       }
       if (result.kind === "error") {
         if (action === "publish") {
-          setMessage((previous) => `攻略已保存，但发布失败：${previous || "请检查必填项。"}`);
+          setMessage((previous) => ({ kind: "error", text: `攻略已保存，但发布失败：${previous?.text || "请检查必填项。"}` }));
         }
         return;
       }
@@ -311,8 +364,7 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
       if (action === "publish") {
         setDraft((currentDraft) => ({ ...currentDraft, slug: result.guide.slug }));
       }
-      setMessage(action === "publish" ? "已发布。" : "已撤回为草稿；表单中的未保存内容仍保留。");
-      router.refresh();
+      setMessage({ kind: "success", text: action === "publish" ? "已发布。" : "已撤回为草稿；表单中的未保存内容仍保留。" });
     };
 
     try {
@@ -336,13 +388,13 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
         body: form,
       }, isUploadResponse, 60_000, true);
       if (result.kind === "error") {
-        setMessage(result.message);
+        setMessage({ kind: "error", text: result.message });
         return;
       }
       if (result.kind === "unknown") {
         markGuideWriteUnknown(unknownWriteRef);
         setUnknownWrite(true);
-        setMessage("图片上传结果未知，请勿直接重试；请先在对象存储中核对。");
+        setMessage({ kind: "error", text: "图片上传结果未知，请勿直接重试；请先在对象存储中核对。" });
         return;
       }
       setDraft((current) => ({
@@ -353,7 +405,7 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
           alt: current.coverImage?.alt ?? "",
         },
       }));
-      setMessage("封面图片已上传；保存攻略后生效。");
+      setMessage({ kind: "success", text: "封面图片已上传；保存攻略后生效。" });
     } finally {
       finishOperation();
     }
@@ -369,11 +421,11 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
         body: JSON.stringify(body),
       }, isAiResponse, 60_000);
       if (result.kind === "error") {
-        setMessage(result.message);
+        setMessage({ kind: "error", text: result.message });
         return;
       }
       if (result.kind === "unknown") {
-        setMessage("AI 请求结果未知，可按需重试。");
+        setMessage({ kind: "error", text: "AI 请求结果未知，可按需重试。" });
         return;
       }
       if (result.data.result.kind === "clarification") {
@@ -398,7 +450,7 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
     if (!candidate || isSubmittingRef.current) return;
     setDraft((current) => ({ ...current, ...candidate, slug: current.slug, coverImage: current.coverImage }));
     setCandidate(undefined);
-    setMessage("候选内容已复制到编辑器，尚未保存。");
+    setMessage({ kind: "success", text: "候选内容已复制到编辑器，尚未保存。" });
   }
 
   async function remove() {
@@ -414,7 +466,7 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
         return;
       }
       if (result.kind === "error") {
-        setMessage(result.message);
+        setMessage({ kind: "error", text: result.message });
       } else {
         await markUnknown("删除", saved.id);
       }
@@ -427,9 +479,10 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
     <>
       <header className="admin-header">
         <div>
-          <Link href="/admin/guides">← 攻略列表</Link>
+          <a href="/admin/guides">← 攻略列表</a>
           <h1>{saved ? "编辑攻略" : "新建攻略"}</h1>
           {saved && <p><span className={`status ${saved.status}`}>{saved.status === "published" ? "已发布" : "草稿"}</span> · 版本 {saved.revision}</p>}
+          {dirty && <p className="hint">有未保存的修改</p>}
         </div>
         <div className="actions">
           <button type="button" disabled={busy || unknownWrite} onClick={save}>
@@ -444,7 +497,7 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
         </div>
       </header>
 
-      {message && <p className={message.includes("冲突") || message.includes("失败") || message.includes("未知") || message.includes("需填写") ? "error" : "success"} role="status">{message}</p>}
+      {message && <p ref={messageRef} tabIndex={-1} className={`${message.kind} preline`} role={message.kind === "error" ? "alert" : "status"}>{message.text}</p>}
 
       <div className="editor-layout">
         <form className="panel editor" onSubmit={(event) => { event.preventDefault(); void save(); }}>
@@ -455,7 +508,11 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
               <label className="wide">标题<input value={draft.title} onChange={(event) => field("title", event.target.value)} /></label>
               <label>链接名称（Slug）<input value={draft.slug ?? ""} onChange={(event) => field("slug", event.target.value)} placeholder="hangzhou-weekend" /></label>
               <label>目的地<input value={draft.destination} onChange={(event) => field("destination", event.target.value)} /></label>
-              <label>天数<input type="number" min="1" max="365" value={draft.days} onChange={(event) => setDays(Number(event.target.value))} /></label>
+              <label>天数<input type="number" min="1" max="365" value={daysInput ?? draft.days}
+                onChange={(event) => setDaysInput(event.target.value)}
+                onBlur={(event) => { setDays(Number(event.target.value)); setDaysInput(null); }}
+                onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); event.currentTarget.blur(); } }}
+              /></label>
               <label className="wide">简介<textarea value={draft.excerpt} onChange={(event) => field("excerpt", event.target.value)} /></label>
             </div>
           </section>
@@ -734,13 +791,14 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
                     访问时间
                     <input
                       type="datetime-local"
-                      value={source.accessedAt.slice(0, 16)}
+                      disabled={!isClient}
+                      value={isClient ? localDateTime(source.accessedAt) : ""}
                       onChange={(event) =>
                         field(
                           "sources",
                           draft.sources.map((entry, inner) =>
                             inner === index
-                              ? { ...entry, accessedAt: event.target.value ? new Date(event.target.value).toISOString() : "" }
+                              ? { ...entry, accessedAt: utcDateTime(event.target.value) }
                               : entry
                           )
                         )

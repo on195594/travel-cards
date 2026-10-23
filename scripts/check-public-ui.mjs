@@ -40,6 +40,31 @@ export async function checkPublicUi(page, origin = "http://127.0.0.1:3102") {
     const firstImage = page.locator(".card-image").first();
     assert.equal(await firstImage.getAttribute("loading"), "eager");
     assert.equal(await firstImage.getAttribute("fetchpriority"), "high");
+    const searchTerm = await page.locator(".card h3").first().textContent();
+    const searchRoute = "**/api/guides?q=*";
+    let failSearch = true;
+    await page.route(searchRoute, route => failSearch
+      ? route.fulfill({ status: 503, json: { error: { message: "test outage" } } })
+      : route.continue());
+    try {
+      await page.getByRole("searchbox").fill(searchTerm);
+      assert.equal(await page.locator(".section-count").textContent(), "正在搜索…");
+      await page.locator('.error[role="alert"]').waitFor();
+      assert.equal(await page.locator(".section-count").textContent(), "搜索暂时不可用");
+      assert.ok(await page.getByText(/下方仅展示已加载攻略中的/).isVisible());
+      assert.ok(await page.locator(".card").count() > 0);
+      failSearch = false;
+      await page.getByRole("button", { name: "重新搜索", exact: true }).click();
+      await page.getByRole("button", { name: "重新搜索", exact: true }).waitFor({ state: "hidden" });
+      await page.waitForFunction(() => document.querySelector(".section-count")?.textContent?.startsWith("找到"));
+      assert.equal(await page.locator('.error[role="alert"]').count(), 0);
+      await page.getByRole("searchbox").fill("no-fixture-matches-this");
+      await page.getByText("找到 0 篇攻略", { exact: true }).waitFor();
+      assert.ok(await page.getByText(/未找到与/).isVisible());
+      await page.getByRole("button", { name: "清除搜索关键词", exact: true }).first().click();
+    } finally {
+      await page.unroute(searchRoute);
+    }
     const checks = [];
     for (const width of [320, 390, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });

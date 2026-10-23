@@ -135,6 +135,15 @@ describe("MCP Guide tool core (fake authenticated actor, real isolated persisten
     await expect(callGuideTool(unknown, "create_guide", { authKind: "session" })).rejects.toMatchObject({ status: 403, code: "FORBIDDEN" });
   });
 
+  it("checks cover replacement scope before any upload side effect", async () => {
+    uploadImageMock.mockClear();
+    const uploadOnly: ApiActor = { ...actor, scopes: ["guide.read", "image.upload"] };
+    await expect(callGuideTool(uploadOnly, "upload_image", {
+      data: validPngBase64, alt: "封面", guideId: "a".repeat(24), expectedRevision: 1,
+    })).rejects.toMatchObject({ status: 403 });
+    expect(uploadImageMock).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["create_guide", { ...draft, authKind: "session" }],
     ["get_guide", { id: { $ne: null } }],

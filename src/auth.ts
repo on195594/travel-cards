@@ -1,6 +1,5 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { assertAdmin, assertAdminOrToken } from "@/lib/admin";
 import { assertCapability, type ApiCapability } from "@/lib/capabilities";
@@ -32,27 +31,11 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 });
 
-async function getHeaderAuthorization(): Promise<string | null> {
-  try {
-    const h = await headers();
-    return h.get("authorization");
-  } catch {
-    return null;
-  }
-}
-
-export async function requireAdmin(request?: Request) {
-  const authHeader = request ? request.headers.get("authorization") : await getHeaderAuthorization();
-  if (authHeader !== null) {
-    return assertAdminOrToken(null, authHeader);
-  }
-  const session = await auth();
-  return assertAdminOrToken(session, null);
-}
-
 export async function requireCapability(request: Request, capability: ApiCapability) {
-  // Restricted-client authentication stays disabled until its handshake and revocation are verified.
-  const actor = await requireAdmin(request);
+  // Admin REST accepts Session/API Token; restricted OAuth tokens are verified only at /mcp.
+  const authHeader = request.headers.get("authorization");
+  const session = authHeader === null ? await auth() : null;
+  const actor = assertAdminOrToken(session, authHeader);
   assertCapability(actor, capability);
   return actor;
 }

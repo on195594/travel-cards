@@ -6,7 +6,10 @@ import {
   mergeSavedSnapshot,
   requestJson,
   saveThenPublish,
+  localDateTime,
+  utcDateTime,
 } from "@/components/guide-editor";
+import { guideDraftInputSchema } from "@/lib/guides/schema";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -90,6 +93,18 @@ describe("guide editor save timing", () => {
 });
 
 describe("guide editor requests", () => {
+  it("shows the specific day and missing fields from server validation", async () => {
+    const result = guideDraftInputSchema.safeParse({ ...draft("保留标题"), itinerary: [{ day: 1, title: "", items: [{ place: "", description: "" }] }] });
+    if (result.success) throw new Error("Expected invalid itinerary");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ error: { message: "请求数据无效", issues: result.error.issues } }, { status: 400 })));
+    const response = await requestJson("/api/guides", {}, (value): value is never => !value);
+    expect(response).toMatchObject({ kind: "error", status: 400 });
+    if (response.kind !== "error") throw new Error("Expected error");
+    expect(response.message).toContain("逐日行程 · 第 1 天 · 标题：请填写此项。");
+    expect(response.message).toContain("地点安排 · 第 1 项 · 地点：请填写此项。");
+    expect(response.message).toContain("地点安排 · 第 1 项 · 说明：请填写此项。");
+  });
+
   it("distinguishes server errors, valid responses, and unknown outcomes", async () => {
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(
@@ -121,5 +136,15 @@ describe("guide editor requests", () => {
 
     await expect(requestJson("/write", { method: "POST" }, isValue, 15_000, true))
       .resolves.toEqual({ kind: "unknown" });
+  });
+});
+
+describe("source time editing", () => {
+  it("round-trips local wall time and handles empty or invalid values", () => {
+    const local = "2026-10-23T08:01";
+    expect(localDateTime(utcDateTime(local))).toBe(local);
+    expect(utcDateTime("")).toBe("");
+    expect(utcDateTime("invalid")).toBe("");
+    expect(localDateTime("invalid")).toBe("");
   });
 });

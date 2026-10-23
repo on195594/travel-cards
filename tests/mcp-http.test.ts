@@ -125,6 +125,7 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
       expect(await error.json()).toMatchObject({ id, error: { code: -32601 } });
     }
     const malformed = await POST(request(g.accessToken, { jsonrpc: "2.0", id: null, method: "server/discover" }));
+    expect(malformed.status).toBe(400);
     expect(await malformed.json()).not.toHaveProperty("id");
   });
 
@@ -409,7 +410,7 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     legacyNotifWrite.headers.delete("Mcp-Name");
     expect((await POST(legacyNotifWrite)).status).toBe(400);
     expect(await ownedDb().collection("guides").countDocuments({ slug: /^mcp-http-/ })).toBe(0);
-    for (const body of [[rpc("server/discover")], { jsonrpc: "2.0", id: null, method: "server/discover" }, { ...rpc("server/discover"), role: "admin" }]) expect((await POST(request(g.accessToken, body))).status).toBe(400);
+    for (const body of [[rpc("server/discover")], { ...rpc("server/discover"), role: "admin" }]) expect((await POST(request(g.accessToken, body))).status).toBe(400);
   });
 
   it("rejects forbidden Origins and unsupported headers and bounds actual bytes before dispatch", async () => {
