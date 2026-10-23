@@ -10,7 +10,7 @@ import { listMcpClientAuthorizations } from "@/lib/mcp/oauth-clients";
 import { POST as register } from "@/app/api/oauth/register/route";
 import { GET as authorize } from "@/app/api/oauth/authorize/route";
 import { POST as consent } from "@/app/api/oauth/consent/route";
-import { POST as token } from "@/app/api/oauth/token/route";
+import { POST as token, OPTIONS as tokenOptions } from "@/app/api/oauth/token/route";
 import { POST as revoke } from "@/app/api/oauth/revoke-client/route";
 import { GET as serverMetadata } from "@/app/.well-known/oauth-authorization-server/route";
 import { GET as resourceMetadata } from "@/app/.well-known/oauth-protected-resource/mcp/route";
@@ -130,6 +130,16 @@ describe("OAuth authorization code flow, fake authenticated admin and isolated M
     const liveCode = await approve(c);
     expect((await exchange(c, liveCode, { resource: legacyResource })).status).toBe(400);
     expect((await exchange(c, liveCode)).status).toBe(200);
+
+    const omittedResourceCode = await approve(c);
+    const bodyWithoutResource = { grant_type: "authorization_code", code: omittedResourceCode.code, redirect_uri: redirectUri, code_verifier: omittedResourceCode.verifier, client_id: c.client_id, scope: "guide.read" };
+    const resNoResource = await token(form("/api/oauth/token", bodyWithoutResource, { Origin: "https://gemini.google.com" }));
+    expect(resNoResource.status).toBe(200);
+    expect(resNoResource.headers.get("access-control-allow-origin")).toBe("https://gemini.google.com");
+
+    const optionsRes = await tokenOptions(new Request(origin + "/api/oauth/token", { method: "OPTIONS", headers: { Origin: "https://gemini.google.com" } }));
+    expect(optionsRes.status).toBe(204);
+    expect(optionsRes.headers.get("access-control-allow-origin")).toBe("https://gemini.google.com");
   });
 
   it("defaults omitted registration scope to requestable guide capabilities, never consent or tokens", async () => {

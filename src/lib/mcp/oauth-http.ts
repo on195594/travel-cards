@@ -12,10 +12,12 @@ export const OAUTH_HEADERS = { ...PUBLIC_NO_STORE_HEADERS, Pragma: "no-cache", "
 export function oauthDisabled() {
   return process.env.MCP_OAUTH_ENABLED !== "true" ? Response.json({ error: "not_found" }, { status: 404, headers: OAUTH_HEADERS }) : null;
 }
+export { mcpAllowedOrigins, mcpCorsHeaders as oauthCorsHeaders } from "@/lib/mcp/cors";
 export function oauthRedirect(url: string) {
-  return new Response(null, { status: 303, headers: { ...OAUTH_HEADERS, Location: url } });
+  const html = `<!DOCTYPE html><html lang="zh-CN"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${encodeURI(url)}"><title>Connecting...</title></head><body><p>正在跳转... <a href="${encodeURI(url)}">如果未自动跳转请点击此处</a></p><script>window.location.replace(${JSON.stringify(url)});</script></body></html>`;
+  return new Response(html, { status: 303, headers: { ...OAUTH_HEADERS, "Content-Type": "text/html; charset=utf-8", Location: url } });
 }
-export function oauthError(error: unknown) {
+export function oauthError(error: unknown, extraHeaders?: Record<string, string>) {
   let status = 500;
   let code = "server_error";
   if (error instanceof HttpError) {
@@ -26,7 +28,8 @@ export function oauthError(error: unknown) {
     code = status >= 500 ? "server_error" : error.name;
   }
   if (status >= 500) console.error("OAuth request failed", error instanceof Error ? error.name : "UnknownError");
-  const headers = code === "invalid_client" && status === 401 ? { ...OAUTH_HEADERS, "WWW-Authenticate": 'Basic realm="Travel Cards"' } : OAUTH_HEADERS;
+  const baseHeaders = { ...OAUTH_HEADERS, ...extraHeaders };
+  const headers = code === "invalid_client" && status === 401 ? { ...baseHeaders, "WWW-Authenticate": 'Basic realm="Travel Cards"' } : baseHeaders;
   return Response.json({ error: code }, { status, headers });
 }
 export async function oauthAdmin(request: Request): Promise<AdminActor> {

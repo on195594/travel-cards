@@ -39,11 +39,11 @@ const legacyCallParams = z.object({
 function protocolError(id: string | number | undefined, code: number, message: string, status = 400, data?: Record<string, unknown>, extraHeaders?: Record<string, string>) {
   return Response.json({ jsonrpc: "2.0", ...(id === undefined ? {} : { id }), error: { code, message, ...(data ? { data } : {}) } }, { status, headers: { ...headers, ...extraHeaders } });
 }
-function authChallenge(status: 401 | 403, scopes: readonly AiGuideScope[] = AI_GUIDE_SCOPES) {
+function authChallenge(status: 401 | 403, scopes: readonly AiGuideScope[] = AI_GUIDE_SCOPES, extraHeaders?: Record<string, string>) {
   const origin = new URL(getMcpResource()).origin;
   const error = status === 401 ? "invalid_token" : "insufficient_scope";
   return Response.json({ error }, { status, headers: {
-    ...headers, "WWW-Authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp", error="${error}", scope="${scopes.join(" ")}"`,
+    ...headers, ...extraHeaders, "WWW-Authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource/mcp", error="${error}", scope="${scopes.join(" ")}"`,
   } });
 }
 function acceptsJson(accept: string | null) {
@@ -78,9 +78,11 @@ function decodeHeaderValue(value: string | null): string | undefined {
   }
 }
 
+import { mcpAllowedOrigins, mcpCorsHeaders } from "@/lib/mcp/cors";
+
 async function authenticate(request: Request): Promise<ApiActor> {
   const origin = request.headers.get("origin");
-  if (origin !== null && origin !== new URL(getMcpResource()).origin) throw new HttpError(403, "CROSS_ORIGIN", "拒绝跨来源 MCP 请求");
+  if (origin !== null && !mcpAllowedOrigins().includes(origin)) throw new HttpError(403, "CROSS_ORIGIN", "拒绝跨来源 MCP 请求");
   return authenticateMcpOAuthAccessToken(request.headers.get("authorization"), getMcpResource());
 }
 function toolFailure(error: unknown) {
@@ -142,25 +144,27 @@ async function executeToolCall(
 export async function mcpPost(request: Request) {
   const disabled = oauthDisabled();
   if (disabled) return disabled;
+  const cors = mcpCorsHeaders(request);
+  const responseHeaders = { ...headers, ...cors };
   let actor: ApiActor;
   try {
     actor = await authenticate(request);
   } catch (error) {
-    if (error instanceof HttpError && error.status === 401) return authChallenge(401);
-    if (error instanceof HttpError && error.code === "CROSS_ORIGIN") return protocolError(undefined, -32600, "Forbidden Origin", 403);
+    if (error instanceof HttpError && error.status === 401) return authChallenge(401, AI_GUIDE_SCOPES, cors);
+    if (error instanceof HttpError && error.code === "CROSS_ORIGIN") return protocolError(undefined, -32600, "Forbidden Origin", 403, undefined, cors);
     console.error("MCP authentication failed", error instanceof Error ? error.name : "UnknownError");
-    return protocolError(undefined, -32603, "Internal error", 500);
+    return protocolError(undefined, -32603, "Internal error", 500, undefined, cors);
   }
-  if (!acceptsJson(request.headers.get("accept"))) return protocolError(undefined, -32600, "JSON responses must be accepted", 406);
+  if (!acceptsJson(request.headers.get("accept"))) return protocolError(undefined, -32600, "JSON responses must be accepted", 406, undefined, cors);
   let body: unknown;
   try {
     body = await readJsonBody(request);
   } catch (error) {
-    if (error instanceof HttpError) return protocolError(undefined, error.code === "INVALID_JSON" ? -32700 : -32600, "Invalid request body", error.status);
-    return protocolError(undefined, -32603, "Internal error", 500);
+    if (error instanceof HttpError) return protocolError(undefined, error.code === "INVALID_JSON" ? -32700 : -32600, "Invalid request body", error.status, undefined, cors);
+    return protocolError(undefined, -32603, "Internal error", 500, undefined, cors);
   }
   const parsed = messageSchema.safeParse(body);
-  if (!parsed.success) return protocolError(undefined, -32600, "Invalid JSON-RPC request");
+  if (!parsed.success) return protocolError(undefined, -32600, "Invalid JSON-RPC request", 400, undefined, cors);
   const { id, method, params = {} } = parsed.data;
   const headerVersion = request.headers.get("mcp-protocol-version");
   const headerMethod = request.headers.get("mcp-method");
@@ -171,21 +175,21 @@ export async function mcpPost(request: Request) {
     || hasModernMeta;
 
   if (isModern2026) {
-    if (id === undefined) return protocolError(undefined, -32600, "Invalid JSON-RPC request");
+    if (id === undefined) return protocolError(undefined, -32600, "Invalid JSON-RPC request", 400, undefined, cors);
     if (!headerVersion || headerMethod !== method) {
-      return protocolError(id, -32020, `Required MCP headers are missing or do not match the request; supported protocol: ${modernVersion}`);
+      return protocolError(id, -32020, `Required MCP headers are missing or do not match the request; supported protocol: ${modernVersion}`, 400, undefined, cors);
     }
     const meta = metaSchema.safeParse(params._meta);
-    if (!meta.success) return protocolError(id, -32602, "Required per-request metadata is missing or invalid");
+    if (!meta.success) return protocolError(id, -32602, "Required per-request metadata is missing or invalid", 400, undefined, cors);
     const requestedVersion = meta.data[metaKey];
-    if (headerVersion !== requestedVersion) return protocolError(id, -32020, "MCP-Protocol-Version does not match request metadata");
+    if (headerVersion !== requestedVersion) return protocolError(id, -32020, "MCP-Protocol-Version does not match request metadata", 400, undefined, cors);
     // Header/metadata validation precedes dispatch; unknown methods stay 404 regardless of version support.
-    if (!["server/discover", "tools/list", "tools/call"].includes(method)) return protocolError(id, -32601, `Method not found; supported protocol: ${modernVersion}`, 404);
-    if (requestedVersion !== modernVersion) return protocolError(id, -32022, "Unsupported MCP protocol version", 400, { supported: [modernVersion], requested: requestedVersion });
+    if (!["server/discover", "tools/list", "tools/call"].includes(method)) return protocolError(id, -32601, `Method not found; supported protocol: ${modernVersion}`, 404, undefined, cors);
+    if (requestedVersion !== modernVersion) return protocolError(id, -32022, "Unsupported MCP protocol version", 400, { supported: [modernVersion], requested: requestedVersion }, cors);
     let result: Record<string, unknown>;
     switch (method) {
       case "server/discover":
-        if (!emptyParams.safeParse(params).success) return protocolError(id, -32602, "Invalid server/discover params");
+        if (!emptyParams.safeParse(params).success) return protocolError(id, -32602, "Invalid server/discover params", 400, undefined, cors);
         result = {
           supportedVersions: [modernVersion], capabilities: { tools: {} }, ttlMs: 0, cacheScope: "private",
           instructions,
@@ -193,40 +197,40 @@ export async function mcpPost(request: Request) {
         break;
       case "tools/list": {
         const input = listParams.safeParse(params);
-        if (!input.success || input.data.cursor !== undefined) return protocolError(id, -32602, "No tool pagination cursor is supported");
+        if (!input.success || input.data.cursor !== undefined) return protocolError(id, -32602, "No tool pagination cursor is supported", 400, undefined, cors);
         result = { tools: listGuideTools(actor), ttlMs: 0, cacheScope: "private" };
         break;
       }
       case "tools/call": {
         const input = callParams.safeParse(params);
-        if (!input.success) return protocolError(id, -32602, "Invalid tools/call params");
+        if (!input.success) return protocolError(id, -32602, "Invalid tools/call params", 400, undefined, cors);
         const { name, arguments: args = {} } = input.data;
         const headerName = decodeHeaderValue(request.headers.get("mcp-name"));
-        if (headerName !== name) return protocolError(id, -32020, "Mcp-Name is missing or does not match the tool name");
+        if (headerName !== name) return protocolError(id, -32020, "Mcp-Name is missing or does not match the tool name", 400, undefined, cors);
         const outcome = await executeToolCall(actor, id, name, args, 400);
         if ("response" in outcome) return outcome.response;
         result = outcome.result;
         break;
       }
       default:
-        return protocolError(id, -32601, "Method not found", 404);
+        return protocolError(id, -32601, "Method not found", 404, undefined, cors);
     }
-    return Response.json({ jsonrpc: "2.0", id, result: { ...result, resultType: "complete", _meta: { "io.modelcontextprotocol/serverInfo": serverInfo } } }, { headers });
+    return Response.json({ jsonrpc: "2.0", id, result: { ...result, resultType: "complete", _meta: { "io.modelcontextprotocol/serverInfo": serverInfo } } }, { headers: responseHeaders });
   }
 
   // Standard MCP (Gemini & standard clients)
   if (id === undefined) {
     if (method.startsWith("notifications/")) {
-      return new Response(null, { status: 202, headers });
+      return new Response(null, { status: 202, headers: responseHeaders });
     }
-    return protocolError(undefined, -32600, "Invalid JSON-RPC request", 400);
+    return protocolError(undefined, -32600, "Invalid JSON-RPC request", 400, undefined, cors);
   }
 
   let result: unknown;
   switch (method) {
     case "initialize": {
       const input = initializeSchema.safeParse(params);
-      if (!input.success) return protocolError(id, -32602, "Invalid initialize params", 200);
+      if (!input.success) return protocolError(id, -32602, "Invalid initialize params", 200, undefined, cors);
       result = {
         protocolVersion: standardVersions.includes(input.data.protocolVersion) ? input.data.protocolVersion : standardVersions[0],
         capabilities: { tools: {} }, serverInfo, instructions,
@@ -237,13 +241,13 @@ export async function mcpPost(request: Request) {
       result = {};
       break;
     case "tools/list": {
-      if (params.cursor !== undefined) return protocolError(id, -32602, "No tool pagination cursor is supported", 200);
+      if (params.cursor !== undefined) return protocolError(id, -32602, "No tool pagination cursor is supported", 200, undefined, cors);
       result = { tools: listGuideTools(actor) };
       break;
     }
     case "tools/call": {
       const input = legacyCallParams.safeParse(params);
-      if (!input.success) return protocolError(id, -32602, "Invalid tools/call params", 200);
+      if (!input.success) return protocolError(id, -32602, "Invalid tools/call params", 200, undefined, cors);
       const { name, arguments: args = {} } = input.data;
       const outcome = await executeToolCall(actor, id, name, args, 200);
       if ("response" in outcome) return outcome.response;
@@ -251,20 +255,28 @@ export async function mcpPost(request: Request) {
       break;
     }
     default:
-      return protocolError(id, -32601, "Method not found", 200);
+      return protocolError(id, -32601, "Method not found", 200, undefined, cors);
   }
-  return Response.json({ jsonrpc: "2.0", id, result }, { headers });
+  return Response.json({ jsonrpc: "2.0", id, result }, { headers: responseHeaders });
 }
 
 export async function mcpUnsupported(request: Request) {
   const disabled = oauthDisabled();
   if (disabled) return disabled;
+  const cors = mcpCorsHeaders(request);
+  if (request.method === "OPTIONS") {
+    const origin = request.headers.get("origin");
+    if (origin !== null && !mcpAllowedOrigins().includes(origin)) {
+      return protocolError(undefined, -32600, "Forbidden Origin", 403);
+    }
+    return new Response(null, { status: 204, headers: { ...headers, ...cors, Allow: "GET, POST, HEAD, OPTIONS" } });
+  }
   try {
     await authenticate(request);
-    return new Response(null, { status: 405, headers: { ...headers, Allow: "POST" } });
+    return new Response(null, { status: 405, headers: { ...headers, ...cors, Allow: "POST" } });
   } catch (error) {
-    if (error instanceof HttpError && error.status === 401) return authChallenge(401);
+    if (error instanceof HttpError && error.status === 401) return authChallenge(401, AI_GUIDE_SCOPES, cors);
     if (error instanceof HttpError && error.code === "CROSS_ORIGIN") return protocolError(undefined, -32600, "Forbidden Origin", 403);
-    return protocolError(undefined, -32603, "Internal error", 500);
+    return protocolError(undefined, -32603, "Internal error", 500, undefined, cors);
   }
 }

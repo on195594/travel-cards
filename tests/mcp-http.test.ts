@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { POST, GET, DELETE } from "@/app/mcp/route";
+import { POST, GET, DELETE, OPTIONS } from "@/app/mcp/route";
 import { issueMcpAccessGrant, issueMcpOAuthAccessGrant } from "@/lib/mcp/access-grants";
 import { authorizeMcpClient, registerMcpClient, revokeMcpClient } from "@/lib/mcp/oauth-clients";
 import { consumeMcpToolCall, MCP_TOOL_CALLS_PER_MINUTE } from "@/lib/mcp/rate-limit";
@@ -417,6 +417,12 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     const g = await grant();
     for (const bad of ["null", "https://evil.example.test"]) expect((await POST(request(g.accessToken, rpc("server/discover"), { Origin: bad }))).status).toBe(403);
     expect((await POST(request(g.accessToken, rpc("server/discover"), { Origin: origin }))).status).toBe(200);
+    const geminiRes = await POST(request(g.accessToken, rpc("server/discover"), { Origin: "https://gemini.google.com" }));
+    expect(geminiRes.status).toBe(200);
+    expect(geminiRes.headers.get("access-control-allow-origin")).toBe("https://gemini.google.com");
+    const optionsRes = await OPTIONS(new Request(origin + "/mcp", { method: "OPTIONS", headers: { Origin: "https://gemini.google.com" } }));
+    expect(optionsRes.status).toBe(204);
+    expect(optionsRes.headers.get("access-control-allow-origin")).toBe("https://gemini.google.com");
     expect((await POST(request(g.accessToken, rpc("server/discover"), { "MCP-Protocol-Version": "2099-01-01" }))).status).toBe(400);
     expect((await POST(request(g.accessToken, rpc("server/discover"), { Accept: "text/event-stream" }))).status).toBe(406);
     const headers = { Authorization: `Bearer ${g.accessToken}`, "Content-Type": "application/json" };

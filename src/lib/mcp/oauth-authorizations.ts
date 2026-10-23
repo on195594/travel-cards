@@ -195,6 +195,7 @@ export async function exchangeAuthorizationCode(client: RegisteredMcpClient, bod
     "content-type": "application/x-www-form-urlencoded",
     "content-length": String(Buffer.byteLength(new URLSearchParams(normalizedBody).toString())),
   }, body: normalizedBody });
-  await oauthServer(client, body.resource).token(request, response, { requireClientAuthentication: { authorization_code: false } });
+  const resource = body.resource ?? getMcpResource();
+  await oauthServer(client, resource).token(request, response, { requireClientAuthentication: { authorization_code: false } });
   return response.body;
 }
