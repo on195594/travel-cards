@@ -9,6 +9,7 @@ const SERVER_ONLY = [
   "/lib/db.ts",
   "/lib/env.ts",
   "/lib/storage/r2.ts",
+  "/lib/storage/fetch-image.ts",
   "/lib/guides.ts",
   "/lib/guides/repository.ts",
   "/lib/guides/service.ts",

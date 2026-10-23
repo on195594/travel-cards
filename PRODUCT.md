@@ -30,12 +30,13 @@ Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻
 - Gemini 网页／手机 App 是首个验收目标，但客户端地区、账号及认证支持需单独验收，不能用 Gemini API 或 CLI 测试替代。
 - 产品契约以 `SPEC.md` 为准。代码优先的构建默认记录在 `.impeccable/config.json`，不是产品权限或平台设置。
 - 正式 MCP 已按 2026-10-22 用户确认，在 2026-07-28 模式之外恢复标准 `initialize` / `notifications/*` / `ping` 兼容分支，业务权限及六个工具不变。2026-10-23 已部署可溯源的 `0dfe091` 固定镜像，包含双协议兼容及本轮审查修复。下文“双端验收”仍描述历史客户端批次，不能作为双协议版本的真实 Gemini 验收证明。
+- 2026-10-23 性能优化（响应式 WebP 衍生尺寸、首屏 SSR 搜索直出、MCP 鉴权关联查询合并与可选 limit/summary）已完成上线，真实 AGY 静态审查给出 APPROVE 且无阻塞项。
 
 ## Capabilities and Constraints
 
 ### 已有能力
 
-公开浏览、关键词搜索、复制链接；详情页逐日小标题规整与全章节快速跳转导航；管理员通过 Session 或现有自动化 Token 管理攻略；结构化行程、来源、图片；revision 冲突检查；内置 AI 生成、修改建议和问答。MCP 已实现 `upload_image`，支持 HTTPS URL 或 Base64 图片输入，上传至 R2 后用于创建攻略或替换封面；需要独立 `image.upload` scope，直接替换还需要 `guide.update` 与 expectedRevision。旧注册与令牌不自动扩权或延长有效期，需重新注册并授权。
+公开浏览、关键词搜索、复制链接；详情页逐日小标题规整与全章节快速跳转导航；管理员通过 Session 或现有自动化 Token 管理攻略；结构化行程、来源、图片；revision 冲突检查；内置 AI 生成、修改建议和问答。MCP 已实现 `upload_image`，支持 HTTPS URL 或 Base64 图片输入，上传至 R2 后用于创建攻略或替换封面；需要独立 `image.upload` scope，直接替换还需要 `guide.update` 与 expectedRevision。旧注册与令牌不自动扩权或延长有效期，需重新注册并授权。支持响应式 WebP 衍生图、首屏 SSR 搜索渲染、MCP `list_guides` limit 与写工具 summary 响应。
 
 ### 已确认扩展
 
@@ -64,7 +65,8 @@ Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻
 - UI 审查与部署前验证：`docs/reviews/ui-impeccable-review.md`；真实 AGY 复审原文：`docs/reviews/agy-ui-review.txt`。
 - 接入状态与下一步：`docs/roadmaps/ai-client-integration.md`；认证设计与实现证据：`docs/decisions/2026-10-09-gemini-mcp-auth.md`。
 - 短效令牌提交的真实 AGY 审查：`docs/reviews/agy-7cc88f8/closeout.md`；APPROVE 仅覆盖内部底座，不代表 OAuth/客户端验收完成。
-- 历史部署与真实 Gemini 网页/手机双端验收分别保留当时证据和 2026-10-12 用户确认；未提供专项证据的子项不编造已通过。当前 `0dfe091` 固定镜像、运行 revision、源码归档 SHA、隔离测试及公网检查见 `docs/deployments/2026-10-23-review-fixes.md`；`80a2b8a` 等历史发布证据不重写。
+- 当前可溯源发布为 `0dfe091`，运行 revision、源码归档 SHA、隔离测试及公网检查见 `docs/deployments/2026-10-23-review-fixes.md`；`80a2b8a` 等历史发布证据不重写。
+- 性能优化审查与修复：`docs/reviews/2026-10-23-performance-agy.md`；真实 AGY 静态审查原文：`docs/reviews/2026-10-23-performance-agy.txt`；首页用例先失败后通过验证与浏览器回归见 `docs/frontend.md`。
 
 ## Product Principles
 

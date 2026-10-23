@@ -8,6 +8,7 @@
 4. [AGENTS](../AGENTS.md)：本项目的实施与验证约束。
 5. [历史审查与清理](./maintenance/2026-10-21-review-cleanup.md)：2026-10-21 的问题、清理清单、验证与未覆盖范围；最新运行状态和清理范围见根 README。
 6. [MCP 协议决定](./decisions/2026-10-21-mcp-2026-migration.md)：2026 协议及 10-22 双协议兼容补充、限流和隔离验证；双协议已随 `0dfe091` 部署，真实客户端尚未重新验收。
+7. [性能优化审查与修复](./reviews/2026-10-23-performance-agy.md)：2026-10-23 响应式 WebP、首屏搜索 SSR 与 MCP 请求路径优化及真实 AGY 静态审查（318 项测试全过）。
 
 ## 源码和运行目录
 
@@ -17,7 +18,7 @@
 | `src/components/` | 公开卡片、搜索、攻略编辑器等共享 UI |
 | `src/lib/guides/` | schema / repository / service；`src/lib/guides.ts` 是仍被调用的统一导出 |
 | `src/lib/mcp/` | 工具、HTTP 适配、OAuth 客户端、授权码及令牌；不能仅按静态 import 数删除 |
-| `src/lib/ai/`、`src/lib/storage/` | 服务端 Gemini 候选助手、公网图片下载边界与 R2 上传 |
+| `src/lib/ai/`、`src/lib/storage/` | 服务端 Gemini 候选助手、公网图片下载边界、响应式 WebP 衍生尺寸与 R2 上传 |
 | `tests/`、`scripts/` | 单测、集成、浏览器回归、隔离 MongoDB、HTTP smoke、提交快照镜像构建、恢复演练及密码生成 |
 | `public/` | 现有静态资源；不能因无 TypeScript import 删除 |
 | 根配置文件 | Next.js、TypeScript、Vitest、ESLint、Docker/Compose 与依赖锁定；保留工具约定位置 |
@@ -47,5 +48,6 @@
 
 - 代码实现、本地测试、历史上线、真实 Gemini 用户验收分别记录，互不替代。
 - 当前可溯源发布为 `0dfe091`，见[2026-10-23 发布记录](./deployments/2026-10-23-review-fixes.md)。运行镜像 ID、revision 与源码归档 SHA 已核对，固定镜像隔离测试及公网检查通过；`80a2b8a` 等历史记录仍只覆盖当时版本。
+- 当前发布包含 2026-10-23 性能优化与 25 个测试文件、318 项测试全部通过及真实 AGY 审查 APPROVE。
 - 历史 `pending`、`NOT_RUN`、`APPROVE` 只表示当时批次；[2026-10-12 用户确认](./roadmaps/ai-client-integration.md#真实双端验收用户确认)仅覆盖历史协议。2026 协议迁移已部署，仍待真实客户端验收，不推定图片上传等专项通过。
 - 临时源码快照若不完全存在于 Git 历史，先保留可恢复归档，不能把源码清单的哈希当作源码备份。
