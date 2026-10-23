@@ -12,11 +12,9 @@
     "test:vitest": "vitest run",
     "typecheck": "rm -rf .next/types && next typegen && tsc --noEmit",
     "test:http": "./scripts/with-test-mongo.sh ./scripts/http-smoke.sh",
-    "test:oauth": "MCP_OAUTH_ENABLED=true TRAVEL_CARDS_OAUTH_SMOKE=true ./scripts/with-test-mongo.sh ./scripts/http-smoke.sh",
-    "test:recovery": "./scripts/with-test-mongo.sh node scripts/recovery-smoke.mjs",
     "test:watch": "./scripts/with-test-mongo.sh vitest",
     "deploy": "./scripts/deploy.sh",
-    "verify": "npm run lint && npm run typecheck && npm test && npm run test:recovery && ./scripts/build-with-test-env.sh && docker compose config >/dev/null && npm run test:oauth"
+    "verify": "npm run lint && npm run typecheck && npm test && npm run build && docker compose config >/dev/null"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1121.0",

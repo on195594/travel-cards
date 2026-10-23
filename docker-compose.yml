@@ -1,5 +1,6 @@
 services:
   web:
+    image: ${TRAVEL_CARDS_IMAGE:-travel-cards:local}
     build: .
     restart: unless-stopped
     env_file:

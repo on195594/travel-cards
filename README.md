@@ -98,12 +98,12 @@ Mcp-Method: server/discover
 ```bash
 reviewed_commit="已审查的完整提交哈希"
 ./scripts/build-release.sh "$reviewed_commit"
-TRAVEL_CARDS_TEST_IMAGE="travel-cards:git-$reviewed_commit" npm run test:oauth
+TRAVEL_CARDS_TEST_IMAGE="travel-cards:git-$reviewed_commit" npm run test:http
 ```
 
 这两个步骤只构建并隔离验证镜像，不会替换运行服务。2026-10-23 获用户提交/部署授权后，本轮修复已按此流程构建、隔离验收并上线；运行镜像的溯源缺口已闭合，本轮未 push。
 
-`docker-compose.production.yml` 显式选择已经通过审查/隔离验证的不可变镜像；用 `--no-deps --no-build --pull never web` 只替换 Web，不改共用 MongoDB或凭证。新功能默认关闭；生产启用需要本轮上线授权，真实 Gemini 验收由管理员自行完成。部署记录必须保存源清单、审查、镜像、原镜像/开关及公开 smoke；回滚复用原镜像和开关。也可以使用 `npm run deploy`（`./scripts/deploy.sh`），自动完成镜像构建、隔离预检、服务切换、健康检查与异常回滚；不要用旧 `deploy.sh` 覆盖这一固定镜像发布。
+`docker-compose.yml` 显式支持通过 `TRAVEL_CARDS_IMAGE` 选择通过审查/隔离验证的不可变镜像；用 `--no-deps --no-build --pull never web` 只替换 Web，不改共用 MongoDB或凭证。新功能默认关闭；生产启用需要本轮上线授权，真实 Gemini 验收由管理员自行完成。部署记录必须保存源清单、审查、镜像、原镜像/开关及公开 smoke；回滚复用原镜像和开关。也可以使用 `npm run deploy`（`./scripts/deploy.sh`），自动完成镜像构建、隔离预检、服务切换、健康检查与异常回滚；不要用旧 `deploy.sh` 覆盖这一固定镜像发布。
 
 ## Docker 运行
 
@@ -153,14 +153,13 @@ npm run dev -- --port 3100
 npm run verify
 ```
 
-`verify` 依次执行 lint、类型检查、隔离测试、合成数据库/图片恢复、生产构建、Compose 配置检查和生产启动路径 HTTP smoke。HTTP smoke 覆盖直接发布、已发布更新、撤回、删除，以及首页、搜索、API、详情、metadata/RSC 与 sitemap 的 no-store 可见性。恢复边界与共享 MongoDB 运维约束见 [`docs/backup-restore.md`](./docs/backup-restore.md)。测试不会调用真实 Gemini 或 R2；真实 provider smoke 是手动、显式且可能计费的操作，未获得确认时不得运行。
+`verify` 依次执行 lint、类型检查、Vitest 单元/集成测试、Next.js 生产构建和 Compose 配置检查。HTTP smoke 覆盖直接发布、已发布更新、撤回、删除，以及首页、搜索、API、详情、metadata/RSC 与 sitemap 的 no-store 可见性。运维约束见 [`docs/backup-restore.md`](./docs/backup-restore.md)。测试不会调用真实 Gemini 或 R2；真实 provider smoke 是手动、显式且可能计费的操作，未获得确认时不得运行。
 
 常用单项检查命令（测试需 Docker；类型检查不启动 MongoDB）：
 
 - `npm test`：运行 Vitest 单元与集成测试（`tests/*.test.ts`）
 - `npm run typecheck`：Next.js 路由类型生成与 TypeScript 静态检查
-- `npm run test:recovery`：隔离合成数据库与图片恢复测试
-- `npm run test:http`：生产启动路径与健康检查 HTTP smoke；先运行 `./scripts/build-with-test-env.sh` 生成隔离配置的生产构建
+- `npm run test:http`：生产启动路径与健康检查 HTTP smoke；先运行 `npm run build` 生成生产构建
 - 浏览器回归：`scripts/check-public-ui.mjs` 包含搜索失败/重试与响应布局检查；`scripts/check-editor-ui.mjs` 检查离开保护、首次/后续保存期间输入保留、字段错误与时区。后者只允许本机隔离预览，需合成账号、两日攻略及 Asia/Shanghai 浏览器时区，不连接生产后台。
 
 数据库测试使用 `npm test` 或 `npm run test:watch`，不要直接运行 `vitest` 或 `npm run test:vitest`；后者仅供临时 Mongo 包装脚本调用。

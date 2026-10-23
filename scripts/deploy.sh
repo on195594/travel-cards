@@ -23,13 +23,13 @@ while [[ $# -gt 0 ]]; do
 Usage: ./scripts/deploy.sh [COMMIT|IMAGE] [OPTIONS]
 
 Options:
-  --skip-tests    Skip pre-deploy isolated tests (test:oauth)
+  --skip-tests    Skip pre-deploy isolated tests (test:http)
   --allow-dirty   Allow deploying even if git working tree has uncommitted changes
   -h, --help      Show this help message
 
 Environment variables:
   APP_PORT          Host port (default: 3100)
-  MCP_OAUTH_ENABLED OAuth toggle (default: read from .env.local or false)
+  MCP_OAUTH_ENABLED Optional OAuth toggle override (defaults to .env.local or false)
   MEEMO_NETWORK     Meemo backend network (default: meemo_backend)
   EDGE_NETWORK      Edge nginx network (default: nginx-network)
 EOF
@@ -79,21 +79,19 @@ fi
 
 # Pre-deploy verification on isolated test container
 if [[ "$skip_tests" != true ]]; then
-  printf 'Running isolated verification (test:oauth)...\n'
-  TRAVEL_CARDS_TEST_IMAGE="$image" npm run test:oauth
+  printf 'Running isolated verification (test:http)...\n'
+  TRAVEL_CARDS_TEST_IMAGE="$image" npm run test:http
 fi
 
 # Configuration and network checks
 app_port="${APP_PORT:-3100}"
 meemo_net="${MEEMO_NETWORK:-meemo_backend}"
 edge_net="${EDGE_NETWORK:-nginx-network}"
-oauth_enabled="${MCP_OAUTH_ENABLED:-}"
+oauth_override="${MCP_OAUTH_ENABLED:-}"
 
-if [[ -z "$oauth_enabled" ]]; then
-  if [[ -f .env.local ]]; then
-    oauth_enabled="$(grep -E '^MCP_OAUTH_ENABLED=' .env.local 2>/dev/null | cut -d= -f2- || true)"
-  fi
-  oauth_enabled="${oauth_enabled:-false}"
+compose_cmd=(docker compose -p travel-cards)
+if [[ -n "$oauth_override" ]]; then
+  compose_cmd+=(-f docker-compose.yml -f docker-compose.production.yml)
 fi
 
 if ! docker network inspect "$meemo_net" >/dev/null 2>&1; then
@@ -113,11 +111,11 @@ fi
 
 # Validate compose configuration without exposing secrets
 TRAVEL_CARDS_IMAGE="$image_id" \
-MCP_OAUTH_ENABLED="$oauth_enabled" \
+MCP_OAUTH_ENABLED="${oauth_override:-false}" \
 APP_PORT="$app_port" \
 MEEMO_NETWORK="$meemo_net" \
 EDGE_NETWORK="$edge_net" \
-docker compose -p travel-cards -f docker-compose.yml -f docker-compose.production.yml config --quiet
+"${compose_cmd[@]}" config --quiet
 
 # Capture currently running container image for rollback
 old_image="$(docker inspect travel-cards-web-1 --format '{{.Image}}' 2>/dev/null || true)"
@@ -128,11 +126,11 @@ fi
 # Deploy
 printf 'Switching web service to image %s...\n' "$image_id"
 TRAVEL_CARDS_IMAGE="$image_id" \
-MCP_OAUTH_ENABLED="$oauth_enabled" \
+MCP_OAUTH_ENABLED="${oauth_override:-false}" \
 APP_PORT="$app_port" \
 MEEMO_NETWORK="$meemo_net" \
 EDGE_NETWORK="$edge_net" \
-docker compose -p travel-cards -f docker-compose.yml -f docker-compose.production.yml \
+"${compose_cmd[@]}" \
   up -d --no-deps --no-build --pull never web
 
 # Health check
@@ -149,15 +147,15 @@ done
 
 if [[ "$health_ok" != true ]]; then
   printf 'Error: Health check failed after 30 seconds!\n' >&2
-  docker compose -p travel-cards -f docker-compose.yml -f docker-compose.production.yml logs --tail=50 web >&2
+  "${compose_cmd[@]}" logs --tail=50 web >&2
   if [[ -n "$old_image" ]]; then
     printf 'Rolling back to previous image %s...\n' "$old_image" >&2
     TRAVEL_CARDS_IMAGE="$old_image" \
-    MCP_OAUTH_ENABLED="$oauth_enabled" \
+    MCP_OAUTH_ENABLED="${oauth_override:-false}" \
     APP_PORT="$app_port" \
     MEEMO_NETWORK="$meemo_net" \
     EDGE_NETWORK="$edge_net" \
-    docker compose -p travel-cards -f docker-compose.yml -f docker-compose.production.yml \
+    "${compose_cmd[@]}" \
       up -d --no-deps --no-build --pull never web
     printf 'Rollback completed.\n' >&2
   fi

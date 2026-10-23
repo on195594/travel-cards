@@ -41,9 +41,9 @@
 
 ```bash
 TRAVEL_CARDS_IMAGE=sha256:8dcc1ff7e9bf2991e68e677b9ed57f01b6d07d0d0c75ab924a1ce02a82ee0944 \
-MCP_OAUTH_ENABLED=true APP_PORT=3100 \
+APP_PORT=3100 \
 MEEMO_NETWORK=meemo_backend EDGE_NETWORK=nginx-network \
-docker compose -p travel-cards -f docker-compose.yml -f docker-compose.production.yml \
+docker compose -p travel-cards \
   up -d --no-deps --no-build --pull never web
 ```
 
@@ -51,7 +51,7 @@ docker compose -p travel-cards -f docker-compose.yml -f docker-compose.productio
 
 - 原 image ID：`sha256:65c52396c46e804fa4814d41e7e4a17f1fcebd10dfc4c094a2c43ba7f836ac26`。
 - 保留别名：`travel-cards:rollback-20261023-65c52396c46e`，已核对指向原镜像；原可变标签未覆盖。
-- 原 OAuth=true，端口、网络、凭证均未变。本次无数据迁移。后续回滚需授权，复用上述命令，将 `TRAVEL_CARDS_IMAGE` 改为原 image ID，再核对健康与公开鉴权。
+- 原 OAuth=true，端口、网络、凭证均未变。本次无数据迁移。后续回滚需授权，复用上述命令（或保留的双文件命令），将 `TRAVEL_CARDS_IMAGE` 改为原 image ID，再核对健康与公开鉴权。
 - 原镜像缺少 revision、源码 SHA 为 `unknown`；它可恢复替换前运行状态，但不是已修复版本的安全保证。
 
 ## 剩余验证
