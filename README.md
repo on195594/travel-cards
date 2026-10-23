@@ -4,16 +4,16 @@
 
 **当前实现**：管理员可编辑、发布、删除攻略、上传 R2 封面；应用内 Gemini + Google Search 只生成待采纳候选，通过普通保存流程持久化。现有受信任自动化 API Token 接口继续可用。
 
-**MCP 双协议支持（2026-07-28 与标准 MCP 兼容模式）**：受限外部 AI 仍可创建、修改及直接发布，但不得删除或管理配置。六个工具、长效令牌及 OAuth/DCR/PKCE 不变；双协议兼容已在当前源码实现，真实 Gemini 双端用户验收仍待重新验证。2026-10-23 只读检查发现运行镜像缺少源码溯源，不能确认线上是否包含双协议改动。非敏感配置后台仍待完成，服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
+**MCP 双协议支持（2026-07-28 与标准 MCP 兼容模式）**：受限外部 AI 仍可创建、修改及直接发布，但不得删除或管理配置。六个工具、长效令牌及 OAuth/DCR/PKCE 不变；双协议兼容已随 `0dfe091` 于 2026-10-23 通过固定镜像隔离测试并部署，真实 Gemini 双端用户验收仍待重新验证。非敏感配置后台仍待完成，服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
 
 ## 当前状态
 
 - Next.js 16、Auth.js、MongoDB、攻略 CRUD/发布/撤回、R2 上传和 Gemini 候选助手已实现。
 - MCP 提供 list/get/create/update/publish 五个攻略工具及 `upload_image`。独立 `image.upload` scope 控制上传；直接替换封面还需 `guide.update` 和 expectedRevision，禁止删除、撤回及配置管理。
-- 正式 `/mcp` 现已在源码支持双协议：现代 2026 协议（`server/discover`、逐请求 `_meta` 与 HTTP 头绑定、`resultType: complete`）及标准 MCP 兼容模式（`initialize`、`notifications/*`、`ping`）。双协议版本已有本地测试，尚无可核对的正式发布证据；每个受限令牌的工具调用上限为 120 次/分钟，超限返回 429 / Retry-After。见[协议与补充说明](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
+- 正式 `/mcp` 已部署双协议：现代 2026 协议（`server/discover`、逐请求 `_meta` 与 HTTP 头绑定、`resultType: complete`）及标准 MCP 兼容模式（`initialize`、`notifications/*`、`ping`）。固定镜像已通过隔离 HTTP/OAuth 测试；每个受限令牌的工具调用上限为 120 次/分钟，超限返回 429 / Retry-After。见[协议与补充说明](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
 - OAuth/DCR/PKCE、管理员同意/撤销已实现。新环境默认关闭，当前生产显式启用。令牌与客户端注册默认 100 × 365 天有效，并非永不过期；无 refresh token。旧注册与令牌不自动扩权或续期，需要重新注册授权。
-- 最近有完整溯源证据的发布为 `80a2b8a`，见[历史发布、验收及回滚记录](./docs/deployments/2026-10-21-mcp-2026-release.md)。2026-10-23 只读核对：`travel-cards-web-1` 正在运行可变标签 `travel-cards-web`，镜像 ID 为 `sha256:65c52396c46e804fa4814d41e7e4a17f1fcebd10dfc4c094a2c43ba7f836ac26`，镜像无 `org.opencontainers.image.revision`、源码标签为 `unknown`；不能继续声称当前运行版本是 `80a2b8a`。
-- 历史 `80a2b8a` 发布包含 MCP 2026 协议、三项审查修复及来源日期归一化，当时通过 292 项测试、固定镜像隔离 smoke 和公开健康/鉴权检查；这些证据不自动覆盖今天的运行镜像。本次审查未部署、重启或改动生产数据及配置。
+- 当前应用发布为 `0dfe091`：2026-10-23 北京时间 12:41 仅替换 `travel-cards-web-1`，运行镜像 ID 为 `sha256:8dcc1ff7e9bf2991e68e677b9ed57f01b6d07d0d0c75ab924a1ce02a82ee0944`，revision 与源码归档 SHA 均已核对。原无溯源镜像保留为回滚目标，详见[本次发布、验收及回滚记录](./docs/deployments/2026-10-23-review-fixes.md)。
+- 本次发布包含图片 URL 下载边界、编辑内容保护、来源本地时间及搜索错误反馈修复。实际镜像隔离 HTTP/OAuth 测试、25 项公网检查和固定数据探针均通过；生产环境变量、OAuth 开关、端口和网络保持一致，共用 MongoDB、Nginx 未重启，未修改生产攻略或凭证。`80a2b8a` 的[历史发布证据](./docs/deployments/2026-10-21-mcp-2026-release.md)保留。
 - 历史协议的真实 Gemini 网页/手机双端验收已完成，依据为 2026-10-12 用户确认，见[验收状态记录](./docs/roadmaps/ai-client-integration.md#真实双端验收用户确认)。2026 协议的真实客户端兼容性待重新验收；图片上传专项未单独确认，非敏感配置后台尚未实现。
 - 历史核心实现与内部令牌审查分别见[核心审查](./docs/reviews/agy-final-implementation/closeout.md)、[7cc88f8 审查](./docs/reviews/agy-7cc88f8/closeout.md)；历史 APPROVE 仅覆盖当时范围。
 - 当前开发目录：`/home/lin/travel-cards`
@@ -59,7 +59,7 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 - `/api/*`：REST API，保留攻略、上传、OAuth 等现有路径。
 - `/mcp`：唯一正式 MCP 入口，资源元数据为 `/.well-known/oauth-protected-resource/mcp`。
 - 本轮迁移不保留 `/api/mcp` 别名或旧路径式元数据；旧资源的意图、授权码和令牌失效，客户端需重新授权。固定数据 `/api/mcp-probe` 不变。
-- 路由迁移已获用户确认并上线：正式接入地址 `https://travel.keyi.win/mcp`，路由迁移见[记录](./docs/deployments/2026-10-10-mcp-route.md)，当前发布见[固定镜像及回滚证据](./docs/deployments/2026-10-21-mcp-2026-release.md)。历史发布/审查证据不改写。
+- 路由迁移已获用户确认并上线：正式接入地址 `https://travel.keyi.win/mcp`，路由迁移见[记录](./docs/deployments/2026-10-10-mcp-route.md)，当前发布见[固定镜像及回滚证据](./docs/deployments/2026-10-23-review-fixes.md)。历史发布/审查证据不改写。
 
 ## MCP 2026 客户端请求
 
@@ -78,7 +78,7 @@ Mcp-Method: server/discover
 
 现代模式的 `tools/list` 同样每次携带 `_meta` 和对应的 `Mcp-Method`；调用工具时再携带原样安全 ASCII 或 `=?base64?{标准 Base64}?=` 形式的 `Mcp-Name`，解码后与 `params.name` 一致，不做百分号解码。客户端能力不是授权，服务端仍逐请求验证令牌、scopes、resource 与客户端撤销状态。仅支持 JSON 响应，不提供 SSE/订阅/会话；`/api/mcp-probe` 是保留的旧协议固定数据探针，不代表正式服务的 2026 兼容性。
 
-现有 OAuth 资源与令牌未轮换；客户端升级协议不等于需要重新授权或自动扩权。DCR 虽已在 2026 规范弃用，本项目继续现有注册流程，不宣称支持 CIMD。正式 `/mcp` 现已在源码中支持双协议分流；当前运行镜像无法溯源，真实 Gemini 兼容性待重新验收。相关背景与决定见[协议与补充说明](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
+现有 OAuth 资源与令牌未轮换；客户端升级协议不等于需要重新授权或自动扩权。DCR 虽已在 2026 规范弃用，本项目继续现有注册流程，不宣称支持 CIMD。正式 `/mcp` 的双协议分流已通过可溯源镜像部署，真实 Gemini 兼容性待重新验收。相关背景与决定见[协议与补充说明](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
 
 ## 已审查镜像的生产发布
 
@@ -92,7 +92,7 @@ reviewed_commit="已审查的完整提交哈希"
 TRAVEL_CARDS_TEST_IMAGE="travel-cards:git-$reviewed_commit" npm run test:oauth
 ```
 
-这两个步骤只构建并隔离验证镜像，不会替换运行服务。本轮修复尚未提交或部署，当前线上镜像的溯源缺口仍需在获准发布后闭合。
+这两个步骤只构建并隔离验证镜像，不会替换运行服务。2026-10-23 获用户提交/部署授权后，本轮修复已按此流程构建、隔离验收并上线；运行镜像的溯源缺口已闭合，本轮未 push。
 
 `docker-compose.production.yml` 显式选择已经通过审查/隔离验证的不可变镜像；用 `--no-deps --no-build --pull never web` 只替换 Web，不改共用 MongoDB或凭证。新功能默认关闭；生产启用需要本轮上线授权，真实 Gemini 验收由管理员自行完成。部署记录必须保存源清单、审查、镜像、原镜像/开关及公开 smoke；回滚复用原镜像和开关。不要用旧 `deploy.sh` 覆盖这一固定镜像发布。
 
@@ -178,4 +178,4 @@ npm run verify
 
 `tmp/` 的旧发布快照、日志及重复证据已校验归档到本地忽略目录 `backups/cleanup-2026-10-21/` 后清空，2026-10-23 检查时仍为空；独有的候选源码未丢弃。旧发布脚本另存于 `backups/cleanup-2026-10-23/legacy-deploy.tar.gz`，归档内容与原文件逐字节核对后才移除原件；原文件 SHA-256 为 `c505c6656ae00c14d912aa4d102bd17862df29846b80f7cb73c117288839e93d`。归档不代替正式发布证据，历史风险与检查见[维护记录](./docs/maintenance/2026-10-21-review-cleanup.md)。
 
-2026-10-23 审查修复后验证：24 个测试文件、303 项通过；lint、额外未使用符号检查、默认 Turbopack 构建（fake 环境）和 Compose 配置检查通过；隔离 HTTP/OAuth smoke 通过。DNS/IPv6/重定向/大小/超时边界与上传前权限已通过 fake transport 回归；发布脚本使用 fake Docker 验证提交快照、标签校验与拒绝覆盖，不冒充真实发布镜像验收。编辑内容保护、保存期间继续输入、错误提示、本地时间/UTC 往返和搜索故障恢复均已通过本地浏览器验证，详见[前端记录](./docs/frontend.md#浏览器审查2026-10-23)。本轮未提交或部署，真实 Gemini/R2、真实手机与生产恢复未验收；线上镜像溯源仍需授权发布后闭合。
+2026-10-23 审查修复后验证：24 个测试文件、303 项通过；lint、额外未使用符号检查、默认 Turbopack 构建（fake 环境）和 Compose 配置检查通过；隔离 HTTP/OAuth smoke 通过。DNS/IPv6/重定向/大小/超时边界与上传前权限已通过 fake transport 回归；发布脚本先使用 fake Docker 验证提交快照、标签校验与拒绝覆盖，随后实际构建并验收固定镜像。编辑内容保护、保存期间继续输入、错误提示、本地时间/UTC 往返和搜索故障恢复均已通过本地浏览器验证，详见[前端记录](./docs/frontend.md#浏览器审查2026-10-23)。应用已提交并部署，发布证据见[记录](./docs/deployments/2026-10-23-review-fixes.md)；真实 Gemini/R2、真实手机与生产恢复未验收。

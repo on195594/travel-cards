@@ -29,7 +29,7 @@ Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻
 - 现有 Bearer API Token 接口保留；MCP 固定数据探针已部署，内部攻略工具、受限令牌与本地 OAuth/DCR/PKCE 已实现，业务 MCP 服务端已上线，真实 Gemini 双端验收已由用户确认完成，图片上传专项验收未单独确认，配置后台尚未实现。
 - Gemini 网页／手机 App 是首个验收目标，但客户端地区、账号及认证支持需单独验收，不能用 Gemini API 或 CLI 测试替代。
 - 产品契约以 `SPEC.md` 为准。代码优先的构建默认记录在 `.impeccable/config.json`，不是产品权限或平台设置。
-- 正式 MCP 已按 2026-10-22 用户确认，在 2026-07-28 模式之外恢复标准 `initialize` / `notifications/*` / `ping` 兼容分支，业务权限及六个工具不变。最近可溯源的历史发布为 `80a2b8a`；2026-10-23 只读检查发现运行镜像缺少提交标签且源码哈希为 `unknown`，不能确认线上代码版本。下文“已上线／双端验收”仅描述历史批次，不能作为双协议版本验收证明。
+- 正式 MCP 已按 2026-10-22 用户确认，在 2026-07-28 模式之外恢复标准 `initialize` / `notifications/*` / `ping` 兼容分支，业务权限及六个工具不变。2026-10-23 已部署可溯源的 `0dfe091` 固定镜像，包含双协议兼容及本轮审查修复。下文“双端验收”仍描述历史客户端批次，不能作为双协议版本的真实 Gemini 验收证明。
 
 ## Capabilities and Constraints
 
@@ -64,7 +64,7 @@ Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻
 - UI 审查与部署前验证：`docs/reviews/ui-impeccable-review.md`；真实 AGY 复审原文：`docs/reviews/agy-ui-review.txt`。
 - 接入状态与下一步：`docs/roadmaps/ai-client-integration.md`；认证设计与实现证据：`docs/decisions/2026-10-09-gemini-mcp-auth.md`。
 - 短效令牌提交的真实 AGY 审查：`docs/reviews/agy-7cc88f8/closeout.md`；APPROVE 仅覆盖内部底座，不代表 OAuth/客户端验收完成。
-- 历史部署与真实 Gemini 网页/手机双端验收分别保留当时证据和 2026-10-12 用户确认；未提供专项证据的子项不编造已通过。2026-10-21 固定镜像发布当时已核对 revision 与 `80a2b8a` 一致，见 `docs/deployments/2026-10-21-mcp-2026-release.md`；2026-10-23 运行镜像已经变化，当前可核对事实见 README，不重写历史证据。
+- 历史部署与真实 Gemini 网页/手机双端验收分别保留当时证据和 2026-10-12 用户确认；未提供专项证据的子项不编造已通过。当前 `0dfe091` 固定镜像、运行 revision、源码归档 SHA、隔离测试及公网检查见 `docs/deployments/2026-10-23-review-fixes.md`；`80a2b8a` 等历史发布证据不重写。
 
 ## Product Principles
 

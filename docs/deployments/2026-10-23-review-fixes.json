@@ -1,0 +1,283 @@
+{
+  "status": "PASS",
+  "recordedAt": "2026-10-23T04:46:15.074294+00:00",
+  "authorization": "User explicitly requested commit and deploy; no push performed.",
+  "preflight": {
+    "checkedAt": "2026-10-23T04:35:47.941545+00:00",
+    "container": "travel-cards-web-1",
+    "containerId": "fd28c9b0df8f63cca97bda3f33aaed3fe1a325e4c070965c5f80abcb4bb7ee47",
+    "imageId": "sha256:65c52396c46e804fa4814d41e7e4a17f1fcebd10dfc4c094a2c43ba7f836ac26",
+    "imageTag": "travel-cards-web",
+    "startedAt": "2026-10-23T00:42:26.42094668Z",
+    "oauthEnabled": "true",
+    "origin": "https://travel.keyi.win",
+    "revision": null,
+    "sourceSha256": "unknown",
+    "portBindings": {
+      "3000/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "3100"
+        }
+      ]
+    },
+    "networks": [
+      "meemo_backend",
+      "nginx-network"
+    ],
+    "protected": {
+      "mongodb": {
+        "id": "6776e4c54f675d15f08e5be11195135c2dd20d9f28ae56d06dc7cba030396164",
+        "imageId": "sha256:04dcb7a617991492a227370aee9ba49ed92fd4b22c0606b155a1cdd99dec280f",
+        "startedAt": "2026-10-21T00:27:29.14032868Z"
+      },
+      "nginx": {
+        "id": "c6bb99e3b4d7366a3099510b902265fe5d1803cbecd2a1f06bb1834ac094b3ab",
+        "imageId": "sha256:7cf76f406c60a1897b85d13cea6a8b88095b1652c1fad06e12af6a2ba7503a60",
+        "startedAt": "2026-10-21T23:27:40.62276504Z"
+      }
+    }
+  },
+  "deployment": {
+    "status": "PASS",
+    "verifiedAt": "2026-10-23T04:41:51.753319+00:00",
+    "image": "travel-cards:git-0dfe09101e4c5d988800386d49c582c4df5b6e72",
+    "imageId": "sha256:8dcc1ff7e9bf2991e68e677b9ed57f01b6d07d0d0c75ab924a1ce02a82ee0944",
+    "revision": "0dfe09101e4c5d988800386d49c582c4df5b6e72",
+    "sourceArchiveSha256": "ab96d72d8577f0d56c70244b359f4f7c3cb3f9dc9fbc048cedb6806f43e12056",
+    "sourceFiles": 219,
+    "applicationEnvironmentEntries": 14,
+    "applicationEnvironmentPreserved": true,
+    "envLocalUnchanged": true,
+    "portsAndNetworksPreserved": true,
+    "mongodbAndNginxUnchanged": true,
+    "oauthEnabled": true,
+    "deployedAt": "2026-10-23T04:41:50.09300624Z",
+    "webContainerId": "b15c4cd4c05b56a843a6446b1cf77f0cc2edf55642e2e867a18c9f7c5d91e87f",
+    "rollbackImage": "travel-cards:rollback-20261023-65c52396c46e",
+    "rollbackImageId": "sha256:65c52396c46e804fa4814d41e7e4a17f1fcebd10dfc4c094a2c43ba7f836ac26",
+    "rollbackImageRetained": true,
+    "localReadiness": true,
+    "privateOverrideUsed": false
+  },
+  "imageSmoke": {
+    "status": "PASS",
+    "command": "TRAVEL_CARDS_TEST_IMAGE=travel-cards:git-0dfe09101e4c5d988800386d49c582c4df5b6e72 npm run test:oauth",
+    "exitCode": 0,
+    "productionNodeEnv": true,
+    "isolatedMongo": true,
+    "realProductionCredentialsUsed": false,
+    "checks": [
+      "content publish/update/unpublish/republish/delete and HTML/RSC visibility",
+      "liveness/readiness under isolated MongoDB pause and recovery",
+      "OAuth none/basic/post, consent, PKCE",
+      "MCP 2026 discover, request metadata, header binding, encoded tool names",
+      "standard MCP initialize compatibility",
+      "tools, publish, conflict 409, permission 403, revocation, REST denial"
+    ]
+  },
+  "priorLocalValidation": {
+    "sameApplicationCodeAsRelease": true,
+    "testFiles": 24,
+    "testsPassed": 303,
+    "lint": "PASS",
+    "typescriptAndUnusedSymbols": "PASS",
+    "fakeEnvironmentBuild": "PASS",
+    "composeConfig": "PASS",
+    "browserRegression": "PASS; see ../frontend.md",
+    "independentExternalReviewThisRelease": false
+  },
+  "productionSmoke": {
+    "status": "PASS",
+    "checkedAt": "2026-10-23T04:42:49.907407+00:00",
+    "origin": "https://travel.keyi.win",
+    "checks": [
+      {
+        "method": "GET",
+        "path": "/",
+        "status": 200,
+        "cacheControl": "no-store, max-age=0",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "method": "GET",
+        "path": "/admin/login",
+        "status": 200,
+        "cacheControl": "private, no-store, max-age=0",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "method": "GET",
+        "path": "/robots.txt",
+        "status": 200,
+        "cacheControl": "max-age=3600",
+        "contentType": "text/plain; charset=utf-8"
+      },
+      {
+        "method": "GET",
+        "path": "/sitemap.xml",
+        "status": 200,
+        "cacheControl": "no-store, max-age=0",
+        "contentType": "application/xml"
+      },
+      {
+        "method": "GET",
+        "path": "/api/health/live",
+        "status": 200,
+        "cacheControl": "no-store, max-age=0",
+        "contentType": "application/json"
+      },
+      {
+        "method": "GET",
+        "path": "/api/health/ready",
+        "status": 200,
+        "cacheControl": "no-store, max-age=0",
+        "contentType": "application/json"
+      },
+      {
+        "method": "GET",
+        "path": "/.well-known/oauth-protected-resource/mcp",
+        "status": 200,
+        "cacheControl": "no-store, max-age=0",
+        "contentType": "application/json"
+      },
+      {
+        "method": "GET",
+        "path": "/.well-known/oauth-authorization-server",
+        "status": 200,
+        "cacheControl": "no-store, max-age=0",
+        "contentType": "application/json"
+      },
+      {
+        "method": "GET",
+        "path": "/api/guides",
+        "status": 200,
+        "cacheControl": "no-store, max-age=0",
+        "contentType": "application/json"
+      },
+      {
+        "method": "GET",
+        "path": "/api/guides?scope=admin",
+        "status": 401,
+        "cacheControl": "private, no-store, max-age=0",
+        "contentType": "application/json"
+      },
+      {
+        "method": "GET",
+        "path": "/mcp",
+        "status": 401,
+        "cacheControl": "no-store, max-age=0",
+        "contentType": "application/json"
+      },
+      {
+        "method": "POST",
+        "path": "/mcp",
+        "status": 401,
+        "cacheControl": "no-store, max-age=0",
+        "contentType": "application/json"
+      },
+      {
+        "method": "GET",
+        "path": "/api/mcp",
+        "status": 404,
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "method": "GET",
+        "path": "/.well-known/oauth-protected-resource/api/mcp",
+        "status": 404,
+        "cacheControl": "private, no-cache, no-store, max-age=0, must-revalidate",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "method": "GET",
+        "path": "/guides/xian-liuba-gaojiang-autumn-2days",
+        "status": 200,
+        "cacheControl": "no-store, max-age=0",
+        "contentType": "text/html; charset=utf-8"
+      },
+      {
+        "method": "GET",
+        "path": "/_next/static/chunks/05mf0phggtaus.js",
+        "status": 200,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "application/javascript; charset=UTF-8"
+      },
+      {
+        "method": "GET",
+        "path": "/_next/static/chunks/0cz1d0mv5g_q7.js",
+        "status": 200,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "application/javascript; charset=UTF-8"
+      },
+      {
+        "method": "GET",
+        "path": "/_next/static/chunks/0yt48ysr7qn6r.js",
+        "status": 200,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "application/javascript; charset=UTF-8"
+      },
+      {
+        "method": "GET",
+        "path": "/_next/static/chunks/1_vt0joombdtp.js",
+        "status": 200,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "application/javascript; charset=UTF-8"
+      },
+      {
+        "method": "GET",
+        "path": "/_next/static/chunks/1s6_68f4wdpy_.js",
+        "status": 200,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "application/javascript; charset=UTF-8"
+      },
+      {
+        "method": "GET",
+        "path": "/_next/static/chunks/1w48d7q-bzbmz.css",
+        "status": 200,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "text/css; charset=UTF-8"
+      },
+      {
+        "method": "GET",
+        "path": "/_next/static/chunks/22i43cg4l4-dq.js",
+        "status": 200,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "application/javascript; charset=UTF-8"
+      },
+      {
+        "method": "GET",
+        "path": "/_next/static/chunks/310vm2bl3xxpt.js",
+        "status": 200,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "application/javascript; charset=UTF-8"
+      },
+      {
+        "method": "GET",
+        "path": "/_next/static/chunks/40j26qmlkjc3v.js",
+        "status": 200,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "application/javascript; charset=UTF-8"
+      },
+      {
+        "method": "GET",
+        "path": "/_next/static/chunks/turbopack-1c22_7zi9gc6h.js",
+        "status": 200,
+        "cacheControl": "public, max-age=31536000, immutable",
+        "contentType": "application/javascript; charset=UTF-8"
+      }
+    ],
+    "publicGuideCount": 6,
+    "publishedDetailVerified": true,
+    "frontendAssetsVerified": 10,
+    "oauthMetadataResourceVerified": true,
+    "pkceS256Verified": true,
+    "mcpUnauthorizedChallengeVerified": true,
+    "legacyBusinessAliasesAbsent": true,
+    "productionGuideWritesPerformed": false,
+    "realGeminiOrR2CallsPerformed": false,
+    "realGeminiCompatibilityReaccepted": false,
+    "legacySyntheticProbe": "PASS; independent fixed-data probe only"
+  }
+}
