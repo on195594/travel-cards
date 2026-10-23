@@ -9,6 +9,7 @@
 5. [历史审查与清理](./maintenance/2026-10-21-review-cleanup.md)：2026-10-21 的问题、清理清单、验证与未覆盖范围；最新运行状态和清理范围见根 README。
 6. [MCP 协议决定](./decisions/2026-10-21-mcp-2026-migration.md)：2026 协议及 10-22 双协议兼容补充、限流和隔离验证；双协议已随 `0dfe091` 部署，真实客户端尚未重新验收。
 7. [性能优化审查与修复](./reviews/2026-10-23-performance-agy.md)：2026-10-23 响应式 WebP、首屏搜索 SSR 与 MCP 请求路径优化及真实 AGY 静态审查（318 项测试全过）。
+8. [Gemini MCP OAuth 连接踩坑记录](./reviews/2026-10-23-gemini-oauth-handshake-troubleshooting.md)：2026-10-23 修复 Gemini Origin 跨来源 403 阻断、CORS 响应头补齐、OPTIONS 预检、Token 端点 resource/scope 宽容度及同意跳转加固。
 
 ## 源码和运行目录
 

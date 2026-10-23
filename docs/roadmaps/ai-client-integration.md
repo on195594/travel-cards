@@ -56,6 +56,8 @@
 
 2026-10-23 修复：URL 图片拉取逐跳校验全部 DNS 地址，拒绝私有/保留及 IPv6 映射/隧道地址，通过自定义 DNS lookup 固定 TLS 连接地址并保留原主机证书校验；最多 5 跳共用 15 秒期限，提前关闭拒绝的响应并限制实际流量 10 MiB。下载、超时、重定向和上传前权限使用 fake transport 回归，不代表真实 R2/Gemini 上传已验收。Base64 仍须满足 MCP JSON 总请求体 2 MiB 限制，原始图片实际小于 1.5 MiB；本轮不放宽该边界。
 
+2026-10-23 故障排查与修复：Gemini 移动端/Web 添加 MCP 出现 `Account linking is required to use this custom app.`，定位根因为服务端硬编码拦截 `Origin: https://gemini.google.com` 报 403 阻断预检、缺少 CORS 头、Token 端点 resource 未支持可选缺省以及表单 303 跳转链在移动端中断。已通过提交 `6a5f28d` 修复上线，详见[排查踩坑记录](../reviews/2026-10-23-gemini-oauth-handshake-troubleshooting.md)。
+
 以下各节（含历史实施顺序与末段总结）保留历史阶段快照；其中 15 分钟、30 天、五个工具、默认关闭及 NOT_RUN / pending 均描述当时批次，不代表当前状态。
 
 ## 历史：公开探针与生产版本
