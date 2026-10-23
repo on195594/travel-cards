@@ -228,6 +228,74 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     const listRes = await POST(legacyList);
     expect(listRes.status).toBe(200);
     expect((await listRes.json()).result.tools.length).toBe(6);
+
+    const legacyCall = request(g.accessToken, { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "list_guides", arguments: {} } });
+    legacyCall.headers.delete("MCP-Protocol-Version");
+    legacyCall.headers.delete("Mcp-Method");
+    legacyCall.headers.delete("Mcp-Name");
+    const callRes = await POST(legacyCall);
+    expect(callRes.status).toBe(200);
+    expect((await callRes.json()).result.content[0].type).toBe("text");
+
+    const legacyUnknown = request(g.accessToken, { jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "unknown_tool", arguments: {} } });
+    legacyUnknown.headers.delete("MCP-Protocol-Version");
+    legacyUnknown.headers.delete("Mcp-Method");
+    legacyUnknown.headers.delete("Mcp-Name");
+    const unkRes = await POST(legacyUnknown);
+    expect(unkRes.status).toBe(200);
+    expect((await unkRes.json()).error.code).toBe(-32602);
+
+    const legacyUnknownMethod = request(g.accessToken, { jsonrpc: "2.0", id: 5, method: "unknown_rpc", params: {} });
+    legacyUnknownMethod.headers.delete("MCP-Protocol-Version");
+    legacyUnknownMethod.headers.delete("Mcp-Method");
+    const unkMethodRes = await POST(legacyUnknownMethod);
+    expect(unkMethodRes.status).toBe(200);
+    expect((await unkMethodRes.json()).error.code).toBe(-32601);
+
+    const modernMetaLeak = request(g.accessToken, { jsonrpc: "2.0", id: 6, method: "server/discover", params: { _meta: { "io.modelcontextprotocol/protocolVersion": "2099-01-01" } } });
+    modernMetaLeak.headers.delete("MCP-Protocol-Version");
+    modernMetaLeak.headers.delete("Mcp-Method");
+    const leakRes = await POST(modernMetaLeak);
+    expect(leakRes.status).toBe(400);
+    expect((await leakRes.json()).error.code).toBe(-32020);
+
+    const modernHeaderLeak = request(g.accessToken, { jsonrpc: "2.0", id: 7, method: "tools/list", params: {} }, { "MCP-Protocol-Version": "2099-01-01" });
+    modernHeaderLeak.headers.delete("Mcp-Method");
+    const leakHeaderRes = await POST(modernHeaderLeak);
+    expect(leakHeaderRes.status).toBe(400);
+    expect((await leakHeaderRes.json()).error.code).toBe(-32020);
+
+    for (const stdVer of ["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"]) {
+      const stdList = request(g.accessToken, { jsonrpc: "2.0", id: 8, method: "tools/list", params: {} }, { "MCP-Protocol-Version": stdVer });
+      stdList.headers.delete("Mcp-Method");
+      const stdListRes = await POST(stdList);
+      expect(stdListRes.status).toBe(200);
+      expect((await stdListRes.json()).result.tools.length).toBe(6);
+
+      const stdCall = request(g.accessToken, { jsonrpc: "2.0", id: 9, method: "tools/call", params: { name: "list_guides", arguments: {} } }, { "MCP-Protocol-Version": stdVer });
+      stdCall.headers.delete("Mcp-Method");
+      stdCall.headers.delete("Mcp-Name");
+      const stdCallRes = await POST(stdCall);
+      expect(stdCallRes.status).toBe(200);
+      expect((await stdCallRes.json()).result.content[0].type).toBe("text");
+    }
+
+    const batchReq = request(g.accessToken, [{ jsonrpc: "2.0", id: 10, method: "tools/list" }]);
+    batchReq.headers.delete("MCP-Protocol-Version");
+    batchReq.headers.delete("Mcp-Method");
+    const batchRes = await POST(batchReq);
+    expect(batchRes.status).toBe(400);
+    expect((await batchRes.json()).error.code).toBe(-32600);
+
+    const legacyPing = request(g.accessToken, { jsonrpc: "2.0", id: 11, method: "ping", params: {} });
+    legacyPing.headers.delete("MCP-Protocol-Version");
+    legacyPing.headers.delete("Mcp-Method");
+    expect((await POST(legacyPing)).status).toBe(200);
+
+    const legacyCustomNotif = request(g.accessToken, { jsonrpc: "2.0", method: "notifications/custom_event" });
+    legacyCustomNotif.headers.delete("MCP-Protocol-Version");
+    legacyCustomNotif.headers.delete("Mcp-Method");
+    expect((await POST(legacyCustomNotif)).status).toBe(202);
   });
 
   it("rejects old versions without fallback and removed methods with valid common fields with 404", async () => {
@@ -310,6 +378,13 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     const deniedPublish = await call(creator.accessToken, "create_guide", { ...draft, publish: true });
     expect(deniedPublish.response.status).toBe(403);
     expect(deniedPublish.response.headers.get("www-authenticate")).toContain('scope="guide.read guide.create guide.publish"');
+    const legacyDenied = request(readOnly.accessToken, { jsonrpc: "2.0", id: 10, method: "tools/call", params: { name: "create_guide", arguments: draft } });
+    legacyDenied.headers.delete("MCP-Protocol-Version");
+    legacyDenied.headers.delete("Mcp-Method");
+    legacyDenied.headers.delete("Mcp-Name");
+    const legacyDeniedRes = await POST(legacyDenied);
+    expect(legacyDeniedRes.status).toBe(403);
+    expect(legacyDeniedRes.headers.get("www-authenticate")).toContain('scope="guide.read guide.create"');
     expect(await ownedDb().collection("guides").countDocuments({ slug: /^mcp-http-/ })).toBe(0);
   });
 
@@ -328,6 +403,11 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     expect(missing.body.result.isError).toBe(true);
     const notification = await POST(request(g.accessToken, { jsonrpc: "2.0", method: "tools/call", params: { name: "create_guide", arguments: draft } }));
     expect(notification.status).toBe(400);
+    const legacyNotifWrite = request(g.accessToken, { jsonrpc: "2.0", method: "tools/call", params: { name: "create_guide", arguments: draft } });
+    legacyNotifWrite.headers.delete("MCP-Protocol-Version");
+    legacyNotifWrite.headers.delete("Mcp-Method");
+    legacyNotifWrite.headers.delete("Mcp-Name");
+    expect((await POST(legacyNotifWrite)).status).toBe(400);
     expect(await ownedDb().collection("guides").countDocuments({ slug: /^mcp-http-/ })).toBe(0);
     for (const body of [[rpc("server/discover")], { jsonrpc: "2.0", id: null, method: "server/discover" }, { ...rpc("server/discover"), role: "admin" }]) expect((await POST(request(g.accessToken, body))).status).toBe(400);
   });

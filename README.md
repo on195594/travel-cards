@@ -4,16 +4,16 @@
 
 **当前实现**：管理员可编辑、发布、删除攻略、上传 R2 封面；应用内 Gemini + Google Search 只生成待采纳候选，通过普通保存流程持久化。现有受信任自动化 API Token 接口继续可用。
 
-**MCP 2026-07-28 服务端已部署；真实客户端尚未重新验收**：受限外部 AI 仍可创建、修改及直接发布，但不得删除或管理配置。六个工具、长效令牌及 OAuth/DCR/PKCE 不变；历史服务端上线与 Gemini 双端用户验收不自动覆盖本次不兼容的协议迁移。非敏感配置后台仍待完成，服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
+**MCP 双协议支持（2026-07-28 与标准 MCP 兼容模式）**：受限外部 AI 仍可创建、修改及直接发布，但不得删除或管理配置。六个工具、长效令牌及 OAuth/DCR/PKCE 不变；双协议兼容已在当前源码实现，真实 Gemini 双端用户验收仍待重新验证。非敏感配置后台仍待完成，服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
 
 ## 当前状态
 
 - Next.js 16、Auth.js、MongoDB、攻略 CRUD/发布/撤回、R2 上传和 Gemini 候选助手已实现。
 - MCP 提供 list/get/create/update/publish 五个攻略工具及 `upload_image`。独立 `image.upload` scope 控制上传；直接替换封面还需 `guide.update` 和 expectedRevision，禁止删除、撤回及配置管理。
-- 正式 `/mcp` 仅支持 `2026-07-28`：`server/discover` 取代初始化，逐请求 `_meta` 与 HTTP 头绑定，正常结果带 `resultType: complete`。旧客户端不能直接使用新版；每个受限令牌的工具调用上限为 120 次/分钟，超限返回 429 / Retry-After。见[迁移契约与实测](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
+- 正式 `/mcp` 现已在源码支持双协议：现代 2026 协议（`server/discover`、逐请求 `_meta` 与 HTTP 头绑定、`resultType: complete`）及标准 MCP 兼容模式（`initialize`、`notifications/*`、`ping`）。当前生产部署镜像对应 `80a2b8a`（纯 2026 协议），双协议版本已在本地测试通过，未正式发布部署；每个受限令牌的工具调用上限为 120 次/分钟，超限返回 429 / Retry-After。见[协议与补充说明](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
 - OAuth/DCR/PKCE、管理员同意/撤销已实现。新环境默认关闭，当前生产显式启用。令牌与客户端注册默认 100 × 365 天有效，并非永不过期；无 refresh token。旧注册与令牌不自动扩权或续期，需要重新注册授权。
 - 当前部署应用提交为 `80a2b8a`，运行镜像 revision 与源码归档 SHA 已核对一致，见[发布、验收及回滚记录](./docs/deployments/2026-10-21-mcp-2026-release.md)。本轮只替换 Web，现有凭证、OAuth 开关、MongoDB 与 Nginx 保持不变；已解决此前运行镜像缺少提交溯源的问题。
-- 当前版本包含 MCP 2026 协议、Codex 审查后的三项修复及既有来源日期归一化。292 项测试、固定镜像隔离 smoke 和公开健康/鉴权检查通过；发布后文档提交不包含在该应用镜像中。
+- 生产 `80a2b8a` 部署版本包含 MCP 2026 协议、Codex 审查后的三项修复及既有来源日期归一化。292 项测试、固定镜像隔离 smoke 和公开健康/鉴权检查通过；发布后文档提交不包含在该应用镜像中。
 - 历史协议的真实 Gemini 网页/手机双端验收已完成，依据为 2026-10-12 用户确认，见[验收状态记录](./docs/roadmaps/ai-client-integration.md#真实双端验收用户确认)。2026 协议的真实客户端兼容性待重新验收；图片上传专项未单独确认，非敏感配置后台尚未实现。
 - 历史核心实现与内部令牌审查分别见[核心审查](./docs/reviews/agy-final-implementation/closeout.md)、[7cc88f8 审查](./docs/reviews/agy-7cc88f8/closeout.md)；历史 APPROVE 仅覆盖当时范围。
 - 当前开发目录：`/home/lin/travel-cards`
@@ -63,7 +63,7 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 
 ## MCP 2026 客户端请求
 
-每次调用都必须携带下列头部和元数据；不再先发送 `initialize` 或 `ping`。以下是取得受限 OAuth Token 后的发现请求示例，Token 占位符不能使用管理员 API Token 替代：
+2026 现代模式每次调用都必须携带下列头部和元数据；标准 MCP 客户端（如 Gemini）则走标准 `initialize` 握手。以下是取得受限 OAuth Token 后的 2026 发现请求示例，Token 占位符不能使用管理员 API Token 替代：
 
 ```http
 POST /mcp HTTP/1.1
@@ -78,7 +78,7 @@ Mcp-Method: server/discover
 
 `tools/list` 同样每次携带 `_meta` 和对应的 `Mcp-Method`；调用工具时再携带原样安全 ASCII 或 `=?base64?{标准 Base64}?=` 形式的 `Mcp-Name`，解码后与 `params.name` 一致，不做百分号解码。客户端能力不是授权，服务端仍逐请求验证令牌、scopes、resource 与客户端撤销状态。仅支持 JSON 响应，不提供 SSE/订阅/会话；`/api/mcp-probe` 是保留的旧协议固定数据探针，不代表正式服务的 2026 兼容性。
 
-现有 OAuth 资源与令牌未轮换；客户端升级协议不等于需要重新授权或自动扩权。DCR 虽已在 2026 规范弃用，本项目继续现有注册流程，不宣称支持 CIMD。迁移已部署；不支持 2026 的客户端无法使用新版正式入口，真实 Gemini 兼容性仍待重新验收。Codex 独立审查与修复记录见[复核记录](./docs/reviews/2026-10-21-mcp-2026-codex.md)。
+现有 OAuth 资源与令牌未轮换；客户端升级协议不等于需要重新授权或自动扩权。DCR 虽已在 2026 规范弃用，本项目继续现有注册流程，不宣称支持 CIMD。正式 `/mcp` 现已在源码中支持双协议分流（标准客户端兼容模式与 2026 规范模式，未部署；生产当前 `80a2b8a` 仍为纯 2026），真实 Gemini 兼容性待重新验收。相关背景与决定见[协议与补充说明](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
 
 ## 已审查镜像的生产发布
 

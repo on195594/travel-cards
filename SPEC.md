@@ -1,11 +1,11 @@
 # Travel Cards MVP Specification
 
-- **状态**：核心应用、MCP 权限/工具/令牌与 OAuth/DCR/PKCE 已实现；正式 `/mcp` 支持 2026 协议并向前兼容标准 MCP（支持 Gemini Apps）。配置后台未完成；生产状态以 README 的实测记录为准
-- **更新日期**：2026-10-22（用户确认 MCP 双协议兼容以支持 Gemini 官方客户端；业务权限不变）
+- **状态**：核心应用、MCP 权限/工具/令牌与 OAuth/DCR/PKCE 已实现；正式 `/mcp` 支持 2026 协议并向后兼容标准 MCP。双协议兼容已在当前源码实现（测试全部 PASS），尚未正式发布部署；生产当前部署仍为 80a2b8a（纯 2026 协议），真实 Gemini 客户端双端验收待重新验证；生产状态以 README 的实测记录为准
+- **更新日期**：2026-10-22（用户确认 MCP 双协议兼容以向后兼容 Gemini 官方客户端；业务权限不变）
 - **项目根目录**：`/home/lin/travel-cards`
 - **产品语言**：首版中文界面与中文内容
 
-本文件中“已上线／双端验收已完成”描述历史 MCP 批次及 2026-10-12 用户确认，不覆盖 3.3.3 的协议迁移；该迁移已以 `80a2b8a` 部署，但未重新验收真实客户端，见[发布记录](./docs/deployments/2026-10-21-mcp-2026-release.md)。
+本文件中“已上线／双端验收已完成”描述历史 MCP 批次及 2026-10-12 用户确认，不覆盖 3.3.3 的协议迁移；该迁移此前以 `80a2b8a` 部署，而 10-22 的双协议向后兼容改动目前已在源码完成验证，未正式发布部署，真实客户端待重新验收。历史部署见[发布记录](./docs/deployments/2026-10-21-mcp-2026-release.md)。
 
 ## 1. 目标
 
@@ -84,18 +84,40 @@
 - 本批增加管理员授权列表/撤销和授权同意页面，复用既有样式。OAuth 不要求逐篇发布审批；外部 AI 的操作范围仍仅 Guide read/create/update/publish 与 image.upload。
 - 先完成本地 fake 客户端完整流程、输入/重放/并发/撤销/跨资源/REST 绕过回归及 AGY 审查。生产部署、开关启用、真实账号和 Gemini 双端验收需单独授权，不修改既有生产凭证。
 
-#### 3.3.3 MCP 协议支持与向后兼容（2026-10-22 用户确认）
+#### 3.3.3 MCP 双协议支持与向后兼容（2026-10-22 用户确认）
 
-- 正式 `/mcp` 采用双协议支持：既支持 `2026-07-28` 现代协议，又兼容以 Google Gemini Apps 为代表的标准 MCP 客户端规范（`initialize`、`notifications/initialized`、`ping`）。
-- 现代 2026 模式：当请求携带 `MCP-Protocol-Version: 2026-07-28`、`Mcp-Method` 或请求参数声明 2026 元数据时，执行 2026 严格校验（头与元数据绑定、`Mcp-Name` 解码校验、`server/discover` 发现及 404/400 严格错误码）。
-- 标准兼容模式：当客户端未携带 2026 特殊头时，支持标准的 `initialize` 握手、`ping`、`notifications/initialized` 确认以及无头部的 `tools/list` 与 `tools/call`。
-- 两个协议分支均严格共享 OAuth 认证、权限 scopes 过滤、MongoDB 原子固定窗口限流（120 次/分钟）与攻略 revision 保护。缺失、非法或不匹配的 2026 头返回 HTTP 400 / `-32020`。
-- 每个请求的 `_meta` 必须含 protocolVersion 字符串和 clientCapabilities 对象；缺失/类型错误返回 HTTP 400 / `-32602`。客户端自报信息和能力不能提升 OAuth 权限，不从此前请求推断能力。
-- 不支持的版本返回 HTTP 400 / `-32022`，附 `data.supported` 和 `data.requested`；先校验公共必需头及逐请求元数据，再将未知方法返回 HTTP 404 / `-32601`，不受版本支持情况影响；缺头的旧 initialize 请求也先返回 HTTP 400 / `-32020`。无法取得请求 ID 的错误省略 id，不返回 null；拒绝 batch 与客户端通知，不执行无确认写入。
-- 所有正常完成的结果（含 `isError: true` 的工具执行错误）带 `resultType: 'complete'` 和服务端身份 `_meta`。仅广告 `tools: {}`，不声明订阅、SSE、异步任务或 elicitation；GET/DELETE 等继续 405，仅 POST。工具发现按当前 OAuth scopes 过滤，不缓存跨身份的工具列表。
-- 六个工具及业务权限、resource URI、已有令牌有效期和撤销语义不变。按官方工具安全要求，每个受限令牌的工具调用采用 MongoDB 原子固定窗口计数，最多 120 次/分钟，跨 worker 生效；超限 HTTP 429，JSON-RPC 应用错误码 429，附 Retry-After，不执行工具。计数过期由 TTL 清理，TTL 延迟不延长或缩短窗口；计数初始化/更新故障返回 HTTP 500 / JSON-RPC `-32603`，不执行工具，也不返回伪造的工具业务结果。
+- 正式 `/mcp` 采用双协议支持：既支持 `2026-07-28` 现代协议，又向后兼容以 Google Gemini Apps 为代表的标准 MCP 客户端规范（`initialize`、`notifications/*`、`ping`）。
+- **共享契约与边界**：
+  - 正式 `/mcp` 仅接受 POST 请求；对有效身份的 GET、DELETE 等非 POST 方法返回 HTTP 405（`Allow: POST`），未认证请求保持 HTTP 401 挑战；当环境变量 `MCP_OAUTH_ENABLED` 未启用时统一返回 HTTP 404；
+  - 仅声明 `tools: {}`，不声明订阅、SSE、异步任务或 elicitation；不提供 SSE 长连接或持久会话，仅支持 JSON 同步响应；
+  - 无法取得有效请求 id 的错误省略 id 字段，不返回 null；
+  - 客户端自报信息和能力不能提升 OAuth 权限，不从此前请求推断能力；工具发现按当前已批准的 OAuth scopes 动态过滤，不跨身份缓存工具列表；
+  - 两个协议分支均严格共享 OAuth Bearer 认证、Origin 同源安全检查、权限 scopes 过滤与攻略 revision 保护；
+  - 每个受限令牌（actorLabel）的工具调用上限为 120 次/分钟，采用 MongoDB 原子固定窗口限流，跨 worker 生效；超限返回 HTTP 429 / 错误码 429 附 Retry-After 且不执行工具；计数存储初始化/更新故障返回 HTTP 500 / JSON-RPC `-32603`，不执行工具，也不返回伪造的工具业务结果；TTL 仅清理过期窗口记录，TTL 延迟不延长或缩短自然分钟窗口；
+- **模式分流**：当请求包含 `Mcp-Method` 头、调用 `server/discover`、声明非标准协议版本头、或请求 `_meta` 包含 `io.modelcontextprotocol/protocolVersion` 时，走现代 2026 协议分支；其余请求走标准 MCP 兼容分支。
+- **现代 2026 模式**：
+  - 每次 POST 必须携带 `MCP-Protocol-Version`、`Mcp-Method`，分别与 `params._meta['io.modelcontextprotocol/protocolVersion']`、JSON-RPC method 一致；`tools/call` 的 `Mcp-Name` 使用原样安全 ASCII，或 `=?base64?{UTF-8 的标准 Base64}?=` 解码后与参数 name 一致，不做百分号解码；非 ASCII、控制字符、首尾空白及原值匹配该标记格式时必须使用 Base64。缺失、非法或不匹配的必需头返回 HTTP 400 / `-32020`；
+  - 每个请求的 `_meta` 必须含 protocolVersion 字符串和 clientCapabilities 对象；缺失/类型错误返回 HTTP 400 / `-32602`。不支持的版本返回 HTTP 400 / `-32022`（附 `data.supported` 和 `data.requested`）。未知方法先于版本检查返回 HTTP 404 / `-32601`；
+  - 无 id 的请求返回 HTTP 400 / `-32600`，拒绝客户端通知与无确认写入。所有正常完成的结果（含 `isError: true` 的工具业务错误）带 `resultType: 'complete'` 和服务端身份 `_meta`。
+- **标准兼容模式（兼容 Gemini Apps）**：
+  - 客户端无需传递 2026 专属头部或 `_meta` 元数据；
+  - 支持标准 `initialize` 握手，根据客户端声明协商版本（支持 `2025-11-25`、`2025-06-18`、`2025-03-26`、`2024-11-05`），返回 `capabilities: { tools: {} }` 与 `serverInfo`；
+  - **Batch 拒绝理由**：为了保证每次写操作具备确定的原子权限校验、MongoDB 固定窗口限流计数（逐请求独立记账）以及 Revision 冲突审计，服务端拒绝 JSON-RPC batch 批量数组，当客户端发送 JSON 数组时统一以 HTTP 400 / `-32600` 拒绝；
+  - 支持 `notifications/*` 通知确认（返回 HTTP 202）；所有无 id 的非通知请求（包括 `tools/call`）确定性以 HTTP 400 / `-32600` 拒绝，不执行写入；
+  - 支持 `ping`（返回 `{}`）及标准 `tools/list` 与 `tools/call`；
+  - **HTTP 状态码例外清单**：在已启用 OAuth 的 POST 请求中，标准模式下仅针对分流后派发的 JSON-RPC 协议/方法/参数级业务错误（如 `-32601` 方法不存在、`-32602` 参数错误/未知工具）返回 HTTP 200 及结构化错误体以兼容标准 MCP SDK；但在以下情况继续返回对应的非 200 HTTP 状态码：
+    1. HTTP 401：缺少 Bearer Token 或 Token 无效/已撤销；
+    2. HTTP 403：缺失操作所需 Scope 或跨来源 Origin 请求；
+    3. HTTP 406：Accept 头显式拒绝 application/json；
+    4. HTTP 413：请求体超过 2 MiB 上限；
+    5. HTTP 415：Content-Type 非 application/json；
+    6. HTTP 400：分流前的非法 JSON（`-32700`）、非法 JSON-RPC 消息结构/Batch/缺少 id 的非通知请求/非法 Content-Length（`-32600`）；
+    7. HTTP 429：工具调用超过自然分钟 120 次限流配额（带 Retry-After）；
+    8. HTTP 500：内部基础设施故障或限流存储异常（`-32603`）；
+    （注：无 id 的 `notifications/*` 正常返回 HTTP 202 确认）。
+- 六个工具及业务权限、resource URI、已有令牌有效期和撤销语义不变。
 - DCR 在 2026 规范中已弃用但仍保留；本轮继续现有 OAuth 注册流程，不引入 CIMD URL 拉取或新的网络信任面。原公开探针仍是独立的旧协议诊断入口，不用它证明正式服务的 2026 合规或真实 Gemini 兼容。
-- 先跑 fake 客户端、隔离 MongoDB 与生产启动路径 HTTP 回归；不自动部署或重验真实账号。完整协议变更与官方依据见 `docs/decisions/2026-10-21-mcp-2026-migration.md`。
+- 先跑 fake 客户端、隔离 MongoDB 与本地 HTTP 回归；不自动部署或重验真实账号。完整协议变更与官方依据见 `docs/decisions/2026-10-21-mcp-2026-migration.md`。
 
 ### 3.4 临时 MCP 连接探针（2026-10-09 已授权）
 
