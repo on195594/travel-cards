@@ -57,3 +57,13 @@ if (args[0] === "build") {
     rmSync(fixture, { recursive: true, force: true });
   }
 });
+
+it("deploy script validates help output and unknown targets", () => {
+  const result = spawnSync("bash", ["scripts/deploy.sh", "invalid-target-ref"], { encoding: "utf8" });
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('Cannot resolve "invalid-target-ref"');
+
+  const help = spawnSync("bash", ["scripts/deploy.sh", "--help"], { encoding: "utf8" });
+  expect(help.status).toBe(0);
+  expect(help.stdout).toContain("Usage: ./scripts/deploy.sh");
+});

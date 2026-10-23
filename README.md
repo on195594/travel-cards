@@ -103,7 +103,7 @@ TRAVEL_CARDS_TEST_IMAGE="travel-cards:git-$reviewed_commit" npm run test:oauth
 
 这两个步骤只构建并隔离验证镜像，不会替换运行服务。2026-10-23 获用户提交/部署授权后，本轮修复已按此流程构建、隔离验收并上线；运行镜像的溯源缺口已闭合，本轮未 push。
 
-`docker-compose.production.yml` 显式选择已经通过审查/隔离验证的不可变镜像；用 `--no-deps --no-build --pull never web` 只替换 Web，不改共用 MongoDB或凭证。新功能默认关闭；生产启用需要本轮上线授权，真实 Gemini 验收由管理员自行完成。部署记录必须保存源清单、审查、镜像、原镜像/开关及公开 smoke；回滚复用原镜像和开关。不要用旧 `deploy.sh` 覆盖这一固定镜像发布。
+`docker-compose.production.yml` 显式选择已经通过审查/隔离验证的不可变镜像；用 `--no-deps --no-build --pull never web` 只替换 Web，不改共用 MongoDB或凭证。新功能默认关闭；生产启用需要本轮上线授权，真实 Gemini 验收由管理员自行完成。部署记录必须保存源清单、审查、镜像、原镜像/开关及公开 smoke；回滚复用原镜像和开关。也可以使用 `npm run deploy`（`./scripts/deploy.sh`），自动完成镜像构建、隔离预检、服务切换、健康检查与异常回滚；不要用旧 `deploy.sh` 覆盖这一固定镜像发布。
 
 ## Docker 运行
 
