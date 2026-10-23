@@ -7,6 +7,7 @@ import { HttpError } from "@/lib/http";
 
 export const MCP_REGISTRATION_MAX_BYTES = 16 * 1024;
 export const MCP_REGISTRATION_LIMIT = 100;
+export const MCP_OAUTH_CLIENT_COLLECTION = "mcp_oauth_clients";
 const HOUR_MS = 60 * 60 * 1000;
 const CLIENT_LIFETIME_MS = 100 * 365 * 24 * HOUR_MS;
 
@@ -57,7 +58,7 @@ const clientSchema = new Schema<RegisteredMcpClient>({
   revokedAt: Date,
   authorizedAt: Date,
   authorizedScopes: { type: [String], default: undefined },
-}, { collection: "mcp_oauth_clients", versionKey: false });
+}, { collection: MCP_OAUTH_CLIENT_COLLECTION, versionKey: false });
 clientSchema.index({ clientId: 1 }, { unique: true });
 clientSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 clientSchema.index({ authorizedAt: -1 }, { sparse: true });

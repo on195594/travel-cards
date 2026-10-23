@@ -143,8 +143,15 @@ for (const method of ["none", "client_secret_basic", "client_secret_post"]) {
     assert.equal(created.body.result.isError, false);
     let guide = created.body.result.structuredContent.guide;
     assert.equal(guide.status, "published");
-    const updated = await mcp("tools/call", { name: "update_guide", arguments: { id: guide.id, expectedRevision: guide.revision, title: "Updated MCP synthetic" } });
+    assert.equal(guide.itinerary.length, 1);
+    const bounded = await mcp("tools/call", { name: "list_guides", arguments: { q: "MCP HTTP synthetic", limit: 1 } });
+    assert.equal(bounded.body.result.structuredContent.guides.length, 1);
+    assert.equal(bounded.body.result.structuredContent.hasMore, false);
+    const updated = await mcp("tools/call", { name: "update_guide", arguments: { id: guide.id, expectedRevision: guide.revision, title: "Updated MCP synthetic", responseMode: "summary" } });
     guide = updated.body.result.structuredContent.guide;
+    assert.equal(guide.revision, 2);
+    assert.ok(!("itinerary" in guide));
+    assert.deepEqual(JSON.parse(updated.body.result.content[0].text), updated.body.result.structuredContent);
     const conflict = await mcp("tools/call", { name: "update_guide", arguments: { id: guide.id, expectedRevision: 1, title: "Must not overwrite" } });
     assert.equal(conflict.response.status, 200);
     assert.equal(conflict.body.result.isError, true);

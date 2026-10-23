@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import type { Guide, GuideAnswer, GuideCandidate, GuideDraftInput, SourceRef } from "@/lib/guides/schema";
+import type { Guide, GuideAnswer, GuideCandidate, GuideDraftInput, ImageUpload, SourceRef } from "@/lib/guides/schema";
 
 const blank: GuideDraftInput = {
   title: "",
@@ -145,10 +145,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isGuideResponse(value: unknown): value is { guide: Guide } {
   return isRecord(value) && isRecord(value.guide) && typeof value.guide.id === "string";
-}
-
-function isUploadResponse(value: unknown): value is { objectKey: string; publicUrl: string } {
-  return isRecord(value) && typeof value.objectKey === "string" && typeof value.publicUrl === "string";
 }
 
 type AiResponse = { result: { kind: "clarification"; questions: string[] } | { kind: "candidate"; data: GuideCandidate | GuideAnswer } };
@@ -383,10 +379,15 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
     try {
       const form = new FormData();
       form.append("file", file);
+      const schemas = await import("@/lib/guides/schema").catch(() => undefined);
+      if (!schemas) {
+        setMessage({ kind: "error", text: "图片上传组件加载失败，请重试。" });
+        return;
+      }
       const result = await requestJson("/api/uploads", {
         method: "POST",
         body: form,
-      }, isUploadResponse, 60_000, true);
+      }, (value): value is ImageUpload => schemas.imageUploadSchema.safeParse(value).success, 60_000, true);
       if (result.kind === "error") {
         setMessage({ kind: "error", text: result.message });
         return;
@@ -400,8 +401,7 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
       setDraft((current) => ({
         ...current,
         coverImage: {
-          objectKey: result.data.objectKey,
-          publicUrl: result.data.publicUrl,
+          ...result.data,
           alt: current.coverImage?.alt ?? "",
         },
       }));

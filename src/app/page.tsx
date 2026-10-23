@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { GuideSearch } from "@/components/guide-search";
-import { listPublishedGuides } from "@/lib/guides";
+import { listPublishedDestinations, listPublishedGuides } from "@/lib/guides";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
@@ -12,12 +12,20 @@ export const metadata: Metadata = {
 };
 
 type Props = {
-  searchParams?: Promise<{ q?: string }>;
+  searchParams?: Promise<{ q?: string | string[] }>;
 };
 
 export default async function Home({ searchParams }: Props) {
   const { q } = (await searchParams) ?? {};
-  const guides = await listPublishedGuides();
+  const query = (Array.isArray(q) ? q[0] : q)?.trim() ?? "";
+  const [guideResult, destinationResult] = await Promise.allSettled([
+    listPublishedGuides({ q: query }),
+    query ? listPublishedDestinations() : undefined,
+  ]);
+  if (guideResult.status === "rejected" && !query) throw guideResult.reason;
+  const guides = guideResult.status === "fulfilled" ? guideResult.value : [];
+  const destinations = destinationResult.status === "fulfilled" ? destinationResult.value : undefined;
+  const searchFailed = guideResult.status === "rejected" || destinationResult.status === "rejected";
   return (
     <div className="home-layout">
       <header className="site-header">
@@ -35,7 +43,7 @@ export default async function Home({ searchParams }: Props) {
       </header>
 
       <main id="main-content" className="container home-main">
-        <GuideSearch key={q ?? "all"} initialGuides={guides} initialQuery={q ?? ""} />
+        <GuideSearch key={query} initialGuides={guides} initialQuery={query} initialSearchFailed={searchFailed} destinations={destinations} />
       </main>
 
       <footer className="site-footer container">

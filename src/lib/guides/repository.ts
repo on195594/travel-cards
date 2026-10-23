@@ -56,7 +56,10 @@ const guideMongooseSchema = new Schema(
     destination: { type: String, default: "" },
     excerpt: { type: String, default: "" },
     days: { type: Number, default: 1 },
-    coverImage: { objectKey: String, publicUrl: String, alt: String, _id: false },
+    coverImage: {
+      objectKey: String, publicUrl: String, alt: String, _id: false,
+      variants: { type: [new Schema({ objectKey: String, publicUrl: String, width: Number, height: Number }, { _id: false })], default: undefined },
+    },
     itinerary: { type: [itineraryMongooseSchema], default: [] },
     sections: { type: [sectionMongooseSchema], default: [] },
     sources: { type: [sourceMongooseSchema], default: [] },
@@ -160,6 +163,14 @@ export async function findPublishedGuideSummaries(q: string | undefined, limit: 
     .limit(limit)
     .lean();
   return records.map((record) => serializedSummary(record as Record<string, unknown>));
+}
+
+export async function findPublishedDestinations(): Promise<string[]> {
+  await ready();
+  // Match the existing homepage's latest 100 guides without transferring their summaries.
+  const records = await GuideModel.find({ status: "published" })
+    .select("destination -_id").sort({ publishedAt: -1 }).limit(100).lean();
+  return [...new Set(records.map((record) => (record.destination ?? "").trim()).filter(Boolean))];
 }
 
 export async function findAdminGuideSummaries(q: string | undefined, limit: number): Promise<GuideSummary[]> {

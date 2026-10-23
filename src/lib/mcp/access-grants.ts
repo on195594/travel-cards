@@ -6,7 +6,7 @@ import { AI_GUIDE_SCOPES, assertCapability, type ApiActor } from "@/lib/capabili
 import { connectDb } from "@/lib/db";
 import { getAuthEnv } from "@/lib/env";
 import { HttpError } from "@/lib/http";
-import { findRegisteredMcpClient } from "@/lib/mcp/oauth-clients";
+import { findRegisteredMcpClient, MCP_OAUTH_CLIENT_COLLECTION } from "@/lib/mcp/oauth-clients";
 
 const grantInput = z.object({
   clientId: z.string().regex(/^[a-zA-Z0-9._-]{1,128}$/),
@@ -80,15 +80,26 @@ async function authenticateGrant(authHeader: string | null, resource: string, re
   if (!match || resource !== getMcpResource()) unauthorized();
   await ready();
   // Expiry/revocation are checked on every request; TTL deletion is cleanup, not authorization.
-  const grant = await GrantModel.findOne({
-    tokenHash: digest(match[1]), resource,
-    expiresAt: { $gt: new Date() }, revokedAt: { $exists: false },
-  }).lean();
+  const now = new Date();
+  const [grant] = await GrantModel.aggregate([
+    { $match: { tokenHash: digest(match[1]), resource, expiresAt: { $gt: now }, revokedAt: { $exists: false } } },
+    { $lookup: {
+      from: MCP_OAUTH_CLIENT_COLLECTION,
+      localField: "oauthClientId",
+      foreignField: "clientId",
+      pipeline: [
+        { $match: { expiresAt: { $gt: now }, revokedAt: null } },
+        { $project: { _id: 0, authorizedAt: 1, authorizedScopes: 1 } },
+      ],
+      as: "clients",
+    } },
+    { $project: { clientId: 1, oauthClientId: 1, scopes: 1, client: { $arrayElemAt: ["$clients", 0] } } },
+  ]);
   if (!grant || (requireClient && !grant.oauthClientId)) unauthorized();
   const { scopes } = grantInput.parse({ clientId: grant.clientId, scopes: grant.scopes });
   if (grant.oauthClientId) {
-    const client = await findRegisteredMcpClient(grant.oauthClientId);
-    if (grant.clientId !== grant.oauthClientId || !client?.authorizedAt || scopes.some((scope) => !client.authorizedScopes?.includes(scope))) unauthorized();
+    const client = grant.client;
+    if (!/^tc_oauth_[A-Za-z0-9_-]{43}$/.test(grant.oauthClientId) || grant.clientId !== grant.oauthClientId || !client?.authorizedAt || scopes.some((scope) => !client.authorizedScopes?.includes(scope))) unauthorized();
   }
   return { authKind: "restricted-ai", actorLabel: `mcp-grant:${String(grant._id)}`, scopes };
 }

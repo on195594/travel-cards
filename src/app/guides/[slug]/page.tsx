@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 import { CopyLink } from "@/components/copy-link";
 import { getSiteOrigin } from "@/lib/env";
+import { imageSrcSet } from "@/lib/storage/image-srcset";
 import { getPublishedGuideBySlug } from "@/lib/guides";
 import { getDayDisplayTitle, getSectionId, sectionKindLabels } from "@/lib/guides/navigation";
 
@@ -88,7 +89,7 @@ export default async function GuidePage({ params }: Props) {
       <article className="article container">
         {/* Admin-configured R2/custom domains cannot be enumerated at build time. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        {guide.coverImage && <img className="cover" src={guide.coverImage.publicUrl} alt={guide.coverImage.alt} fetchPriority="high" decoding="async" />}
+        {guide.coverImage && <img className="cover" src={guide.coverImage.publicUrl} srcSet={imageSrcSet(guide.coverImage)} sizes="(max-width: 912px) calc(100vw - 2rem), 880px" alt={guide.coverImage.alt} fetchPriority="high" decoding="async" />}
 
         {guide.coverImage && <a className="cover-original" href={guide.coverImage.publicUrl} target="_blank" rel="noopener noreferrer">查看封面原图（新窗口） <span aria-hidden="true">↗</span></a>}
 

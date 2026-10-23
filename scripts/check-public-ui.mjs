@@ -20,6 +20,7 @@ export async function checkPublicUi(page, origin = "http://127.0.0.1:3102") {
   await page.goto(origin);
   await page.getByRole("searchbox").waitFor();
   const firstGuide = await page.locator(".card-link").first().getAttribute("href");
+  const initialCount = await page.locator(".card").count();
   assert.ok(firstGuide, "Seed the preview with a published guide");
   const requests = [];
   const listener = request => {
@@ -58,6 +59,14 @@ export async function checkPublicUi(page, origin = "http://127.0.0.1:3102") {
       await page.getByRole("button", { name: "重新搜索", exact: true }).waitFor({ state: "hidden" });
       await page.waitForFunction(() => document.querySelector(".section-count")?.textContent?.startsWith("找到"));
       assert.equal(await page.locator('.error[role="alert"]').count(), 0);
+      const successfulCount = requests.length;
+      const successfulStatus = await page.locator(".section-count").textContent();
+      await page.getByRole("searchbox").fill(` ${searchTerm} `);
+      assert.equal(await page.locator(".section-count").textContent(), successfulStatus, "Whitespace must preserve loaded results");
+      await page.waitForTimeout(400);
+      await page.getByRole("searchbox").fill(searchTerm);
+      await page.waitForTimeout(400);
+      assert.equal(requests.length, successfulCount, "Whitespace-only edits must not repeat the same search");
       await page.getByRole("searchbox").fill("no-fixture-matches-this");
       await page.getByText("找到 0 篇攻略", { exact: true }).waitFor();
       assert.ok(await page.getByText(/未找到与/).isVisible());
@@ -65,6 +74,29 @@ export async function checkPublicUi(page, origin = "http://127.0.0.1:3102") {
     } finally {
       await page.unroute(searchRoute);
     }
+
+    const requestCount = requests.length;
+    const directResponse = await page.goto(`${origin}/?q=${encodeURIComponent(searchTerm)}`);
+    assert.ok((await directResponse.text()).includes(`href="${firstGuide}"`), "Direct search must include matching cards in server HTML");
+    await page.waitForFunction(() => document.querySelector(".section-count")?.textContent?.startsWith("找到"));
+    await page.waitForTimeout(400);
+    assert.equal(requests.length, requestCount, "Hydration must not repeat the server search");
+    await page.getByRole("button", { name: "清除搜索关键词", exact: true }).first().click();
+    await page.waitForFunction(count => document.querySelector(".section-count")?.textContent === `共 ${count} 篇攻略`, initialCount);
+    assert.equal(await page.locator(".card").count(), initialCount, "Clearing a direct search must load the homepage guides");
+
+    await page.goto(`${origin}/?q=${"x".repeat(201)}`);
+    await page.locator('.error[role="alert"]').waitFor();
+    assert.ok(await page.locator(".destination-chips .chip").count() > 1, "A failed initial search must retain destination shortcuts");
+    await page.getByRole("searchbox").fill(searchTerm);
+    await page.waitForFunction(() => document.querySelector(".section-count")?.textContent?.startsWith("找到"));
+    assert.ok(await page.locator(".destination-chips .chip").count() > 1, "Correcting an invalid initial query must retain destination shortcuts");
+    await page.goto(`${origin}/?q=${"x".repeat(201)}`);
+    await page.locator('.error[role="alert"]').waitFor();
+    await page.getByRole("button", { name: "清除搜索关键词", exact: true }).first().click();
+    await page.waitForFunction(count => document.querySelector(".section-count")?.textContent === `共 ${count} 篇攻略`, initialCount);
+    assert.ok(await page.locator(".destination-chips .chip").count() > 1, "Clearing a failed initial search must restore destination shortcuts");
+
     const checks = [];
     for (const width of [320, 390, 768, 1440]) {
       await page.setViewportSize({ width, height: 900 });

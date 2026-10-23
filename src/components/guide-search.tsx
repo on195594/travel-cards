@@ -8,6 +8,8 @@ import { GuideCard } from "@/components/guide-card";
 type Props = {
   initialGuides: GuideSummary[];
   initialQuery?: string;
+  initialSearchFailed?: boolean;
+  destinations?: string[];
 };
 
 function filterGuides(guides: GuideSummary[], query: string): GuideSummary[] {
@@ -29,15 +31,16 @@ function syncUrl(q: string) {
   }
 }
 
-export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
+export function GuideSearch({ initialGuides, initialQuery = "", initialSearchFailed = false, destinations: initialDestinations }: Props) {
   const searchInput = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState(initialQuery);
-  const [remoteSearch, setRemoteSearch] = useState<{ query: string; status: "success" | "error"; guides: GuideSummary[] }>();
+  const [remoteSearch, setRemoteSearch] = useState<{ query: string; status: "success" | "error"; guides: GuideSummary[] } | undefined>({ query: initialQuery.trim(), status: initialSearchFailed ? "error" : "success", guides: initialGuides });
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     const q = query.trim();
-    if (!q) {
+    if (remoteSearch?.query === q) return;
+    if (!q && !initialQuery.trim()) {
       syncUrl("");
       return;
     }
@@ -62,12 +65,14 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [attempt, initialGuides, query]);
+  }, [attempt, initialGuides, initialQuery, query, remoteSearch]);
 
   const destinations = useMemo(() => {
+    if (initialDestinations) return initialDestinations;
     const list: string[] = [];
     const seen = new Set<string>();
-    for (const guide of initialGuides) {
+    const guides = initialQuery.trim() && remoteSearch?.query === "" && remoteSearch.status === "success" ? remoteSearch.guides : initialGuides;
+    for (const guide of guides) {
       const dest = guide.destination?.trim();
       if (dest && !seen.has(dest)) {
         seen.add(dest);
@@ -75,13 +80,14 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
       }
     }
     return list;
-  }, [initialGuides]);
+  }, [initialDestinations, initialGuides, initialQuery, remoteSearch]);
 
   const filtered = useMemo(() => remoteSearch?.query === query.trim() ? remoteSearch.guides : filterGuides(initialGuides, query), [initialGuides, query, remoteSearch]);
-  const searchStatus = query.trim() ? (remoteSearch?.query === query.trim() ? remoteSearch.status : "pending") : "idle";
+  const searchStatus = remoteSearch?.query === query.trim() ? remoteSearch.status : !query.trim() && !initialQuery.trim() ? "idle" : "pending";
 
   function changeQuery(value: string) {
-    setRemoteSearch(undefined);
+    if (value === query) return;
+    if (value.trim() !== query.trim()) setRemoteSearch(undefined);
     setQuery(value);
   }
 
@@ -175,8 +181,8 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
           <span className="section-count" role="status" aria-atomic="true">
             {searchStatus === "pending" ? "正在搜索…"
               : searchStatus === "error" ? "搜索暂时不可用"
-              : searchStatus === "success" ? `找到 ${filtered.length} 篇攻略`
-              : `共 ${initialGuides.length} 篇攻略`}
+              : searchStatus === "success" && query.trim() ? `找到 ${filtered.length} 篇攻略`
+              : `共 ${filtered.length} 篇攻略`}
           </span>
         </div>
 
@@ -195,7 +201,7 @@ export function GuideSearch({ initialGuides, initialQuery = "" }: Props) {
               <GuideCard key={guide.id} guide={guide} priority={index === 0} />
             ))}
           </div>
-        ) : searchStatus === "error" || searchStatus === "pending" ? null : !query.trim() && !initialGuides.length ? (
+        ) : searchStatus === "error" || searchStatus === "pending" ? null : !query.trim() ? (
           <div className="empty"><h3>旅程正在准备中</h3><p>暂时没有已发布攻略，稍后再来发现新的目的地。</p></div>
         ) : (
           <div className="empty search-empty">

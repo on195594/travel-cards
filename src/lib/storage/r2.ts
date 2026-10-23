@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import sharp from "sharp";
 import { getR2Env } from "@/lib/env";
 import { HttpError } from "@/lib/http";
+import type { ImageUpload } from "@/lib/guides/schema";
 
 export const MAX_FILE_BYTES = 10 * 1024 * 1024;
 export const MAX_MULTIPART_BYTES = MAX_FILE_BYTES + 64 * 1024;
@@ -50,7 +52,7 @@ function r2Client(endpoint: string, accessKeyId: string, secretAccessKey: string
   return client;
 }
 
-export async function uploadImage(bytes: Uint8Array, declaredMime: string): Promise<{ objectKey: string; publicUrl: string }> {
+export async function uploadImage(bytes: Uint8Array, declaredMime: string): Promise<ImageUpload> {
   const { mime, extension } = validateImage(bytes, declaredMime);
   let env: ReturnType<typeof getR2Env>;
   try {
@@ -59,16 +61,36 @@ export async function uploadImage(bytes: Uint8Array, declaredMime: string): Prom
     throw new HttpError(500, "R2_CONFIGURATION_ERROR", "图片存储尚未配置");
   }
   const objectKey = createImageObjectKey(extension);
+  const variants: NonNullable<ImageUpload["variants"]> = [];
+  const objects = [{ objectKey, bytes, mime: mime as string }];
   try {
-    await r2Client(env.endpoint, env.accessKeyId, env.secretAccessKey).send(new PutObjectCommand({
-      Bucket: env.bucket,
-      Key: objectKey,
-      Body: bytes,
-      ContentType: mime,
-      ContentLength: bytes.length,
-    }), { abortSignal: AbortSignal.timeout(15_000) });
+    const image = sharp(bytes, { limitInputPixels: 40_000_000 }).rotate();
+    for (const width of [480, 960, 1600]) {
+      const { data, info } = await image.clone()
+        .resize({ width, height: 1600, fit: "inside", withoutEnlargement: true })
+        .webp({ quality: 80 }).timeout({ seconds: 5 }).toBuffer({ resolveWithObject: true });
+      if (variants.some((variant) => variant.width === info.width)) continue;
+      const key = objectKey.replace(/\.[^.]+$/, `-${info.width}w.webp`);
+      variants.push({ objectKey: key, publicUrl: new URL(key, env.publicBaseUrl).toString(), width: info.width, height: info.height });
+      objects.push({ objectKey: key, bytes: data, mime: "image/webp" });
+    }
   } catch {
+    throw new HttpError(400, "INVALID_IMAGE", "图片无法处理，请使用可解码且不超过 4000 万像素的图片");
+  }
+  const uploadAbort = new AbortController();
+  const abortSignal = AbortSignal.any([uploadAbort.signal, AbortSignal.timeout(15_000)]);
+  try {
+    await Promise.all(objects.map((object) => r2Client(env.endpoint, env.accessKeyId, env.secretAccessKey).send(new PutObjectCommand({
+      Bucket: env.bucket,
+      Key: object.objectKey,
+      Body: object.bytes,
+      ContentType: object.mime,
+      ContentLength: object.bytes.length,
+      CacheControl: "public, max-age=31536000, immutable",
+    }), { abortSignal })));
+  } catch {
+    uploadAbort.abort();
     throw new HttpError(503, "R2_UNAVAILABLE", "图片存储暂时不可用，请重试");
   }
-  return { objectKey, publicUrl: new URL(objectKey, env.publicBaseUrl).toString() };
+  return { objectKey, publicUrl: new URL(objectKey, env.publicBaseUrl).toString(), variants };
 }

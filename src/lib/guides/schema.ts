@@ -1,4 +1,4 @@
-import { z } from "zod";
+import * as z from "zod";
 
 const httpUrl = z.string().url().refine((value) => ["http:", "https:"].includes(new URL(value).protocol), "URL must use http or https");
 const slugSchema = z.string().trim().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "slug 只能包含小写字母、数字和连字符");
@@ -61,15 +61,25 @@ export const sectionSchema = z.object({
   body: z.string().trim().min(1).max(10000),
 });
 
+const imageAssetSchema = z.object({
+  objectKey: z.string().trim().min(1).max(1000),
+  publicUrl: httpUrl,
+});
+export const imageUploadSchema = imageAssetSchema.extend({
+  variants: z.array(imageAssetSchema.extend({
+    width: z.number().int().min(1).max(1600),
+    height: z.number().int().min(1).max(1600),
+  })).min(1).max(3).refine((variants) => new Set(variants.map((variant) => variant.width)).size === variants.length, "图片尺寸不可重复").optional(),
+});
+export type ImageUpload = z.infer<typeof imageUploadSchema>;
+
 const draftGuideObject = z.object({
   title: z.string().trim().max(200).default(""),
   slug: optionalSlug,
   destination: z.string().trim().max(200).default(""),
   excerpt: z.string().trim().max(1000).default(""),
   days: z.number().int().min(1).max(365).default(1),
-  coverImage: z.object({
-    objectKey: z.string().trim().min(1).max(1000),
-    publicUrl: httpUrl,
+  coverImage: imageUploadSchema.extend({
     alt: z.string().trim().max(500),
   }).optional(),
   itinerary: z.array(itineraryDaySchema).default([]),

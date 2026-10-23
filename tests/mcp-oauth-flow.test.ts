@@ -411,6 +411,25 @@ describe("OAuth authorization code flow, fake authenticated admin and isolated M
     expect((await token(new Request(origin + "/api/oauth/token", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" }))).status).toBe(415);
     expect((await exchange(c, flow)).status).toBe(200);
   });
+
+  it("rechecks consent, scope reductions and client binding in the joined authentication query", async () => {
+    const c = await client();
+    const accessToken = (await (await exchange(c, await approve(c))).json()).access_token;
+    const authenticate = () => authenticateMcpOAuthAccessToken(`Bearer ${accessToken}`, getMcpResource());
+    const clients = ownedDb().collection("mcp_oauth_clients");
+    const grants = ownedDb().collection("mcp_access_grants");
+    await expect(authenticate()).resolves.toMatchObject({ scopes: scopes.split(" ") });
+    await clients.updateOne({ clientId: c.client_id }, { $unset: { authorizedAt: 1 } });
+    await expect(authenticate()).rejects.toMatchObject({ status: 401 });
+    await clients.updateOne({ clientId: c.client_id }, { $set: { authorizedAt: new Date(), authorizedScopes: ["guide.read"] } });
+    await expect(authenticate()).rejects.toMatchObject({ status: 401 });
+    await clients.updateOne({ clientId: c.client_id }, { $set: { authorizedScopes: scopes.split(" ") } });
+    await expect(authenticate()).resolves.toMatchObject({ authKind: "restricted-ai" });
+    await grants.updateOne({ tokenHash: digest(accessToken) }, { $set: { clientId: "different-client" } });
+    await expect(authenticate()).rejects.toMatchObject({ status: 401 });
+    await grants.updateOne({ tokenHash: digest(accessToken) }, { $set: { clientId: c.client_id, oauthClientId: "tc_oauth_missing" } });
+    await expect(authenticate()).rejects.toMatchObject({ status: 401 });
+  });
 });
 
 describe("safe OAuth login return", () => {

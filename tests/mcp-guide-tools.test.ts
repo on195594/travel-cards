@@ -74,6 +74,46 @@ describe("MCP Guide tool core (fake authenticated actor, real isolated persisten
     expect((await callGuideTool(actor, "list_guides", null)).structuredContent.guides).toBeInstanceOf(Array);
   });
 
+  it("bounds list results, signals additional matches and filters before applying the limit", async () => {
+    await create();
+    await callGuideTool(actor, "create_guide", { ...draft, slug: "mcp-tool-second", title: "另一个目的地" });
+    const limited = await callGuideTool(actor, "list_guides", { q: "西湖", limit: 1 });
+    expect(limited.structuredContent.guides).toHaveLength(1);
+    expect(limited.structuredContent.hasMore).toBe(true);
+    const filtered = await callGuideTool(actor, "list_guides", { q: "另一个目的地", limit: 1 });
+    expect(filtered.structuredContent.guides).toEqual([expect.objectContaining({ title: "另一个目的地" })]);
+    expect(filtered.structuredContent.hasMore).toBe(false);
+    expect(JSON.parse(filtered.content[0].text)).toEqual(filtered.structuredContent);
+    expect((await callGuideTool(actor, "list_guides", { q: "不存在" })).structuredContent).toEqual({ guides: [], hasMore: false });
+  });
+
+  it("preserves the default 100-result bound and detects truncation without a count query", async () => {
+    await create();
+    const now = new Date();
+    await mongoose.connection.collection("guides").insertMany(Array.from({ length: 100 }, (_, index) => ({ ...draft, slug: `mcp-tool-list-${index}`, status: "draft", revision: 1, createdAt: now, updatedAt: now })));
+    const listed = await callGuideTool(actor, "list_guides");
+    expect(listed.structuredContent.guides).toHaveLength(100);
+    expect(listed.structuredContent.hasMore).toBe(true);
+  });
+
+  it("supports concise write responses and retains revisions, full persistence and conflict protection", async () => {
+    const created = await callGuideTool(actor, "create_guide", { ...draft, responseMode: "summary" });
+    const summary = created.structuredContent.guide as Guide;
+    expect(summary).toMatchObject({ title: draft.title, revision: 1, status: "draft" });
+    expect(summary).not.toHaveProperty("itinerary");
+    expect(await getGuideById(summary.id)).toMatchObject({ itinerary: draft.itinerary, sources: draft.sources });
+    const updated = await callGuideTool(actor, "update_guide", { id: summary.id, expectedRevision: 1, title: "摘要模式更新", responseMode: "summary" });
+    expect(updated.structuredContent.guide).toMatchObject({ revision: 2, title: "摘要模式更新" });
+    expect(updated.structuredContent.guide).not.toHaveProperty("sources");
+    await expect(callGuideTool(actor, "update_guide", { id: summary.id, expectedRevision: 1, title: "不应覆盖", responseMode: "summary" })).rejects.toMatchObject({ status: 409 });
+    const published = await callGuideTool(actor, "publish_guide", { id: summary.id, expectedRevision: 2, responseMode: "summary" });
+    expect(published.structuredContent.guide).toMatchObject({ revision: 3, status: "published" });
+    expect(published.structuredContent.guide).not.toHaveProperty("itinerary");
+    const full = await callGuideTool(actor, "update_guide", { id: summary.id, expectedRevision: 3, responseMode: "full" });
+    expect(full.structuredContent.guide).toMatchObject({ revision: 4, itinerary: draft.itinerary });
+    expect(JSON.parse(published.content[0].text)).toEqual(published.structuredContent);
+  });
+
   it("supports direct publishing but preserves completeness, slug uniqueness and revision checks", async () => {
     await expect(callGuideTool(actor, "create_guide", { title: "未完成", publish: true })).rejects.toMatchObject({ code: "PUBLISH_REQUIREMENTS" });
     const guide = await create(true);
@@ -106,11 +146,14 @@ describe("MCP Guide tool core (fake authenticated actor, real isolated persisten
     });
 
     const guide = await create();
+    const variants = [{ objectKey: "guides/new-cover-480w.webp", publicUrl: "https://images.example.test/new-cover-480w.webp", width: 480, height: 320 }];
+    uploadImageMock.mockResolvedValue({ objectKey: "guides/new-cover.png", publicUrl: "https://images.example.test/new-cover.png", variants });
     const updated = await callGuideTool(actor, "upload_image", {
       data: `data:image/png;base64,${validPngBase64}`,
       alt: "西湖黄昏",
       guideId: guide.id,
       expectedRevision: 1,
+      responseMode: "summary",
     });
     expect(updated.structuredContent.guide).toMatchObject({
       id: guide.id,
@@ -119,8 +162,11 @@ describe("MCP Guide tool core (fake authenticated actor, real isolated persisten
         objectKey: "guides/new-cover.png",
         publicUrl: "https://images.example.test/new-cover.png",
         alt: "西湖黄昏",
+        variants,
       },
     });
+    expect(updated.structuredContent.guide).not.toHaveProperty("itinerary");
+    expect((await getGuideById(guide.id)).coverImage).toMatchObject({ variants });
 
     await expect(callGuideTool(actor, "upload_image", { data: "not-an-image", alt: "bad" })).rejects.toMatchObject({ code: "INVALID_IMAGE" });
     await expect(callGuideTool(actor, "upload_image", { url: "https://127.0.0.1/private.png", alt: "ssrf" })).rejects.toMatchObject({ code: "INVALID_URL" });
@@ -148,6 +194,10 @@ describe("MCP Guide tool core (fake authenticated actor, real isolated persisten
     ["create_guide", { ...draft, authKind: "session" }],
     ["get_guide", { id: { $ne: null } }],
     ["list_guides", { q: "x".repeat(201) }],
+    ["list_guides", { limit: 0 }],
+    ["list_guides", { limit: 101 }],
+    ["list_guides", { limit: "5" }],
+    ["create_guide", { ...draft, responseMode: "minimal" }],
     ["update_guide", { id: "a".repeat(24), expectedRevision: 1, status: "draft" }],
     ["publish_guide", { id: "a".repeat(24), expectedRevision: 0 }],
   ])("rejects invalid or undeclared input for %s", async (name, input) => {

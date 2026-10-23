@@ -16,6 +16,7 @@ import {
   findGuideById,
   findPublishedGuideBySlug,
   findPublishedGuideSummaries,
+  findPublishedDestinations,
   guideExists,
   guideSlugIsLocked,
   insertGuide,
@@ -120,6 +121,10 @@ export async function listAdminGuides(
   options: GuideListOptions | number = {}
 ): Promise<GuideSummary[]> {
   return findAdminGuideSummaries(searchQuery(options), listLimit(options));
+}
+
+export async function listPublishedDestinations(): Promise<string[]> {
+  return findPublishedDestinations();
 }
 
 export async function getGuideById(id: string): Promise<Guide> {

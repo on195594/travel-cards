@@ -6,6 +6,7 @@ import {
   getPublishedGuideBySlug,
   guideDraftInputSchema,
   listPublishedGuides,
+  listPublishedDestinations,
   publishGuide,
   unpublishGuide,
   updateGuide,
@@ -54,6 +55,7 @@ describe("Guide aggregate", () => {
   it("validates itinerary bounds and source protocols", () => {
     expect(() => guideDraftInputSchema.parse({ ...threeDayGuide(), itinerary: [{ day: 4, title: "越界", items: [] }] })).toThrow("超出总天数");
     expect(() => guideDraftInputSchema.parse({ ...threeDayGuide(), sources: [{ title: "bad", url: "javascript:alert(1)", accessedAt: "2026-08-29T10:00:00.000Z" }] })).toThrow();
+    expect(() => guideDraftInputSchema.parse({ ...threeDayGuide(), coverImage: { ...threeDayGuide().coverImage, variants: [{ objectKey: "guides/bad.webp", publicUrl: "javascript:alert(1)", width: 480, height: 320 }] } })).toThrow();
   });
 
   it("persists one three-day aggregate and keeps drafts out of public queries", async () => {
@@ -69,6 +71,15 @@ describe("Guide aggregate", () => {
     await createGuide(threeDayGuide());
     await expect(createGuide(threeDayGuide())).rejects.toMatchObject({ code: 11000 });
     await expect(createGuide({ ...threeDayGuide(), slug: undefined })).resolves.toMatchObject({ status: "draft" });
+  });
+
+  it("keeps search destination shortcuts public, distinct and consistent with the homepage", async () => {
+    await createGuide({ ...threeDayGuide("destination-draft"), destination: "草稿城市" });
+    await createGuide({ ...threeDayGuide("destination-first"), publish: true });
+    await createGuide({ ...threeDayGuide("destination-second"), publish: true });
+    const publicGuides = await listPublishedGuides();
+    expect(await listPublishedDestinations()).toEqual([...new Set(publicGuides.map((guide) => guide.destination))]);
+    expect(await listPublishedDestinations()).toEqual(["杭州"]);
   });
 
   it("publishes, exposes, unpublishes, and keeps a published slug immutable", async () => {
