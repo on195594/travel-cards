@@ -24,6 +24,7 @@ function draft(title: string): GuideDraftInput {
     itinerary: [{ day: 1, title: "第一天", items: [{ place: "西湖", description: "游览" }] }],
     sections: [],
     sources: [],
+    attachments: [],
   };
 }
 

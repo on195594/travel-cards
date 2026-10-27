@@ -49,6 +49,23 @@ const sourceMongooseSchema = new Schema(
   { _id: false }
 );
 
+const attachmentMongooseSchema = new Schema(
+  {
+    id: { type: String, required: true },
+    name: { type: String, required: true },
+    type: {
+      type: String,
+      enum: ["gpx", "kml", "pdf", "other"],
+      required: true,
+    },
+    size: { type: Number, required: true },
+    objectKey: { type: String, required: true },
+    publicUrl: { type: String, required: true },
+    description: String,
+  },
+  { _id: false }
+);
+
 const guideMongooseSchema = new Schema(
   {
     title: { type: String, default: "" },
@@ -63,6 +80,7 @@ const guideMongooseSchema = new Schema(
     itinerary: { type: [itineraryMongooseSchema], default: [] },
     sections: { type: [sectionMongooseSchema], default: [] },
     sources: { type: [sourceMongooseSchema], default: [] },
+    attachments: { type: [attachmentMongooseSchema], default: [] },
     status: { type: String, enum: ["draft", "published"], default: "draft" },
     revision: { type: Number, default: 1 },
     publishedAt: Date,

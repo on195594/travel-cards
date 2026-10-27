@@ -9,8 +9,8 @@
 ## 入口与样式来源
 
 - 公共首页：`src/app/page.tsx` + `GuideSearch` / `GuideCard`。
-- 攻略详情：`src/app/guides/[slug]/page.tsx`，逐日行程、跳转链接、来源及复制公开链接。
-- 管理页面：`src/app/admin/`，共享 `GuideEditor`。
+- 攻略详情：`src/app/guides/[slug]/page.tsx`，逐日行程、跳转链接、路线文件与资料附件（GPX/KML/PDF）下载面板、来源及复制公开链接。
+- 管理页面：`src/app/admin/`，共享 `GuideEditor`（含封面上传、行程编排与附件管理）。
 - 全局页面壳与主题入口：`src/app/layout.tsx` / `src/components/theme-toggle.tsx`。
 - **样式值以 `src/app/globals.css` 为准**；以下仅用于定位现有系统，不引入第二套 token。
 
@@ -39,6 +39,7 @@
 - 图片使用原生 img（支持管理员配置的图片域名）与 async decoding；有 `variants` 元数据的新封面使用 `srcset` / `sizes`，按卡片列宽和详情宽度选择 480/960/1600px 目标宽度的 WebP，最长边不超过 1600px；旧封面仍使用原图。首页第一张卡片使用 eager / high priority，其余 lazy；无封面卡片显示目的地。详情封面预留 16:9、手机 4:3 的展示区域，contain 保留完整图片，提供原图链接。本轮图片优化仍待发布。
 - 搜索清空后焦点返回输入框；卡片由单一链接提供点击与键盘入口。保持跳过导航链接与焦点轮廓。
 - `prefers-reduced-motion: reduce` 下关闭平滑滚动、卡片位移与图片缩放，按钮（包括主题和清空按钮）不缩放；颜色／边框反馈仍可保留。
+- 附件下载面板：在详情页来源区域前提供路线与资料下载面板，包含格式徽章（GPX/KML/PDF）、名称、大小、说明及安全下载链接；手机视口纵向整齐堆叠，下载按钮最小触摸高度 44px。
 - 右下角悬浮主题按钮仍可能遮挡部分正文，属于已记录的未解决问题，见 UI 审查报告。
 
 ## Impeccable 初始化状态

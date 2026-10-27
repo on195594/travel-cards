@@ -11,7 +11,7 @@ const endpoint = "https://travel.example.test/api/oauth/register";
 const metadata = {
   client_name: "Fake unverified client",
   redirect_uris: ["https://client.example.test/callback?return=%2Fguides"],
-  scope: "guide.read guide.create guide.update guide.publish image.upload",
+  scope: "guide.read guide.create guide.update guide.publish image.upload attachment.upload",
 };
 function ownedDb() {
   if (!mongoose.connection.db || mongoose.connection.db.databaseName !== `travel_cards_test_${runId}`) throw new Error("Refusing non-test database access");

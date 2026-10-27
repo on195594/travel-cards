@@ -2,14 +2,14 @@
 
 供单一管理员和授权外部 AI 协作维护的中文旅行攻略工作台，公开展示与分享同一份结构化攻略。
 
-**当前实现**：管理员可编辑、发布、删除攻略、上传 R2 封面；应用内 Gemini + Google Search 只生成待采纳候选，通过普通保存流程持久化。现有受信任自动化 API Token 接口继续可用。
+**当前实现**：管理员可编辑、发布、删除攻略、上传 R2 封面及 GPX/KML/PDF 路线与资料附件；公开详情页提供逐日行程与附件安全下载；应用内 Gemini + Google Search 只生成待采纳候选，通过普通保存流程持久化。现有受信任自动化 API Token 接口继续可用。
 
-**MCP 双协议支持（2026-07-28 与标准 MCP 兼容模式）**：受限外部 AI 仍可创建、修改及直接发布，但不得删除或管理配置。六个工具、长效令牌及 OAuth/DCR/PKCE 不变；双协议兼容已随 `0dfe091` 于 2026-10-23 通过固定镜像隔离测试并部署，真实 Gemini 双端用户验收仍待重新验证。非敏感配置后台仍待完成，服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
+**MCP 双协议支持（2026-07-28 与标准 MCP 兼容模式）**：受限外部 AI 仍可创建、修改及直接发布，但不得删除或管理配置。七个工具（含 `upload_image` 与 `upload_attachment`）、长效令牌及 OAuth/DCR/PKCE 落实；双协议兼容已随 `0dfe091` 于 2026-10-23 通过固定镜像隔离测试并部署，真实 Gemini 双端用户验收仍待重新验证。非敏感配置后台仍待完成，服务密钥仍来自环境变量；既有管理员 Token 不能交给受限 AI。
 
 ## 当前状态
 
 - Next.js 16、Auth.js、MongoDB、攻略 CRUD/发布/撤回、R2 上传和 Gemini 候选助手已实现。
-- MCP 提供 list/get/create/update/publish 五个攻略工具及 `upload_image`。独立 `image.upload` scope 控制上传；直接替换封面还需 `guide.update` 和 expectedRevision，禁止删除、撤回及配置管理。
+- MCP 提供 list/get/create/update/publish 五个攻略工具、`upload_image` 及 `upload_attachment`。独立 `image.upload` / `attachment.upload` scope 控制上传；直接替换封面或追加附件还需 `guide.update` 和 expectedRevision，禁止删除、撤回及配置管理。
 - 正式 `/mcp` 已部署双协议：现代 2026 协议（`server/discover`、逐请求 `_meta` 与 HTTP 头绑定、`resultType: complete`）及标准 MCP 兼容模式（`initialize`、`notifications/*`、`ping`）。历史双协议镜像已通过隔离 HTTP/OAuth 测试；每个受限令牌的工具调用上限为 120 次/分钟，超限返回 429 / Retry-After。见[协议与补充说明](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
 - OAuth/DCR/PKCE、管理员同意/撤销已实现。新环境默认关闭，当前生产显式启用。令牌与客户端注册默认 100 × 365 天有效，并非永不过期；无 refresh token。旧注册与令牌不自动扩权或续期，需要重新注册授权。
 - 2026-10-27 北京时间 09:51 已发布 `feb9d02768402e1fe16d3719d076b296d2836240`：包含行程日期、MCP 错误 CORS、发布回滚修复及安全依赖升级。运行镜像 `sha256:918dcc4c9a8c2565d2eff44875159de97458a255f256029da16c5ed60a60936d`，revision 与源码归档 SHA 匹配；[发布、验证与回滚记录](./docs/deployments/2026-10-27-maintenance-release.md)。
@@ -192,7 +192,7 @@ npm run verify
 - `npm run test:http`：生产启动路径与健康检查 HTTP smoke；先运行 `npm run build` 生成生产构建，或传入 `TRAVEL_CARDS_TEST_IMAGE=<image-id>`
 - `npm run test:oauth`：REST/健康 + OAuth/MCP HTTP 闭环；同样支持 `TRAVEL_CARDS_TEST_IMAGE`，仅合成账号与独立 MongoDB
 - `npm run test:recovery`：合成数据库/图片备份恢复，不访问生产 MongoDB/R2
-- 浏览器回归：`scripts/check-public-ui.mjs` 包含搜索失败/重试与响应布局检查；`scripts/check-editor-ui.mjs` 检查离开保护、首次/后续保存期间输入保留、字段错误与时区。后者只允许本机隔离预览，需合成账号、两日攻略及 Asia/Shanghai 浏览器时区，不连接生产后台。
+- `node scripts/cleanup-orphaned-images.mjs`：扫描 R2 孤立未引用图片与附件（默认安全预览 dry-run，加 `--execute` 显式执行）
 
 数据库测试使用 `npm test` 或 `npm run test:watch`，不要直接运行 `vitest` 或 `npm run test:vitest`；后者仅供临时 Mongo 包装脚本调用。
 
@@ -200,14 +200,17 @@ npm run verify
 
 - `src/app/`：页面和 Route Handlers
 - `src/lib/capabilities.ts`：服务端能力矩阵；`src/auth.ts` 的 `requireCapability` 在认证后校验
-- `src/lib/mcp/guide-tools.ts`：六个受限 MCP 工具定义与执行器，已接入 OAuth 鉴权后的 HTTP adapter
+- `src/lib/mcp/guide-tools.ts`：七个受限 MCP 工具定义与执行器，已接入 OAuth 鉴权后的 HTTP adapter
 - `src/lib/mcp/access-grants.ts`：长效访问令牌签发、资源/scopes 校验及撤销；公网签发仅经过授权码/PKCE 流程
 - `src/lib/guides/schema.ts`：Guide 输入输出结构与类型
 - `src/lib/guides/repository.ts`：Mongoose 持久化和摘要/详情读取
 - `src/lib/guides/service.ts`：Guide 业务规则；`src/lib/guides.ts` 仅保留兼容导出
 - `src/lib/storage/r2.ts`：受限图片上传
-- `src/lib/storage/fetch-image.ts`：MCP 公网 HTTPS 图片下载，逐跳 DNS 校验与固定连接地址
-- `scripts/`：隔离测试环境、REST/OAuth/MCP HTTP smoke、合成恢复演练、浏览器回归、提交快照镜像构建与发布、管理员密码生成脚本
+- `src/lib/storage/attachments.ts`：受限路线轨迹（GPX/KML）与资料文档（PDF）上传及下载响应处理
+- `src/lib/storage/fetch-image.ts`：MCP 公网 HTTPS 图片下载，逐跳 DNS 校验、固定连接地址与 429/503 瞬态轻量退避重试
+- `src/lib/storage/fetch-attachment.ts`：MCP 公网 HTTPS 轨迹与文档下载
+- `scripts/cleanup-orphaned-images.mjs`：R2 孤立图片与附件安全扫描与清理运维工具（默认 dry-run 预览，需 `--execute` 显式确认，带 24 小时安全宽限期与二次复核防竞态保护）
+- `scripts/`：隔离测试环境、REST/OAuth/MCP HTTP smoke、合成恢复演练、提交快照镜像构建与发布、孤立存储清理、管理员密码生成脚本
 - `docker-compose.yml`：接入 Meemo 共用 MongoDB 的 Web 服务
 
 ## 清理边界

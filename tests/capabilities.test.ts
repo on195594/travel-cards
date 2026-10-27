@@ -14,6 +14,7 @@ const matrix: [ApiCapability, boolean[]][] = [
   ["guide.unpublish", [true, true, false]],
   ["guide.delete", [true, true, false]],
   ["image.upload", [true, true, false]],
+  ["attachment.upload", [true, true, false]],
   ["assistant.use", [true, true, false]],
   ["config.manage", [true, false, false]],
 ];
@@ -36,6 +37,9 @@ describe("server-side capability policy", () => {
     const uploader: ApiActor = { authKind: "restricted-ai", actorLabel: "uploader", scopes: ["guide.read", "image.upload"] };
     expect(() => assertCapability(uploader, "image.upload")).not.toThrow();
     expect(() => assertCapability(uploader, "guide.create")).toThrow(expect.objectContaining({ status: 403 }));
+    const attachmentUploader: ApiActor = { authKind: "restricted-ai", actorLabel: "attachment-uploader", scopes: ["guide.read", "attachment.upload"] };
+    expect(() => assertCapability(attachmentUploader, "attachment.upload")).not.toThrow();
+    expect(() => assertCapability(attachmentUploader, "guide.create")).toThrow(expect.objectContaining({ status: 403 }));
     const missing = { authKind: "restricted-ai", actorLabel: "no-grant" } as ApiActor;
     expect(() => assertCapability(missing, "guide.read")).toThrow(expect.objectContaining({ status: 403 }));
     const forged = { ...readOnly, scopes: ["guide.delete", "config.manage"] } as unknown as ApiActor;

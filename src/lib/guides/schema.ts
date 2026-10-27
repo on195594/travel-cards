@@ -73,6 +73,17 @@ export const imageUploadSchema = imageAssetSchema.extend({
 });
 export type ImageUpload = z.infer<typeof imageUploadSchema>;
 
+export const guideAttachmentSchema = z.object({
+  id: z.string().trim().min(1).max(100),
+  name: z.string().trim().min(1).max(200),
+  type: z.enum(["gpx", "kml", "pdf", "other"]),
+  size: z.number().int().nonnegative(),
+  objectKey: z.string().trim().min(1).max(1000),
+  publicUrl: httpUrl,
+  description: z.string().trim().max(1000).optional(),
+});
+export type GuideAttachment = z.infer<typeof guideAttachmentSchema>;
+
 const draftGuideObject = z.object({
   title: z.string().trim().max(200).default(""),
   slug: optionalSlug,
@@ -85,6 +96,7 @@ const draftGuideObject = z.object({
   itinerary: z.array(itineraryDaySchema).default([]),
   sections: z.array(sectionSchema).default([]),
   sources: z.array(sourceRefSchema).default([]),
+  attachments: z.array(guideAttachmentSchema).default([]),
 });
 
 function checkDayNumbers(value: { days: number; itinerary: Array<{ day: number }> }, context: z.RefinementCtx) {
@@ -101,7 +113,7 @@ export const guideCreateInputSchema = draftGuideObject.extend({
   publish: z.boolean().optional(),
   status: z.enum(["draft", "published"]).optional(),
 }).superRefine(checkDayNumbers);
-export const guideCandidateSchema = draftGuideObject.omit({ slug: true, coverImage: true }).required().superRefine(checkDayNumbers);
+export const guideCandidateSchema = draftGuideObject.omit({ slug: true, coverImage: true, attachments: true }).required().superRefine(checkDayNumbers);
 export const guideAnswerSchema = z.object({ answer: z.string().trim().min(1), sources: z.array(sourceRefSchema) });
 
 export const guideSchema = draftGuideObject.extend({
@@ -139,6 +151,7 @@ export const guidePatchSchema = z.object({
   itinerary: z.array(itineraryDaySchema).optional(),
   sections: z.array(sectionSchema).optional(),
   sources: z.array(sourceRefSchema).optional(),
+  attachments: z.array(guideAttachmentSchema).optional(),
 });
 export const expectedRevisionSchema = z.object({ expectedRevision: z.number().int().min(1) });
 

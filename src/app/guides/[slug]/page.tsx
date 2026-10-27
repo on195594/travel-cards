@@ -13,6 +13,12 @@ export const dynamic = "force-dynamic";
 type Props = { params: Promise<{ slug: string }> };
 const getGuide = cache(getPublishedGuideBySlug);
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const guide = await getGuide((await params).slug);
   if (!guide) return { title: "攻略不存在" };
@@ -45,7 +51,8 @@ export default async function GuidePage({ params }: Props) {
   const guide = await getGuide((await params).slug);
   if (!guide) notFound();
   const totalStops = guide.itinerary.reduce((sum, day) => sum + day.items.length, 0);
-  const totalNavTargets = guide.itinerary.length + guide.sections.length + (guide.sources.length > 0 ? 1 : 0);
+  const hasAttachments = Boolean(guide.attachments && guide.attachments.length > 0);
+  const totalNavTargets = guide.itinerary.length + guide.sections.length + (guide.sources.length > 0 ? 1 : 0) + (hasAttachments ? 1 : 0);
 
   const origin = getSiteOrigin();
   const jsonLd = {
@@ -82,6 +89,7 @@ export default async function GuidePage({ params }: Props) {
             <CopyLink />
             <span className="meta-pill">{guide.days} 日行程</span>
             {totalStops > 0 && <span className="meta-pill">{totalStops} 个行程地点</span>}
+            {hasAttachments && <span className="meta-pill">{guide.attachments.length} 份出行文件</span>}
             {guide.sources.length > 0 && <span className="meta-pill">{guide.sources.length} 条参考来源</span>}
           </div>
         </div>
@@ -144,6 +152,16 @@ export default async function GuidePage({ params }: Props) {
                     参考资料
                   </a>
                 )}
+                {hasAttachments && (
+                  <>
+                    {(guide.itinerary.length > 0 || guide.sections.length > 0 || guide.sources.length > 0) && (
+                      <span className="day-jump-divider" aria-hidden="true" />
+                    )}
+                    <a className="day-jump-pill attachment-jump-pill" href="#attachments" title="路线文件与资料下载">
+                      路线与资料
+                    </a>
+                  </>
+                )}
               </nav>
             )}
           </div>
@@ -195,6 +213,40 @@ export default async function GuidePage({ params }: Props) {
             </section>
           );
         })}
+
+        {hasAttachments && (
+          <section className="section-block panel" id="attachments">
+            <div className="section-badge-wrapper"><span className="kind-badge">出行资料</span></div>
+            <h2>路线文件与资料下载</h2>
+            <ul className="attachments-list">
+              {guide.attachments.map((attachment) => (
+                <li className="attachment-card" key={attachment.id}>
+                  <div className="attachment-info">
+                    <div className="attachment-header">
+                      <span className={`attachment-badge badge-${attachment.type}`}>
+                        {attachment.type.toUpperCase()}
+                      </span>
+                      <strong className="attachment-name">{attachment.name}</strong>
+                      <span className="attachment-size">{formatFileSize(attachment.size)}</span>
+                    </div>
+                    {attachment.description && (
+                      <p className="attachment-desc">{attachment.description}</p>
+                    )}
+                  </div>
+                  <a
+                    className="button secondary attachment-download"
+                    href={attachment.publicUrl}
+                    download={attachment.name}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    下载文件 ↓
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section className="section-block panel" id="sources">
           <div className="section-badge-wrapper"><span className="kind-badge">参考来源</span></div>

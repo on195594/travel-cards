@@ -31,7 +31,7 @@ const origin = "https://travel.example.test";
 const redirectUri = "https://fake-client.example.test/callback?source=fixture";
 const session = { user: { id: "admin", email: "admin@example.test" } };
 const admin = { ...session, authKind: "session" as const, actorLabel: session.user.email };
-const scopes = "guide.read guide.create guide.update guide.publish image.upload";
+const scopes = "guide.read guide.create guide.update guide.publish image.upload attachment.upload";
 const legacyToken = "legacy-test-token-at-least-16-chars";
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 function ownedDb() {

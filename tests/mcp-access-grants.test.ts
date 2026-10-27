@@ -11,7 +11,7 @@ if (!runId || !/^[a-z0-9_]+$/.test(runId)) throw new Error("Run database tests t
 const admin: AdminActor = { authKind: "session", actorLabel: "admin@example.test", user: { id: "admin", email: "admin@example.test" } };
 const automation: AdminActor = { ...admin, authKind: "token", actorLabel: "api-token" };
 const readOnly: ApiActor = { authKind: "restricted-ai", actorLabel: "other-client", scopes: ["guide.read"] };
-const scopes = ["guide.read", "guide.create", "guide.update", "guide.publish", "image.upload"];
+const scopes = ["guide.read", "guide.create", "guide.update", "guide.publish", "image.upload", "attachment.upload"];
 const draft = {
   title: "杭州一日游", slug: "mcp-grant-hangzhou", destination: "杭州", excerpt: "西湖漫步", days: 1,
   coverImage: { objectKey: "guides/test.jpg", publicUrl: "https://images.example.test/test.jpg", alt: "西湖" },
@@ -141,7 +141,7 @@ describe("internal MCP access grant lifecycle (fake admin consent, isolated Mong
       await expect(callGuideTool(actor, name, input)).rejects.toMatchObject({ status: 403 });
     }
     expect(await ownedDb().collection("guides").countDocuments({ slug: draft.slug })).toBe(0);
-    for (const capability of ["guide.delete", "guide.unpublish", "image.upload", "assistant.use", "config.manage"] as const) {
+    for (const capability of ["guide.delete", "guide.unpublish", "image.upload", "attachment.upload", "assistant.use", "config.manage"] as const) {
       expect(() => assertCapability(actor, capability)).toThrow(expect.objectContaining({ status: 403 }));
     }
   });

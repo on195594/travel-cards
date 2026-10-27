@@ -10,7 +10,7 @@ const runId = process.env.TRAVEL_CARDS_TEST_RUN_ID;
 if (!runId || !/^[a-z0-9_]+$/.test(runId)) throw new Error("Run database tests through npm test");
 const origin = "https://travel.example.test";
 const admin = { authKind: "session" as const, actorLabel: "admin@example.test", user: { id: "admin", email: "admin@example.test" } };
-const allScopes = ["guide.read", "guide.create", "guide.update", "guide.publish", "image.upload"];
+const allScopes = ["guide.read", "guide.create", "guide.update", "guide.publish", "image.upload", "attachment.upload"];
 const draft = { title: "MCP HTTP 杭州", slug: "mcp-http-hangzhou", destination: "杭州", excerpt: "西湖漫步", days: 1, coverImage: { objectKey: "guides/test.jpg", publicUrl: "https://images.example.test/test.jpg", alt: "西湖" }, itinerary: [{ day: 1, title: "西湖", items: [{ place: "西湖", description: "步行" }] }] };
 function ownedDb() {
   if (!mongoose.connection.db || mongoose.connection.db.databaseName !== `travel_cards_test_${runId}`) throw new Error("Refusing non-test database access");
@@ -139,12 +139,12 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     expect((await POST(request(revoked.accessToken, rpc("tools/list")))).status).toBe(401);
   });
 
-  it("discovers 2026 capabilities without initialization and lists six scoped tools", async () => {
+  it("discovers 2026 capabilities without initialization and lists seven scoped tools", async () => {
     const g = await grant();
     // Calls work before discovery; no connection state or prior capabilities are required.
     const list = await (await POST(request(g.accessToken, rpc("tools/list")))).json();
     expect(list.result).toMatchObject({ resultType: "complete", ttlMs: 0, cacheScope: "private" });
-    expect(list.result.tools.map((t: { name: string }) => t.name)).toEqual(["list_guides", "get_guide", "create_guide", "update_guide", "publish_guide", "upload_image"]);
+    expect(list.result.tools.map((t: { name: string }) => t.name)).toEqual(["list_guides", "get_guide", "create_guide", "update_guide", "publish_guide", "upload_image", "upload_attachment"]);
     const res = await POST(request(g.accessToken, rpc("server/discover")));
     expect(res.status).toBe(200);
     expect((await res.json()).result).toMatchObject({
@@ -273,7 +273,7 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
     legacyList.headers.delete("Mcp-Method");
     const listRes = await POST(legacyList);
     expect(listRes.status).toBe(200);
-    expect((await listRes.json()).result.tools.length).toBe(6);
+    expect((await listRes.json()).result.tools.length).toBe(7);
 
     const legacyCall = request(g.accessToken, { jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "list_guides", arguments: {} } });
     legacyCall.headers.delete("MCP-Protocol-Version");
@@ -316,7 +316,7 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
       stdList.headers.delete("Mcp-Method");
       const stdListRes = await POST(stdList);
       expect(stdListRes.status).toBe(200);
-      expect((await stdListRes.json()).result.tools.length).toBe(6);
+      expect((await stdListRes.json()).result.tools.length).toBe(7);
 
       const stdCall = request(g.accessToken, { jsonrpc: "2.0", id: 9, method: "tools/call", params: { name: "list_guides", arguments: {} } }, { "MCP-Protocol-Version": stdVer });
       stdCall.headers.delete("Mcp-Method");

@@ -4,7 +4,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import type { Guide, GuideAnswer, GuideCandidate, GuideDraftInput, ImageUpload, SourceRef } from "@/lib/guides/schema";
+import type { Guide, GuideAnswer, GuideCandidate, GuideDraftInput, GuideAttachment, ImageUpload, SourceRef } from "@/lib/guides/schema";
 
 const blank: GuideDraftInput = {
   title: "",
@@ -14,6 +14,7 @@ const blank: GuideDraftInput = {
   itinerary: [{ day: 1, title: "", items: [{ place: "", description: "" }] }],
   sections: [],
   sources: [],
+  attachments: [],
 };
 
 function contentOf(guide: Guide): GuideDraftInput {
@@ -27,6 +28,7 @@ function contentOf(guide: Guide): GuideDraftInput {
     itinerary: guide.itinerary,
     sections: guide.sections,
     sources: guide.sources,
+    attachments: guide.attachments ?? [],
   };
 }
 
@@ -411,6 +413,51 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
         },
       }));
       setMessage({ kind: "success", text: "封面图片已上传；保存攻略后生效。" });
+    } finally {
+      finishOperation();
+    }
+  }
+
+  async function uploadAttachmentFile(file: File | undefined) {
+    if (!file || !beginOperation()) return;
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("name", file.name);
+      const schemas = await import("@/lib/guides/schema").catch(() => undefined);
+      if (!schemas) {
+        setMessage({ kind: "error", text: "附件组件加载失败，请重试。" });
+        return;
+      }
+      const result = await requestJson(
+        "/api/attachments",
+        {
+          method: "POST",
+          body: form,
+        },
+        (value): value is { attachment: GuideAttachment } =>
+          typeof value === "object" &&
+          value !== null &&
+          "attachment" in value &&
+          schemas.guideAttachmentSchema.safeParse((value as Record<string, unknown>).attachment).success,
+        60_000,
+        true
+      );
+      if (result.kind === "error") {
+        setMessage({ kind: "error", text: result.message });
+        return;
+      }
+      if (result.kind === "unknown") {
+        markGuideWriteUnknown(unknownWriteRef);
+        setUnknownWrite(true);
+        setMessage({ kind: "error", text: "附件上传结果未知，请勿直接重试；请先在对象存储中核对。" });
+        return;
+      }
+      setDraft((current) => ({
+        ...current,
+        attachments: [...(current.attachments ?? []), result.data.attachment],
+      }));
+      setMessage({ kind: "success", text: "附件已上传；保存攻略后生效。" });
     } finally {
       finishOperation();
     }
@@ -846,6 +893,52 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
             >
               添加来源
             </button>
+          </section>
+
+          <section className="form-section">
+            <div className="section-header">
+              <h2>路线轨迹与资料附件 (GPX / PDF)</h2>
+              <p>可上传 GPX/KML 路线航迹或 PDF 导览文档供用户在攻略详情页下载。</p>
+            </div>
+            {draft.attachments && draft.attachments.length > 0 && (
+              <ul className="attachments-list" style={{ marginBottom: "1rem" }}>
+                {draft.attachments.map((att, index) => (
+                  <li className="attachment-card" key={att.id || index}>
+                    <div className="attachment-info">
+                      <div className="attachment-header">
+                        <span className={`attachment-badge badge-${att.type}`}>
+                          {att.type.toUpperCase()}
+                        </span>
+                        <strong className="attachment-name">{att.name}</strong>
+                      </div>
+                      {att.description && <p className="attachment-desc">{att.description}</p>}
+                    </div>
+                    <button
+                      className="text-button"
+                      type="button"
+                      onClick={() => field("attachments", draft.attachments?.filter((_, i) => i !== index) ?? [])}
+                    >
+                      移除附件
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <label>
+              上传新附件（GPX / KML / PDF，单文件不超过 20 MiB）
+              <input
+                type="file"
+                accept=".gpx,.kml,.pdf,application/pdf,application/gpx+xml"
+                disabled={busy || unknownWrite}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) {
+                    uploadAttachmentFile(file);
+                    e.target.value = "";
+                  }
+                }}
+              />
+            </label>
           </section>
 
           <button type="submit" disabled={busy || unknownWrite}>

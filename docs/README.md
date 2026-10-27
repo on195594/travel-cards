@@ -19,8 +19,8 @@
 | `src/components/` | 公开卡片、搜索、攻略编辑器等共享 UI |
 | `src/lib/guides/` | schema / repository / service；`src/lib/guides.ts` 是仍被调用的统一导出 |
 | `src/lib/mcp/` | 工具、HTTP 适配、OAuth 客户端、授权码及令牌；不能仅按静态 import 数删除 |
-| `src/lib/ai/`、`src/lib/storage/` | 服务端 Gemini 候选助手、公网图片下载边界、响应式 WebP 衍生尺寸与 R2 上传 |
-| `tests/`、`scripts/` | 单测、集成、浏览器回归、隔离 MongoDB、REST/OAuth/MCP HTTP smoke、合成恢复演练、提交快照镜像构建/发布及密码生成；新增发布失败回归使用 fake Docker |
+| `src/lib/ai/`、`src/lib/storage/` | 服务端 Gemini 候选助手、公网图片与附件下载边界、响应式 WebP 衍生尺寸、路线轨迹（GPX/KML）与资料文档（PDF）存储及安全下载 |
+| `tests/`、`scripts/` | 单元与集成测试、隔离 MongoDB、REST/OAuth/MCP HTTP smoke、合成恢复演练、孤立存储清理与密码生成脚本；已清理过度 mock 的部署测试与未引用死代码脚本 |
 | `public/` | 现有静态资源；不能因无 TypeScript import 删除 |
 | 根配置文件 | Next.js、TypeScript、Vitest、ESLint、Docker/Compose 与依赖锁定；保留工具约定位置 |
 | `.impeccable/` | 已确认的代码优先构建配置；live setup 不代表实际启用 |
@@ -49,6 +49,6 @@
 
 - 代码实现、本地测试、历史上线、真实 Gemini 用户验收分别记录，互不替代。
 - 2026-10-27 当前可溯源发布为 `feb9d02`，运行镜像 ID、revision 与源码归档 SHA 一致，详见 [README](../README.md#当前状态)。[0dfe091 发布记录](./deployments/2026-10-23-review-fixes.md)与 `80a2b8a` 等记录仅覆盖历史版本。
-- 当前发布包含性能优化；该优化批次曾有 25 个测试文件、318 项测试及真实 AGY 审查 APPROVE。后续审查基线为 23 个文件、307 项；本轮修复后为 24 个文件、325 项，主机/Docker 默认构建、正式镜像 OAuth smoke 及隔离恢复通过。修复与依赖升级已发布，见[上线记录](./deployments/2026-10-27-maintenance-release.md)，不继承历史审查覆盖范围。
+- 当前发布包含性能优化与附件支持；应用自动化测试套件包含 26 个测试文件、334 项测试，全面覆盖攻略 CRUD、权限隔离、图片/附件安全校验与上传、OAuth/MCP 双协议闭环。已精简脱离应用职责的 fake docker 部署脚本测试及未引用浏览器脚本。修复与依赖升级已发布，见[上线记录](./deployments/2026-10-27-maintenance-release.md)，不继承历史审查覆盖范围。
 - 历史 `pending`、`NOT_RUN`、`APPROVE` 只表示当时批次；[2026-10-12 用户确认](./roadmaps/ai-client-integration.md#真实双端验收用户确认)仅覆盖历史协议。2026 协议迁移已部署，仍待真实客户端验收，不推定图片上传等专项通过。
 - 临时源码快照若不完全存在于 Git 历史，先保留可恢复归档，不能把源码清单的哈希当作源码备份。

@@ -7,6 +7,7 @@ import { callGuideTool, listGuideTools } from "@/lib/mcp/guide-tools";
 const runId = process.env.TRAVEL_CARDS_TEST_RUN_ID;
 if (!runId || !/^[a-z0-9_]+$/.test(runId)) throw new Error("Run database tests through npm test");
 const uploadImageMock = vi.fn();
+const uploadAttachmentMock = vi.fn();
 vi.mock("@/lib/storage/r2", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/storage/r2")>();
   return {
@@ -14,7 +15,14 @@ vi.mock("@/lib/storage/r2", async (importOriginal) => {
     uploadImage: (...args: Parameters<typeof actual.uploadImage>) => uploadImageMock(...args),
   };
 });
-const actor: ApiActor = { authKind: "restricted-ai", actorLabel: "fake-oauth-client", scopes: ["guide.read", "guide.create", "guide.update", "guide.publish", "image.upload"] };
+vi.mock("@/lib/storage/attachments", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/storage/attachments")>();
+  return {
+    ...actual,
+    uploadAttachment: (...args: Parameters<typeof actual.uploadAttachment>) => uploadAttachmentMock(...args),
+  };
+});
+const actor: ApiActor = { authKind: "restricted-ai", actorLabel: "fake-oauth-client", scopes: ["guide.read", "guide.create", "guide.update", "guide.publish", "image.upload", "attachment.upload"] };
 const validPngBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
 const draft = {
   title: "西湖一日游", slug: "mcp-tool-hangzhou", destination: "杭州", excerpt: "西湖漫步", days: 1,
@@ -40,18 +48,19 @@ afterAll(async () => {
 });
 
 describe("MCP Guide tool core (fake authenticated actor, real isolated persistence)", () => {
-  it("advertises exactly six tools with input JSON Schemas and honest write annotations", () => {
+  it("advertises exactly seven tools with input JSON Schemas and honest write annotations", () => {
     const tools = listGuideTools(actor);
-    expect(tools.map((tool) => tool.name)).toEqual(["list_guides", "get_guide", "create_guide", "update_guide", "publish_guide", "upload_image"]);
+    expect(tools.map((tool) => tool.name)).toEqual(["list_guides", "get_guide", "create_guide", "update_guide", "publish_guide", "upload_image", "upload_attachment"]);
     for (const tool of tools) {
       expect(tool.inputSchema).toMatchObject({ type: "object", additionalProperties: false });
       expect(tool.annotations.readOnlyHint).toBe(["list_guides", "get_guide"].includes(tool.name));
-      expect(tool.annotations.openWorldHint).toBe(tool.name === "upload_image");
+      expect(tool.annotations.openWorldHint).toBe(["upload_image", "upload_attachment"].includes(tool.name));
     }
     expect(tools.find((tool) => tool.name === "update_guide")!.description).toContain("never retry");
     expect(tools.find((tool) => tool.name === "create_guide")!.description).toContain("not verified");
     expect(tools.find((tool) => tool.name === "upload_image")!.description).toContain("cover image");
     expect(tools.find((tool) => tool.name === "upload_image")!.description).toContain("2 MiB total JSON request");
+    expect(tools.find((tool) => tool.name === "upload_attachment")!.description).toContain("GPX/KML route track or PDF");
   });
 
   it("creates, searches, reads, updates and publishes with the existing audit identity", async () => {
@@ -173,6 +182,72 @@ describe("MCP Guide tool core (fake authenticated actor, real isolated persisten
     await expect(callGuideTool(actor, "upload_image", { url: "https://[::1]/private.png", alt: "ssrf-ipv6" })).rejects.toMatchObject({ code: "INVALID_URL" });
     await expect(callGuideTool(actor, "upload_image", { url: "https://example.com/pic.png", data: validPngBase64, alt: "both" })).rejects.toMatchObject({ name: "ZodError" });
     await expect(callGuideTool(actor, "upload_image", { data: validPngBase64, alt: "rev-without-id", expectedRevision: 1 })).rejects.toMatchObject({ name: "ZodError" });
+  });
+
+  it("uploads standalone attachment and attaches to existing guide with update scope", async () => {
+    uploadAttachmentMock.mockResolvedValue({
+      objectKey: "attachments/test-track.gpx",
+      publicUrl: "https://images.example.test/test-track.gpx",
+      size: 1024,
+      type: "gpx",
+    });
+    const gpxContent = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1"><trk><name>西湖环线</name></trk></gpx>`;
+    const standalone = await callGuideTool(actor, "upload_attachment", {
+      name: "西湖环线.gpx",
+      type: "gpx",
+      content: gpxContent,
+      description: "环湖徒步航迹",
+    });
+    expect(standalone.structuredContent.attachment).toMatchObject({
+      name: "西湖环线.gpx",
+      type: "gpx",
+      publicUrl: "https://images.example.test/test-track.gpx",
+      description: "环湖徒步航迹",
+    });
+
+    const guide = await create();
+    uploadAttachmentMock.mockResolvedValue({
+      objectKey: "attachments/guide-map.pdf",
+      publicUrl: "https://images.example.test/guide-map.pdf",
+      size: 2048,
+      type: "pdf",
+    });
+    const pdfBase64 = Buffer.from("%PDF-1.4 test pdf content").toString("base64");
+    const attached = await callGuideTool(actor, "upload_attachment", {
+      name: "导览手册.pdf",
+      type: "pdf",
+      data: pdfBase64,
+      guideId: guide.id,
+      expectedRevision: guide.revision,
+      responseMode: "summary",
+    });
+    expect(attached.structuredContent.attachment).toMatchObject({
+      name: "导览手册.pdf",
+      type: "pdf",
+      publicUrl: "https://images.example.test/guide-map.pdf",
+    });
+    expect(attached.structuredContent.guide).toMatchObject({
+      id: guide.id,
+      revision: 2,
+    });
+    const reloaded = await getGuideById(guide.id);
+    expect(reloaded.attachments).toHaveLength(1);
+    expect(reloaded.attachments[0].name).toBe("导览手册.pdf");
+
+    // Scope check: attachment.upload without guide.update cannot update guide
+    const attachOnly: ApiActor = { ...actor, scopes: ["guide.read", "attachment.upload"] };
+    await expect(callGuideTool(attachOnly, "upload_attachment", {
+      name: "测试.gpx",
+      type: "gpx",
+      content: gpxContent,
+      guideId: guide.id,
+      expectedRevision: 2,
+    })).rejects.toMatchObject({ status: 403 });
+
+    // Zod error validations
+    await expect(callGuideTool(actor, "upload_attachment", { name: "test.gpx", type: "gpx" })).rejects.toMatchObject({ name: "ZodError" });
+    await expect(callGuideTool(actor, "upload_attachment", { name: "test.gpx", type: "gpx", content: gpxContent, url: "https://example.com/test.gpx" })).rejects.toMatchObject({ name: "ZodError" });
+    await expect(callGuideTool(actor, "upload_attachment", { name: "test.gpx", type: "gpx", content: gpxContent, guideId: guide.id })).rejects.toMatchObject({ name: "ZodError" });
   });
 
   it("rejects unknown actor kinds before validation or database access", async () => {

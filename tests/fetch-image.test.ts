@@ -80,6 +80,11 @@ describe("public HTTPS image download with fake DNS and TLS transport", () => {
     const [url, options] = transport.get.mock.calls[0];
     expect(url.hostname).toBe("images.example.test");
     expect(options).toMatchObject({ agent: false });
+    expect(options.headers).toMatchObject({
+      "User-Agent": "Mozilla/5.0 (compatible; TravelCardsBot/1.0; +https://travel.keyi.win)",
+      "Accept": "image/webp,image/png,image/jpeg;q=0.9,image/*;q=0.8",
+      "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    });
     expect(options.rejectUnauthorized).not.toBe(false);
     expect(responses[0].destroyed).toBe(true);
   });
@@ -107,6 +112,42 @@ describe("public HTTPS image download with fake DNS and TLS transport", () => {
     for (const code of ["FILE_TOO_LARGE", "FILE_TOO_LARGE", "INVALID_IMAGE"]) {
       await expect(fetchImageFromUrl("https://images.example.test/cover.png")).rejects.toMatchObject({ code });
     }
+    expect(responses.every((response) => response.destroyed)).toBe(true);
+  });
+
+  it("retries once on 429 and succeeds if the second attempt succeeds", async () => {
+    replies.push({ status: 429 }, { status: 200, body: png });
+    const result = await fetchImageFromUrl("https://images.example.test/cover.png");
+    expect(result).toEqual({ bytes: png, mime: "image/png" });
+    expect(connected).toHaveLength(2);
+    expect(responses.every((response) => response.destroyed)).toBe(true);
+  });
+
+  it("retries once on 503 and succeeds if the second attempt succeeds", async () => {
+    replies.push({ status: 503 }, { status: 200, body: png });
+    const result = await fetchImageFromUrl("https://images.example.test/cover.png");
+    expect(result).toEqual({ bytes: png, mime: "image/png" });
+    expect(connected).toHaveLength(2);
+    expect(responses.every((response) => response.destroyed)).toBe(true);
+  });
+
+  it("aborts retry when Retry-After exceeds immediate budget", async () => {
+    replies.push({ status: 429, headers: { "retry-after": "60" } });
+    await expect(fetchImageFromUrl("https://images.example.test/cover.png")).rejects.toMatchObject({
+      code: "IMAGE_FETCH_FAILED",
+      message: "获取图片失败 (HTTP 429)",
+    });
+    expect(connected).toHaveLength(1);
+    expect(responses.every((response) => response.destroyed)).toBe(true);
+  });
+
+  it("fails with IMAGE_FETCH_FAILED when 429 retries are exhausted", async () => {
+    replies.push({ status: 429 }, { status: 429 });
+    await expect(fetchImageFromUrl("https://images.example.test/cover.png")).rejects.toMatchObject({
+      code: "IMAGE_FETCH_FAILED",
+      message: "获取图片失败 (HTTP 429)",
+    });
+    expect(connected).toHaveLength(2);
     expect(responses.every((response) => response.destroyed)).toBe(true);
   });
 

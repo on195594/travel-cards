@@ -69,6 +69,7 @@ function contentOf(guide: Guide): GuideDraftInput {
     itinerary: guide.itinerary,
     sections: guide.sections,
     sources: guide.sources,
+    attachments: guide.attachments ?? [],
   });
 }
 

@@ -6,4 +6,5 @@ export const OAUTH_SCOPE_LABELS: Record<AiGuideScope, string> = {
   "guide.update": "修改攻略，包括已发布内容",
   "guide.publish": "直接发布攻略",
   "image.upload": "上传与替换攻略图片",
+  "attachment.upload": "上传与管理攻略附件（GPX/PDF）",
 };

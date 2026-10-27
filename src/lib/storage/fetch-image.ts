@@ -39,6 +39,7 @@ export async function fetchImageFromUrl(rawUrl: string) {
     throw new HttpError(400, "INVALID_URL", "图片 URL 格式无效");
   }
   const signal = AbortSignal.timeout(15_000);
+  let retriesLeft = 1;
   try {
     for (let hop = 0; hop < 5; hop++) {
       if (target.protocol !== "https:" || target.username || target.password) {
@@ -53,7 +54,11 @@ export async function fetchImageFromUrl(rawUrl: string) {
         const request = get(target, {
           agent: false,
           signal,
-          headers: { "User-Agent": "TravelCards-Bot/1.0" },
+          headers: {
+            "User-Agent": "Mozilla/5.0 (compatible; TravelCardsBot/1.0; +https://travel.keyi.win)",
+            "Accept": "image/webp,image/png,image/jpeg;q=0.9,image/*;q=0.8",
+            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+          },
           lookup(host, options, callback) {
             lookup(host, { all: true }).then((addresses) => {
               if (signal.aborted) return callback(signal.reason, "", 4);
@@ -78,6 +83,34 @@ export async function fetchImageFromUrl(rawUrl: string) {
           } catch {
             throw new HttpError(400, "INVALID_URL", "重定向目标地址无效");
           }
+          continue;
+        }
+        if ((status === 429 || status === 503) && retriesLeft > 0) {
+          retriesLeft--;
+          hop--;
+          let delayMs = 1000;
+          const retryAfterHeader = response.headers["retry-after"];
+          if (retryAfterHeader) {
+            const seconds = Number.parseInt(retryAfterHeader, 10);
+            if (Number.isFinite(seconds) && seconds > 0) {
+              if (seconds > 5) {
+                throw new HttpError(400, "IMAGE_FETCH_FAILED", `获取图片失败 (HTTP ${status})`);
+              }
+              delayMs = seconds * 1000;
+            }
+          }
+          signal.throwIfAborted();
+          await new Promise<void>((resolve, reject) => {
+            const timer = setTimeout(() => {
+              signal.removeEventListener("abort", onAbort);
+              resolve();
+            }, delayMs);
+            const onAbort = () => {
+              clearTimeout(timer);
+              reject(signal.reason);
+            };
+            signal.addEventListener("abort", onAbort, { once: true });
+          });
           continue;
         }
         if (status < 200 || status >= 300) throw new HttpError(400, "IMAGE_FETCH_FAILED", `获取图片失败 (HTTP ${status})`);

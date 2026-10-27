@@ -1,7 +1,7 @@
 # Travel Cards MVP Specification
 
 - **状态**：核心应用、MCP 权限/工具/令牌与 OAuth/DCR/PKCE 已实现；正式 `/mcp` 支持 2026 协议并向后兼容标准 MCP。双协议自 `0dfe091` 上线，2026-10-27 当前运行版本为包含审查修复及安全依赖升级的 `feb9d02`，镜像 revision/源码归档哈希一致；真实 Gemini 客户端双端验收待重新验证，生产状态以 README 的实测记录为准
-- **更新日期**：2026-10-27（用户授权落实行程日期、MCP 错误 CORS、发布回滚与隔离验收修复；同日获上线授权后已验证并部署 `feb9d02`）
+- **更新日期**：2026-10-27（完成线上日志排查、外链图片拉取 429 退避重试加固、孤立图片扫描清理工具与 Claude 审查修复；生产运行版本 `feb9d02`）
 - **项目根目录**：`/home/lin/travel-cards`
 - **产品语言**：首版中文界面与中文内容
 
@@ -59,7 +59,7 @@
 
 - 保留 3.2 的现有 API Token 接口，**包括有效 Token 调用 DELETE 删除攻略的能力**，不因后续 MCP 接入而移除。新增 MCP 使用独立受限 AI 身份；外部客户端只通过受鉴权应用接口调用共享 Guide 业务规则，不直接访问 MongoDB。
 - 受限外部 AI 身份允许读取、创建、修改及直接发布攻略；发布仍须通过现有完整性、slug 唯一性及 revision 校验，不额外要求管理员在应用内审核。不得绕过客户端自身的写入确认。
-- 外部 AI 禁止删除攻略或修改应用配置；管理员保留删除及配置管理权限。撤回暂不开放；图片上传与替换能力已由 2026-10-10 用户授权开放（提供 `upload_image` 工具用于上传封面及替换攻略图片，需 `image.upload` 权限）。
+- 外部 AI 禁止删除攻略或修改应用配置；管理员保留删除及配置管理权限。撤回暂不开放；图片上传与替换能力已由 2026-10-10 用户授权开放（提供 `upload_image` 工具用于上传封面及替换攻略图片，需 `image.upload` 权限）；附件上传与路线轨迹能力已由 2026-10-27 用户授权开放（提供 `upload_attachment` 工具用于上传 GPX/KML 路线与 PDF 文档供用户下载，需 `attachment.upload` 权限，直接追加至攻略还需 `guide.update`）。
 - **认证边界**：当前 API Token 属于管理员等价凭证，仍可调用 DELETE；管理员 REST 有意拒绝受限 MCP 凭证，外部 AI 通过正式 `/mcp` 调用共享业务规则。能力守卫、长效令牌及 OAuth/DCR/PKCE 管理员同意/撤销已实现，业务 MCP HTTP adapter 有历史上线与双端用户验收记录；新环境开关默认关闭。后续扩展仍须落实服务端能力隔离并验证禁止操作；只不展示删除工具不能满足权限要求。
 - 首个客户端目标为 Gemini 网页及手机 App，不能用 Gemini API / CLI 联调代替。账号、地区、语言、服务端认证与客户端兼容性均需真实验收，详见 `docs/roadmaps/ai-client-integration.md`。
 - 认证实现按 Gemini 官方帮助支持的 OAuth + Dynamic Client Registration（DCR）方向推进，不再以用户逐屏截图为开发前置条件。DCR 注册不授予攻略权限，仍需管理员同意客户端授权、精确 resource/audience 与 scopes 校验及服务端撤销；不能复用管理员 Token。方向与实现状态见 `docs/decisions/2026-10-09-gemini-mcp-auth.md`，授权服务器与业务 MCP 已实现并上线，用户已确认真实 Gemini 双端验收完成，记录见[接入路线图](./docs/roadmaps/ai-client-integration.md#真实双端验收用户确认)；此结论不是由服务端上线或单测推定。
@@ -68,7 +68,7 @@
 
 - 内部签发/撤销函数仅接受已认证管理员 Session；默认关闭的 `/api/oauth/token` 仅从已验证客户端注册、管理员明确同意、S256 PKCE 与一次性授权码流程签发，不能仅凭客户端自报标识、Cookie 或旧管理员 Token 获得令牌。
 - 访问令牌为服务端生成的随机、长效 opaque 凭证（默认 100 年长效持久，2026-10-10 用户指示：为保证 Gemini 客户端接入后长效可用且请求不过期，经管理员同意授权的 OAuth 客户端注册与受限访问令牌均保持长效持久；管理员仍可通过后台随时主动撤销客户端及令牌），数据库仅存 SHA-256 摘要、client ID、授权 scopes、精确资源 URI 和过期/撤销状态；明文仅在签发返回值中提供一次，不进入日志或模型提示词。这是动态授权产物，不改变环境变量管理既有管理员 API Token/第三方密钥的规则。
-- scopes 仅限 `guide.read/create/update/publish` 及 `image.upload`，按实际授权取子集；读取为工具发现所需的基础 scope。缺少或不匹配 scopes 默认拒绝，不因 `restricted-ai` 角色自动获得全部批准能力。
+- scopes 仅限 `guide.read/create/update/publish`、`image.upload` 及 `attachment.upload`，按实际授权取子集；读取为工具发现所需的基础 scope。缺少或不匹配 scopes 默认拒绝，不因 `restricted-ai` 角色自动获得全部批准能力。
 - 令牌绑定由服务端 `AUTH_URL` 确定的正式 `/mcp` 资源，不接受任意客户端 resource，不用于公开探针或管理员 REST。正式 OAuth 认证逐次查询有效令牌及 active 客户端授权，拒绝裸内部令牌；TTL 清理延迟不能延长权限。撤销阻止其后开始的认证，不能取消已通过认证的在途操作。
 - 不提供 refresh token；fake 客户端与隔离 MongoDB 测试不能代替 Gemini 双端验收。内部签发函数不等于可直接向外部客户端授权，正式接入须满足下节。
 
@@ -76,12 +76,12 @@
 
 - 使用成熟 OAuth 服务端库提供仅授权码模式，强制 S256 PKCE、精确注册的 HTTPS redirect URI、`state`、规范 MCP `resource` 与批准 scopes。不启用 implicit、密码、client credentials 或 refresh grant。
 - DCR 支持 public `none` 及 `client_secret_basic` / `client_secret_post`；缺省按注册规范使用 basic。动态 secret 仅签发时返回，数据库仅存摘要。注册不授权内容；注册入口限制实际请求体与每小时全局配额，注册和授权记录默认长效保持（100 年，2026-10-10 用户指示），管理员可随时主动撤销。
-- DCR 省略 `scope` 时，可申请范围默认仅为 `guide.read guide.create guide.update guide.publish image.upload`（2026-10-10 用户批准增加图片上传能力）；显式 scope 保持其子集限制，空值/未知权限仍拒绝。此范围不是授权，必须经过管理员同意才可签发对应令牌；授权请求省略 scope 仍默认只读。已有注册与令牌不自动扩权。
+- DCR 省略 `scope` 时，可申请范围默认仅为 `guide.read guide.create guide.update guide.publish image.upload attachment.upload`（2026-10-10 批准增加图片上传能力，2026-10-27 批准增加 GPX/PDF 附件上传能力）；显式 scope 保持其子集限制，空值/未知权限仍拒绝。此范围不是授权，必须经过管理员同意才可签发对应令牌；授权请求省略 scope 仍默认只读。已有注册与令牌不自动扩权。
 - 管理员在登录后看到未验证客户端名称、精确回调地址与权限，明确同意后才生成一次性 5 分钟授权码。确认意图同样短效、单次消费且服务器存储；表单不能自报 scopes、角色或客户端。所有同意/撤销 POST 校验管理员 Session 与固定服务端同源，旧管理员 Token 不能代替同意。
 - 客户端撤销持久化并统一使其已有授权码、令牌及尚未确认的授权意图失效；已撤销客户端需重新注册并获得明确同意。并发换码最多成功一次，撤销阻止后续认证，不取消已认证的在途工作。
 - 路由边界（2026-10-10 用户确认）：`/api/*` 保留 REST API（含 `/api/oauth/*`），`/mcp` 为唯一正式业务 MCP 入口；路径式资源元数据为 `/.well-known/oauth-protected-resource/mcp`。不保留旧 `/api/mcp` 或旧路径式元数据别名，不重写既有授权记录；旧 resource 的意图、授权码和令牌须拒绝，客户端重新授权。公开 `/api/mcp-probe` 保持独立且不变。
 - 正式 `/mcp` 仅接受已批准、绑定 active 客户端授权的受限令牌，不接受裸内部令牌、管理员 Token 或 Cookie。发现、注册、授权/换码、业务 MCP 由环境开关 `MCP_OAUTH_ENABLED=true` 启用，默认关闭；无效令牌 401、权限不足 403 并提供标准 discovery challenge，409 等业务错误保留原代码且不自动重试。
-- 本批增加管理员授权列表/撤销和授权同意页面，复用既有样式。OAuth 不要求逐篇发布审批；外部 AI 的操作范围仍仅 Guide read/create/update/publish 与 image.upload。
+- 本批增加管理员授权列表/撤销和授权同意页面，复用既有样式。OAuth 不要求逐篇发布审批；外部 AI 的操作范围仍仅 Guide read/create/update/publish、image.upload 与 attachment.upload。
 - 先完成本地 fake 客户端完整流程、输入/重放/并发/撤销/跨资源/REST 绕过回归及 AGY 审查。生产部署、开关启用、真实账号和 Gemini 双端验收需单独授权，不修改既有生产凭证。
 
 #### 3.3.3 MCP 双协议支持与向后兼容（2026-10-22 用户确认）
@@ -278,10 +278,11 @@ type AiResult<T> =
 - `published` 攻略必须有标题、slug、目的地、简介、带 alt 的封面图片和至少一天行程；
 - 来源 URL 必须是 `http` 或 `https`；
 - `sources[].accessedAt` 输出仍为 ISO datetime；现有输入归一化支持 `YYYY-MM-DD` 及常见日期时间格式，无时区时按 UTC 解释，带时区时转换为 UTC，拒绝无效日历日期。该说明对应 `f0c870b` 已有实现，不改变来源可信度或 grounding 契约。
-- 图片只存 R2 object key、公开 URL 和 alt 文本，不把二进制写入 MongoDB；
-- 删除攻略不会默认删除可能被复用的 R2 对象，孤儿清理后置为显式维护任务。
+- 图片与附件只存 R2 object key、公开 URL 和元数据，不把二进制写入 MongoDB；
+- 附件（attachments）包括路线轨迹（GPX/KML）及路书与导览文档（PDF 等），包含 `id`、`name`、`type`、`size`、`objectKey`、`publicUrl` 及可选 `description`；公开详情页提供下载卡片，上传存储时强制设置 `Content-Disposition: attachment; filename=...` 防止同源脚本解析安全风险。
+- 删除攻略不会默认删除可能被复用的 R2 对象，孤儿清理后置为显式维护任务（提供 `scripts/cleanup-orphaned-images.mjs` 手动运维脚本，扫描时同时比对封面及 attachments 引用的 objectKey，默认 `--dry-run` 预览，执行需显式声明 `--execute`，默认保护 24 小时内上传对象并在删除批次前二次复核数据库防竞态误删，不作为自动化后台任务）。
 - `revision` 从 1 开始；管理端 PATCH 必须提交读取时的 revision，冲突时返回 409 并保留双方内容，避免多标签页静默覆盖。
-- 应用内 AI 候选不生成 `slug`、`coverImage`、状态、revision 或时间戳；图片通过受鉴权上传接口提供，外部 AI 使用已批准的 image.upload scope 调用 upload_image；应用内候选助手不获得上传能力。
+- 应用内 AI 候选不生成 `slug`、`coverImage`、`attachments`、状态、revision 或时间戳；图片与附件通过受鉴权上传接口提供，外部 AI 使用已批准的 `image.upload` / `attachment.upload` scope 分别调用 `upload_image` / `upload_attachment`；应用内候选助手不获得上传能力。
 
 ## 6. 技术边界
 
@@ -290,7 +291,7 @@ type AiResult<T> =
 - **认证**：Auth.js 单管理员 Credentials 流；密码使用不可逆哈希校验，session cookie 采用安全默认值。
 - **AI**：Google Gemini Interactions API；具体稳定模型由 `GEMINI_MODEL` 配置，默认值在实现时依据官方支持列表确定并由测试覆盖。
 - **联网来源**：Gemini Google Search grounding；UI 展示官方响应中的 grounding 来源。
-- **图片**：Cloudflare R2 S3-compatible API。首版采用同源、服务端中转上传：Next.js Route Handler 先验证管理员、声明 MIME、文件签名与实际字节数，再以服务端凭证写入 R2。单个图片文件上限为 10 MiB，multipart 请求总包络上限为 `10 MiB + 64 KiB`，只允许 `image/jpeg`、`image/png`、`image/webp`；object key 由服务端生成。单管理员小图片场景不引入 presigned URL、R2 CORS 或 Worker 上传代理。
+- **图片与附件存储**：Cloudflare R2 S3-compatible API。首版采用同源、服务端中转上传：Next.js Route Handler 先验证管理员/Token/Scope、声明 MIME、文件签名/内容与实际字节数，再以服务端凭证写入 R2。单个图片文件上限为 10 MiB，只允许 `image/jpeg`、`image/png`、`image/webp`；单个轨迹文件（GPX/KML）上限为 10 MiB，PDF 上限为 20 MiB；附件写入 R2 时必须指定 `Content-Disposition: attachment`。object key 由服务端生成，分别按 `guides/` 和 `attachments/` 路径前缀隔离存储。单管理员小文件场景不引入 presigned URL、R2 CORS 或 Worker 上传代理。
 - **运行目标**：本地 Docker Compose 只启动 Web，并接入 Meemo 已运行的 MongoDB。R2 和 Gemini 使用真实远端服务，但测试默认使用 fake transport。
 
 ## 7. 服务端接口边界
@@ -303,6 +304,7 @@ type AiResult<T> =
 - `POST /api/guides/[id]/publish`：管理员或携带有效 Token 请求显式发布；
 - `POST /api/guides/[id]/unpublish`：管理员或携带有效 Token 请求显式撤回为草稿，并清空 publishedAt；
 - `POST /api/uploads`：管理员或携带有效 Token 请求上传一张受限图片，服务端校验后写入 R2；
+- `POST /api/attachments`：管理员或携带有效 Token/attachment.upload 请求上传一份受限附件（GPX/KML/PDF 等），服务端校验白名单和文件头后写入 R2；
 - `POST /api/ai/generate`：生成攻略候选；
 - `POST /api/ai/revise`：生成调整候选；
 - `POST /api/ai/answer`：基于攻略问答；
@@ -317,7 +319,7 @@ type AiResult<T> =
 - API Token 长度不得少于 16 个字符，校验采用常数时间比较防范时序攻击。
 - `.env*`（示例文件除外）不得提交 Git。
 - 所有 JSON 写请求在鉴权和同源校验后、解析前限制为 2 MiB；缺失或不可信的长度仍执行有界流式读取。上传 Route Handler 必须在读 body 前拒绝已声明超过 `10 MiB + 64 KiB` multipart 包络上限的请求；对缺失或不可信的长度仍执行有界流式读取，并在解析后独立拒绝实际图片文件超过 10 MiB 的请求。同时校验 MIME 与文件签名一致。object key 由服务端生成，不接受任意路径。
-- MCP 图片 URL 下载仅接受无用户凭证的 HTTPS；每次重定向都重新校验主机及全部 DNS 地址，并将通过校验的地址固定用于该次 TLS 连接，保留原主机的证书校验。拒绝内网、回环、链路本地、保留地址及 IPv6 映射/隧道特殊地址；最多请求 5 跳，整个下载共用 15 秒期限，实际流量仍限制为 10 MiB。替换封面所需权限在下载与上传前校验。
+- MCP 图片 URL 下载仅接受无用户凭证的 HTTPS；每次重定向都重新校验主机及全部 DNS 地址，并将通过校验的地址固定用于该次 TLS 连接，保留原主机的证书校验。拒绝内网、回环、链路本地、保留地址及 IPv6 映射/隧道特殊地址；最多请求 5 跳，整个下载共用 15 秒期限，实际流量仍限制为 10 MiB（遇到 429/503 瞬态限流增加至多 1 次轻量退避重试且不计入跳数；若 Retry-After 超过 5 秒合理预算或总超时已到期则不予重试）。替换封面所需权限在下载与上传前校验。
 - 发布镜像从明确提交的源码归档构建，记录完整 Git revision 与归档 SHA-256；发布构建入口校验镜像标签，不能把未提交文件纳入快照，也不自动部署或覆盖已有发布标签。源码修复不等于已更换线上镜像。
 - Markdown 或结构化正文渲染必须防止脚本注入；不允许未经净化的 HTML。
 - AI 请求不得接收任意系统提示词或工具定义；用户内容作为不可信数据处理。

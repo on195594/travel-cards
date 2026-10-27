@@ -1,14 +1,14 @@
 import type { AdminActor } from "@/lib/admin";
 import { HttpError } from "@/lib/http";
 
-export const AI_GUIDE_SCOPES = ["guide.read", "guide.create", "guide.update", "guide.publish", "image.upload"] as const;
+export const AI_GUIDE_SCOPES = ["guide.read", "guide.create", "guide.update", "guide.publish", "image.upload", "attachment.upload"] as const;
 export type AiGuideScope = typeof AI_GUIDE_SCOPES[number];
 
 // This is an authenticated principal, never a role supplied in a request body or header.
 export type ApiActor = AdminActor | { authKind: "restricted-ai"; actorLabel: string; scopes: readonly AiGuideScope[] };
 export type ApiCapability =
   | "guide.read" | "guide.create" | "guide.update" | "guide.publish"
-  | "guide.unpublish" | "guide.delete" | "image.upload" | "assistant.use" | "config.manage";
+  | "guide.unpublish" | "guide.delete" | "image.upload" | "attachment.upload" | "assistant.use" | "config.manage";
 
 const grants: Record<ApiCapability, readonly ApiActor["authKind"][]> = {
   "guide.read": ["session", "token", "restricted-ai"],
@@ -18,6 +18,7 @@ const grants: Record<ApiCapability, readonly ApiActor["authKind"][]> = {
   "guide.unpublish": ["session", "token"],
   "guide.delete": ["session", "token"],
   "image.upload": ["session", "token", "restricted-ai"],
+  "attachment.upload": ["session", "token", "restricted-ai"],
   "assistant.use": ["session", "token"],
   "config.manage": ["session"],
 };
