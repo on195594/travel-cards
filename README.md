@@ -12,7 +12,7 @@
 - MCP 提供 list/get/create/update/publish 五个攻略工具及 `upload_image`。独立 `image.upload` scope 控制上传；直接替换封面还需 `guide.update` 和 expectedRevision，禁止删除、撤回及配置管理。
 - 正式 `/mcp` 已部署双协议：现代 2026 协议（`server/discover`、逐请求 `_meta` 与 HTTP 头绑定、`resultType: complete`）及标准 MCP 兼容模式（`initialize`、`notifications/*`、`ping`）。历史双协议镜像已通过隔离 HTTP/OAuth 测试；每个受限令牌的工具调用上限为 120 次/分钟，超限返回 429 / Retry-After。见[协议与补充说明](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
 - OAuth/DCR/PKCE、管理员同意/撤销已实现。新环境默认关闭，当前生产显式启用。令牌与客户端注册默认 100 × 365 天有效，并非永不过期；无 refresh token。旧注册与令牌不自动扩权或续期，需要重新注册授权。
-- 2026-10-27 只读核对：当前应用发布为 `6a5f28d045ff1e13ffe6340a24279bba05656fb2`，容器自 2026-10-23 北京时间 21:36 启动。运行镜像 ID 为 `sha256:61b6a6aff597b0220dd4183e83f2bb12a0402ef4500d145051b5631aeaa1c479`；镜像 revision 与 `git archive` 的 SHA-256 `7e60d5cea79a56b843dca9dafb5fb91cbe69fa7159f1c406a46daafbcad9803c` 均匹配。该版本包含性能优化和 [OAuth 连接修复](./docs/reviews/2026-10-23-gemini-oauth-handshake-troubleshooting.md)。
+- 2026-10-27 北京时间 09:51 已发布 `feb9d02768402e1fe16d3719d076b296d2836240`：包含行程日期、MCP 错误 CORS、发布回滚修复及安全依赖升级。运行镜像 `sha256:918dcc4c9a8c2565d2eff44875159de97458a255f256029da16c5ed60a60936d`，revision 与源码归档 SHA 匹配；[发布、验证与回滚记录](./docs/deployments/2026-10-27-maintenance-release.md)。
 - `0dfe091` 的图片下载、编辑保护及搜索反馈修复已包含在当前版本；该批的镜像隔离 HTTP/OAuth 测试、25 项公网检查和回滚信息保留在[历史发布记录](./docs/deployments/2026-10-23-review-fixes.md)。历史测试不自动覆盖后续提交；当前检查范围见下方记录。
 - 历史协议的真实 Gemini 网页/手机双端验收已完成，依据为 2026-10-12 用户确认，见[验收状态记录](./docs/roadmaps/ai-client-integration.md#真实双端验收用户确认)。2026 协议的真实客户端兼容性待重新验收；图片上传专项未单独确认，非敏感配置后台尚未实现。
 - 历史核心实现与内部令牌审查分别见[核心审查](./docs/reviews/agy-final-implementation/closeout.md)、[7cc88f8 审查](./docs/reviews/agy-7cc88f8/closeout.md)；历史 APPROVE 仅覆盖当时范围。
@@ -31,35 +31,30 @@ Impeccable 已初始化 `PRODUCT.md`，用户选择的新页面构建默认是�
 
 ## 运行核对与推进建议（2026-10-27）
 
-先完成只读审查及文档对齐，再按用户授权修复下列问题。改动与验证均在本地，未提交、部署或写入生产数据；生产版本仍为上方 `6a5f28d`。目录职责见 [docs/README](./docs/README.md)。
+审查、文档对齐、修复和上线均已完成。当前版本为 `feb9d02`；仅更新 Web，共用 MongoDB/Nginx 未重启，凭证、OAuth 开关、端口、网络别名和日志轮转保持。六篇公开攻略的响应内容在切换前后完全一致。目录职责与清理边界见 [docs/README](./docs/README.md)。
 
-- 容器 `RestartCount=0`、未 OOM；单次资源采样约 75 MiB 内存、0.08% CPU，只表示采样瞬间，不能推导峰值或容量。
-- 检查前的 Nginx 访问日志窗口为 UTC 10-23 00:04 至 10-26 18:29，共 460 次请求，没有 5xx，有 4 次 499（客户端关闭连接）。61 次 404 多为不存在的静态路径；这些请求包含探测流量，不能当作真实用户数。该窗口的错误日志只有两次请求体落临时文件的 warn，不据此调整缓冲参数。
-- 当前容器日志有一次 OAuth 授权、一次发令牌、两次受限 AI 成功更新；另有一次工具参数拒绝（行程缺少 `title/items`）和一条依赖弃用警告。成功更新证明链路曾可用，不证明每个平台或全部专项通过。
-- 源站九项只读检查符合预期：公开页/列表/健康/授权元数据 200，公开列表 6 篇，未授权管理 API 与 MCP 401，允许来源 OPTIONS 204，旧 MCP 路由 404。公网同样九项在浏览器 User-Agent 下符合预期；Python 默认 User-Agent 请求被 Cloudflare 返回 403。这是当前探测差异，未确认具体边缘规则，也不能直接推定 Gemini 被阻断。
+本次上线包含：
 
-本地已完成：
+1. 编辑器按实际日期保留稀疏/乱序行程；缩短已填写行程先确认，取消和未修改失焦保留内容。
+2. 两种 MCP 协议的工具错误响应补齐允许来源 CORS，可读取授权挑战与 `Retry-After`。
+3. 发布脚本验证 Git revision/归档 SHA、固定镜像 ID，失败恢复原运行配置并核验健康；修复 Docker 空 IPAM 对象误拒绝。
+4. 恢复 `test:oauth` 和 `test:recovery`，覆盖隔离协议闭环及合成数据恢复。
+5. Next.js / eslint-config-next 16.4.3、Zod 4.6.7、Vitest 4.1.12（Vite 8.3.5）；本次 `npm audit` 已知漏洞 0。
 
-1. 编辑器按 `day` 保留稀疏/乱序行程的日期，缩短时按实际日期确认删除，取消及未修改的失焦操作保持原内容。
-2. 两种 MCP 协议的工具错误响应保留允许来源的 CORS 头，浏览器可读取授权挑战与 `Retry-After`；权限和限流语义不变。
-3. 发布脚本校验已有镜像的 revision/源码归档 SHA，固定 image ID 贯穿 OAuth 预检与切换；切换或健康失败恢复原镜像和运行配置，并复查回滚健康。
-4. 恢复 `test:oauth` 与 `test:recovery`。前者覆盖 REST、双协议、PKCE、三种客户端认证、权限、409、撤销与 CORS；后者只使用合成攻略、图片及独立 MongoDB 验证恢复和旁路数据保持。
-
-| 本轮检查 | 结果与边界 |
+| 检查 | 结果与边界 |
 | --- | --- |
-| `npm test` | 24 个文件、324 项通过；其中发布失败回归 11 项使用 fake Docker/curl/npm |
-| lint、TypeScript 未使用符号、Compose、相对文件链接、差异检查 | 通过 |
-| 默认 `npm run build` | 主机 Turbopack 仍遇端口 `EPERM`；项目原 Dockerfile 内的同一默认 Turbopack 构建及 TypeScript 检查通过，未切换默认构建器或跳过检查 |
-| 新验证镜像的 `test:oauth` | 通过；包含 REST HTML/RSC 可见性、OAuth/MCP 及数据库故障/恢复；fake 账号和隔离 MongoDB |
-| `npm run test:recovery` | 两篇合成攻略、4 个索引和图片字节恢复一致；校验和、损坏检测及 sentinel 不变通过 |
-| 本地浏览器 | 稀疏/乱序行程扩展、缩短取消/确认、未修改失焦、保存及重载通过；390/1440px 无横向溢出，保持现有视觉 |
-| 回滚配置 | fake 失败路径通过；真实 Compose 合成容器核对字面量 `$`、换行及 OAuth 环境，未启动或替换生产容器 |
+| `npm test` | 24 个文件、325 项通过，含 12 项 fake 发布/回滚回归 |
+| lint、typecheck、默认 `npm run build`、Dockerfile 构建、Compose | 通过；此前主机 Turbopack EPERM 本次未复现 |
+| 正式固定镜像 `test:oauth` | REST、双协议、PKCE、三种认证、权限/409/撤销/CORS、数据库故障恢复通过；合成账号与独立 MongoDB |
+| `test:recovery` | 合成攻略、索引、图片、校验和、损坏检测及 sentinel 不变通过 |
+| 正式镜像隔离浏览器 | 登录拒绝/成功、稀疏行程调整、保存重载、退出保护；390/1440px 编辑器与公开页无溢出 |
+| 上线后 | 源站/公网各 28 项检查通过；新容器健康，无重启/OOM，初次日志汇总无错误/警告 |
 
-本地验证镜像为 `travel-cards:review-20261027`，image ID `sha256:5b7fb3e9780f41d9211067fa6d97763c4c633a8fe1c5472be8a045f1a697fd14`。它来自未提交工作树，仅用于本轮功能验证，标签明确标记 `working-tree-review-20261027`，不符合正式发布的 Git revision/归档要求；部署前仍须提交已审查源码、构建固定提交镜像并重跑预检。未调用真实 Gemini/R2、未完成当前版本双端专项或生产恢复。
+发布前日志窗口（UTC 10-23 00:04 至 10-26 18:29）共 460 请求，无 5xx、4 次 499，多数 404 为探测路径。此前容器有授权/换码/受限更新成功，也有一次不完整行程参数拒绝；这些均不等于完整客户端验收或容量证据。
 
-额外发现：安装审计报告 5 个受影响依赖条目（1 critical、2 high、2 moderate）。Next.js 16.3.8 命中 [Server Actions DoS 公告](https://github.com/vercel/next.js/security/advisories/GHSA-p3m5-59mp-jv5r)，本项目登录/退出确有 Server Actions，应在上线前安排修补版本升级。另有 [Zod 资源耗尽公告](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5)及开发依赖 Vite/Vitest 公告。此前审查阶段未升级依赖；同日上线推进已按下文修补，未攻击生产验证。`npm audit` 的 critical 评级不能直接当作本应用已可被 RCE：当前 `cacheComponents=false`、无 `use cache` 函数且 sharp 为 0.35.5，分别不具备 [缓存公告](https://github.com/advisories/GHSA-673q-mjm6-r5xr)的已述触发条件及满足[图片公告](https://github.com/advisories/GHSA-2464-fhr4-w9xw)的替代修复版本。
+公网浏览器出现过一次详情文档 503（server=cloudflare）及 CSP 提示，随后源站/公网直接导航均 200、页面可用，源站观察窗口无 5xx；原因未确认，未修改边缘策略。完整来源清单、检查结果、旧镜像与观察项见[本次发布记录](./docs/deployments/2026-10-27-maintenance-release.md)。
 
-2026-10-27 用户已授权继续推进上线：依赖已更新为 Next.js / eslint-config-next 16.4.3、Zod 4.6.7、Vitest 4.1.12（Vite 8.3.5），`npm audit` 当前为 0 项已知漏洞。升级后主机默认 `npm run build`（Turbopack + TypeScript）、lint/typecheck、Compose 与隔离恢复均通过；发布网络快照已修正空 IPAM 对象兼容，正在准备固定提交发布，实际切换结果以发布记录为准。上线后完成 Gemini 网页/手机的授权、读取、完整行程修改、发布确认、图片、409 和撤销专项。针对历史日志里的不完整行程参数，验证客户端按工具 schema 重新提交，不放宽服务端校验。配置后台继续等实际字段需求，现有流量不支持扩容或引入 Agent 框架的必要性。
+下一步由用户完成当前版本 Gemini 网页/手机的授权、读取、完整行程修改、发布确认、图片、409 与撤销专项，并观察正常使用是否重现瞬时 503。针对历史不完整行程参数，应按工具 schema 重新提交，不放宽服务端校验。配置后台等具体字段需求；现有证据不支持扩容或新增 Agent 框架。
 
 ## 性能优化发布（2026-10-23）
 
@@ -134,11 +129,11 @@ reviewed_commit="已审查的完整提交哈希"
 TRAVEL_CARDS_TEST_IMAGE="travel-cards:git-$reviewed_commit" npm run test:oauth
 ```
 
-这两个步骤只构建并隔离验证镜像，不会替换运行服务。2026-10-23 获用户提交/部署授权后，本轮修复已按此流程构建、隔离验收并上线；运行镜像的溯源缺口已闭合，本轮未 push。
+这两个步骤只构建并隔离验证镜像，不会替换运行服务。2026-10-27 获用户上线授权后，本轮修复已按此流程构建、隔离验收并上线；运行镜像来源可核验，本轮未 push。
 
 `docker-compose.yml` 显式支持通过 `TRAVEL_CARDS_IMAGE` 选择通过审查/隔离验证的不可变镜像；用 `--no-deps --no-build --pull never web` 只替换 Web，不改共用 MongoDB或凭证。新功能默认关闭；生产启用需要本轮上线授权，真实 Gemini 验收由管理员自行完成。部署记录必须保存源清单、审查、镜像、原镜像/开关及公开 smoke；回滚复用原镜像和开关。
 
-`npm run deploy`（`./scripts/deploy.sh`）校验镜像完整 revision 与本地 Git 归档 SHA，默认以同一 image ID 执行 `test:oauth` 并切换 Web；`--skip-tests` 只跳过隔离测试，不跳过溯源检查。`compose up` 失败、运行镜像不匹配或健康失败均触发回滚，恢复旧镜像、环境、端口、网络别名及日志配置，并重新核对镜像与健康。原容器存在本项目未支持的挂载、资源或特殊安全配置时，在切换前拒绝。回滚失败会明确报错并保留私有恢复快照（目录 700、文件 600）；快照含凭证，不得提交或分享，恢复完成后删除。成功部署或成功回滚会清理快照。首次部署无旧容器时只报告无法回滚；脚本测试不代表已执行生产切换。
+`npm run deploy`（`./scripts/deploy.sh`）校验镜像完整 revision 与本地 Git 归档 SHA，默认以同一 image ID 执行 `test:oauth` 并切换 Web；`--skip-tests` 只跳过隔离测试，不跳过溯源检查。`compose up` 失败、运行镜像不匹配或健康失败均触发回滚，恢复旧镜像、环境、端口、网络别名及日志配置，并重新核对镜像与健康。原容器存在本项目未支持的挂载、资源或特殊安全配置时，在切换前拒绝。回滚失败会明确报错并保留私有恢复快照（目录 700、文件 600）；快照含凭证，不得提交或分享，恢复完成后删除。成功部署或成功回滚会清理快照。首次部署无旧容器时只报告无法回滚；fake 测试不证明生产回滚已执行；本次生产切换成功，未触发回滚。
 
 ## Docker 运行
 
