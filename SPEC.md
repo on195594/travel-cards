@@ -1,11 +1,11 @@
 # Travel Cards MVP Specification
 
-- **状态**：核心应用、MCP 权限/工具/令牌与 OAuth/DCR/PKCE 已实现；正式 `/mcp` 支持 2026 协议并向后兼容标准 MCP。双协议兼容及本轮审查修复已随 `0dfe091` 通过固定镜像隔离测试并部署，运行源码溯源已核对；真实 Gemini 客户端双端验收待重新验证，生产状态以 README 的实测记录为准
-- **更新日期**：2026-10-23（对齐运行状态，落实用户授权的图片下载、编辑保护、搜索反馈及镜像溯源修复；双协议行为及业务权限不变）
+- **状态**：核心应用、MCP 权限/工具/令牌与 OAuth/DCR/PKCE 已实现；正式 `/mcp` 支持 2026 协议并向后兼容标准 MCP。双协议自 `0dfe091` 上线，2026-10-27 核对当前运行版本为包含性能优化和 OAuth 修复的 `6a5f28d`，镜像 revision/源码归档哈希一致；真实 Gemini 客户端双端验收待重新验证，生产状态以 README 的实测记录为准
+- **更新日期**：2026-10-27（用户授权落实行程日期、MCP 错误 CORS、发布回滚与隔离验收修复；本地已验证，尚未部署，生产仍为 `6a5f28d`）
 - **项目根目录**：`/home/lin/travel-cards`
 - **产品语言**：首版中文界面与中文内容
 
-本文件中“已上线／双端验收已完成”描述历史 MCP 批次及 2026-10-12 用户确认，不覆盖 3.3.3 的协议迁移；该迁移此前以 `80a2b8a` 部署，10-22 的双协议向后兼容改动已于 2026-10-23 随 `0dfe091` 部署，真实客户端待重新验收。当前固定镜像、隔离测试及公网检查见[本次发布记录](./docs/deployments/2026-10-23-review-fixes.md)，[历史发布记录](./docs/deployments/2026-10-21-mcp-2026-release.md)保留。
+本文件中“已上线／双端验收已完成”描述历史 MCP 批次及 2026-10-12 用户确认，不覆盖 3.3.3 的协议迁移；该迁移此前以 `80a2b8a` 部署，10-22 的双协议向后兼容改动已于 2026-10-23 随 `0dfe091` 部署，真实客户端待重新验收。当前运行核对见 [README](./README.md#当前状态)；`0dfe091` 的固定镜像、隔离测试及公网检查见[历史发布记录](./docs/deployments/2026-10-23-review-fixes.md)，[历史发布记录](./docs/deployments/2026-10-21-mcp-2026-release.md)保留。
 
 ## 1. 目标
 
@@ -88,11 +88,11 @@
 
 - 正式 `/mcp` 采用双协议支持：既支持 `2026-07-28` 现代协议，又向后兼容以 Google Gemini Apps 为代表的标准 MCP 客户端规范（`initialize`、`notifications/*`、`ping`）。
 - **共享契约与边界**：
-  - 正式 `/mcp` 仅接受 POST 请求；对有效身份的 GET、DELETE 等非 POST 方法返回 HTTP 405（`Allow: POST`），未认证请求保持 HTTP 401 挑战；当环境变量 `MCP_OAUTH_ENABLED` 未启用时统一返回 HTTP 404；
+  - 正式 `/mcp` 仅以 POST 处理业务请求；对有效身份的 GET、DELETE 等非 POST 方法返回 HTTP 405（`Allow: POST`），未认证请求保持 HTTP 401 挑战。已实现的 CORS 预检例外为 OPTIONS：允许来源返回 HTTP 204，不授权或执行业务；拒绝来源返回 403。当环境变量 `MCP_OAUTH_ENABLED` 未启用时统一返回 HTTP 404；
   - 仅声明 `tools: {}`，不声明订阅、SSE、异步任务或 elicitation；不提供 SSE 长连接或持久会话，仅支持 JSON 同步响应；
   - 无法取得有效请求 id 的错误省略 id 字段，不返回 null；
   - 客户端自报信息和能力不能提升 OAuth 权限，不从此前请求推断能力；工具发现按当前已批准的 OAuth scopes 动态过滤，不跨身份缓存工具列表；
-  - 两个协议分支均严格共享 OAuth Bearer 认证、Origin 同源安全检查、权限 scopes 过滤与攻略 revision 保护；
+  - 两个协议分支均共享 OAuth Bearer 认证、Origin 允许列表检查、权限 scopes 过滤与攻略 revision 保护。`6a5f28d` 已实现允许固定服务端同源、`https://gemini.google.com` 及 `MCP_ALLOWED_ORIGINS` 逗号分隔的精确 Origin；管理员同意/撤销仍严格要求本站同源。允许来源不授予 OAuth scopes；
   - 每个受限令牌（actorLabel）的工具调用上限为 120 次/分钟，采用 MongoDB 原子固定窗口限流，跨 worker 生效；超限返回 HTTP 429 / 错误码 429 附 Retry-After 且不执行工具；计数存储初始化/更新故障返回 HTTP 500 / JSON-RPC `-32603`，不执行工具，也不返回伪造的工具业务结果；TTL 仅清理过期窗口记录，TTL 延迟不延长或缩短自然分钟窗口；
 - **模式分流**：当请求包含 `Mcp-Method` 头、调用 `server/discover`、声明非标准协议版本头、或请求 `_meta` 包含 `io.modelcontextprotocol/protocolVersion` 时，走现代 2026 协议分支；其余请求走标准 MCP 兼容分支。
 - **现代 2026 模式**：
@@ -107,7 +107,7 @@
   - 支持 `ping`（返回 `{}`）及标准 `tools/list` 与 `tools/call`；
   - **HTTP 状态码例外清单**：在已启用 OAuth 的 POST 请求中，标准模式下仅针对分流后派发的 JSON-RPC 协议/方法/参数级业务错误（如 `-32601` 方法不存在、`-32602` 参数错误/未知工具）返回 HTTP 200 及结构化错误体以兼容标准 MCP SDK；但在以下情况继续返回对应的非 200 HTTP 状态码：
     1. HTTP 401：缺少 Bearer Token 或 Token 无效/已撤销；
-    2. HTTP 403：缺失操作所需 Scope 或跨来源 Origin 请求；
+    2. HTTP 403：缺失操作所需 Scope 或不在允许列表中的 Origin 请求；
     3. HTTP 406：Accept 头显式拒绝 application/json；
     4. HTTP 413：请求体超过 2 MiB 上限；
     5. HTTP 415：Content-Type 非 application/json；
@@ -116,6 +116,7 @@
     8. HTTP 500：内部基础设施故障或限流存储异常（`-32603`）；
     （注：无 id 的 `notifications/*` 正常返回 HTTP 202 确认）。
 - 六个工具及业务权限、resource URI、已有令牌有效期和撤销语义不变。
+- `6a5f28d` 已实现的换码兼容：单资源授权码换码可省略 `resource`，此时使用服务端规范 `/mcp` 资源；显式传入其他资源仍拒绝。兼容接收可选 `scope` 字段，签发权限仍取授权码已批准的 scopes，不由该字段扩权。元数据、注册、换码和正式 MCP 提供允许来源的 CORS 响应及 OPTIONS 预检。2026-10-27 用户授权推进审查修复：正式 MCP 的工具错误响应也必须保留允许来源的 CORS 头，包含未知工具、权限不足、限流和基础设施故障；浏览器可读取 `WWW-Authenticate` 与 `Retry-After`，不改变状态码、权限或限流规则。
 - DCR 在 2026 规范中已弃用但仍保留；本轮继续现有 OAuth 注册流程，不引入 CIMD URL 拉取或新的网络信任面。原公开探针仍是独立的旧协议诊断入口，不用它证明正式服务的 2026 合规或真实 Gemini 兼容。
 - 先跑 fake 客户端、隔离 MongoDB 与本地 HTTP 回归；不自动部署或重验真实账号。完整协议变更与官方依据见 `docs/decisions/2026-10-21-mcp-2026-migration.md`。
 
@@ -413,6 +414,12 @@ npm run lint
 npm run build
 docker compose config
 ```
+
+2026-10-27 用户授权推进审查建议，验收增补：
+
+- 编辑器调整总天数按行程的 `day` 保留日期归属，兼容服务端允许的稀疏/乱序行程；删除超出新天数的已填写内容须先确认，取消后内容保持不变。
+- 发布前验证镜像完整 revision 与该提交源码归档 SHA；隔离预检和实际切换使用同一 image ID。切换命令失败或新版本健康失败均尝试恢复原镜像及原运行配置；回滚后复查健康，失败不得报告成功。不从健康检查推定完整业务验收。
+- 恢复独立 OAuth/MCP HTTP 验证与合成数据恢复演练：前者覆盖授权码/PKCE、两种协议、权限、409 与撤销；后者限定带所有权标记的临时 MongoDB 与合成图片，校验恢复数据、索引及校验和，不操作共享实例或真实 R2。
 
 回滚以 Git 提交为边界；数据库 schema 变更必须向后兼容或附可验证的备份/恢复步骤。外部 R2/Gemini 配置与应用代码分离，禁用对应环境变量即可停止相关能力，不影响已有攻略的只读浏览。
 

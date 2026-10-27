@@ -207,6 +207,10 @@ assert.equal((await fetch(`${base}/guides/${payload.slug}`)).status, 404);
 console.log("http-content-smoke PASS direct-publish/update/unpublish/republish/delete no-store HTML+RSC visibility");
 NODE
 
+if [[ "${TRAVEL_CARDS_OAUTH_SMOKE:-false}" == true ]]; then
+  HERMES_API_TOKEN="$api_token" node scripts/oauth-http-smoke.mjs "$base"
+fi
+
 owner="$(docker inspect --format '{{ index .Config.Labels "travel-cards.test-run" }}' "$TRAVEL_CARDS_TEST_MONGO_CONTAINER")"
 if [[ "$owner" != "$TRAVEL_CARDS_TEST_RUN_ID" ]]; then
   printf 'Refusing to pause an unowned MongoDB container\n' >&2

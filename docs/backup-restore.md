@@ -12,15 +12,11 @@ Travel Cards 与 Meemo 共用 MongoDB 服务，但只拥有其逻辑数据库 `t
 
 生产 Compose 项目名、MongoDB 容器身份和卷身份属于部署现场事实，不在源码中推断；执行生产操作时必须现场记录并核验。
 
-## 隔离恢复 smoke
+## 隔离恢复演练（2026-10-27 已恢复）
 
-运行：
+`fc5ebc1` 曾删除恢复验证；本轮已恢复 `scripts/recovery-smoke.mjs`，运行 `npm run test:recovery`。这项检查独立于 `npm test`、`verify` 和 `test:http`；通过不证明现有生产备份可恢复。
 
-```bash
-npm run test:recovery
-```
-
-包装脚本会创建带标签的一次性 MongoDB 容器和唯一数据库。仅当 run ID、容器标签、回环监听端口、容器名和数据库名全部一致时，恢复测试才会继续。测试验证：
+演练创建带标签的一次性 MongoDB 容器和唯一数据库；核验 run ID、容器标签、精确回环 URI/端口与数据库名，dump/restore 限定本次命名空间。当前验证：
 
 - 两篇合成 Guide 的 ID、slug、状态、revision、slug 锁、时间戳、封面对象键和正文完整保留；
 - 部分唯一 slug 索引及公开列表排序索引能通过 `mongodump`/`mongorestore` 恢复；
@@ -28,7 +24,7 @@ npm run test:recovery
 - 本次运行专用的 sentinel 数据库及其自定义索引保持不变；
 - 合成图片以真实字节完成备份和恢复，并校验大小与 SHA-256；manifest 记录合成 public base 映射，恢复后的 Guide URL 能读取这些字节，损坏副本无法通过校验。
 
-测试结束后会删除临时归档与图片字节。该测试不读取 R2 凭证，也不访问 R2；通过只证明隔离恢复流程，不证明生产环境可恢复。
+2026-10-27 实测通过：两篇合成攻略、4 个索引、68 字节图片；落盘归档与图片 SHA-256、公开图片读取、图片损坏检测及 sentinel 数据/索引保持均符合预期。演练结束清理临时归档、图片和测试容器，不读取 R2 凭证或访问 R2；只证明隔离恢复流程，不证明生产环境可恢复。
 
 ## 生产备份 manifest
 

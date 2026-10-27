@@ -58,6 +58,51 @@ afterEach(async () => {
 afterAll(async () => { await mongoose.disconnect(); global.mongooseConnection = undefined; });
 
 describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () => {
+  it.each(["modern", "standard"])("keeps CORS and readable error headers for %s tool failures", async (protocol) => {
+    const gemini = "https://gemini.google.com";
+    async function tool(accessToken: string, name: string, args: unknown = {}) {
+      const message = { jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+        ...(protocol === "modern" ? { _meta: meta } : {}), name, arguments: args,
+      } };
+      const req = request(accessToken, message, { Origin: gemini });
+      if (protocol === "standard") {
+        for (const header of ["MCP-Protocol-Version", "Mcp-Method", "Mcp-Name"]) req.headers.delete(header);
+      }
+      const response = await POST(req);
+      expect(response.headers.get("access-control-allow-origin")).toBe(gemini);
+      expect(response.headers.get("vary")).toContain("Origin");
+      expect(response.headers.get("cache-control")).toContain("no-store");
+      expect(response.headers.get("access-control-expose-headers")).toContain("WWW-Authenticate");
+      expect(response.headers.get("access-control-expose-headers")).toContain("Retry-After");
+      return response;
+    }
+    const reader = await grant(["guide.read"]);
+    const denied = await tool(reader.accessToken, "create_guide", draft);
+    expect(denied.status).toBe(403);
+    expect(denied.headers.get("www-authenticate")).toContain('scope="guide.read guide.create"');
+    const unknown = await tool(reader.accessToken, "unknown_tool");
+    expect(unknown.status).toBe(protocol === "modern" ? 400 : 200);
+    expect((await unknown.json()).error.code).toBe(-32602);
+
+    const writer = await grant();
+    const now = Date.now();
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    const label = `mcp-grant:${writer.grantId}`;
+    await consumeMcpToolCall(label);
+    const counters = ownedDb().collection<{ _id: string; count: number }>("mcp_tool_rate_limits");
+    await counters.updateOne({ _id: `${label}:${Math.floor(now / 60_000)}` }, { $set: { count: MCP_TOOL_CALLS_PER_MINUTE } });
+    const limited = await tool(writer.accessToken, "create_guide", draft);
+    expect(limited.status).toBe(429);
+    expect(Number(limited.headers.get("retry-after"))).toBeGreaterThan(0);
+    expect((await limited.json()).error.code).toBe(429);
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(mongoose.models.McpToolRateLimit, "findOneAndUpdate").mockImplementationOnce(() => { throw new Error("fake counter failure"); });
+    const unavailable = await tool(writer.accessToken, "create_guide", draft);
+    expect(unavailable.status).toBe(500);
+    expect((await unavailable.json()).error.code).toBe(-32603);
+    expect(await ownedDb().collection("guides").countDocuments({ slug: /^mcp-http-/ })).toBe(0);
+  });
+
   it("is closed by default and returns 401 discovery challenges before reading bodies", async () => {
     vi.stubEnv("MCP_OAUTH_ENABLED", "false");
     const req = request(null, rpc("tools/list"));
@@ -415,7 +460,11 @@ describe("formal MCP HTTP (real isolated DB, fake approved OAuth clients)", () =
 
   it("rejects forbidden Origins and unsupported headers and bounds actual bytes before dispatch", async () => {
     const g = await grant();
-    for (const bad of ["null", "https://evil.example.test"]) expect((await POST(request(g.accessToken, rpc("server/discover"), { Origin: bad }))).status).toBe(403);
+    for (const bad of ["null", "https://evil.example.test"]) {
+      const denied = await POST(request(g.accessToken, rpc("server/discover"), { Origin: bad }));
+      expect(denied.status).toBe(403);
+      expect(denied.headers.get("access-control-allow-origin")).toBeNull();
+    }
     expect((await POST(request(g.accessToken, rpc("server/discover"), { Origin: origin }))).status).toBe(200);
     const geminiRes = await POST(request(g.accessToken, rpc("server/discover"), { Origin: "https://gemini.google.com" }));
     expect(geminiRes.status).toBe(200);

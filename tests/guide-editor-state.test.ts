@@ -4,6 +4,7 @@ import {
   claimGuideWrite,
   markGuideWriteUnknown,
   mergeSavedSnapshot,
+  resizeGuideDays,
   requestJson,
   saveThenPublish,
   localDateTime,
@@ -36,6 +37,58 @@ function savedGuide(content: GuideDraftInput): Guide {
     updatedAt: "2026-09-18T00:01:00.000Z",
   };
 }
+
+describe("guide day changes", () => {
+  it("keeps sparse and unordered entries on their original days when expanding", () => {
+    const first = draft("行程").itinerary[0];
+    const third = { ...first, day: 3, title: "第三天返程" };
+    const current = guideDraftInputSchema.parse({ ...draft("行程"), days: 3, itinerary: [third, first] });
+    const confirm = vi.fn();
+    vi.stubGlobal("window", { confirm });
+    const resized = resizeGuideDays(current, 4);
+    expect(resized.itinerary.map(({ day, title }) => [day, title])).toEqual([
+      [1, "第一天"], [2, ""], [3, "第三天返程"], [4, ""],
+    ]);
+    expect(confirm).not.toHaveBeenCalled();
+    expect(current.itinerary.map(({ day }) => day)).toEqual([3, 1]);
+  });
+
+  it("confirms removing a sparse later day and keeps everything when cancelled", () => {
+    const current = guideDraftInputSchema.parse({ ...draft("行程"), days: 3, itinerary: [
+      { day: 3, title: "第三天返程", items: [] },
+    ] });
+    const confirm = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
+    vi.stubGlobal("window", { confirm });
+    expect(resizeGuideDays(current, 1)).toBe(current);
+    expect(confirm).toHaveBeenCalledWith(expect.stringContaining("第 2 天及之后"));
+    const resized = resizeGuideDays(current, 1);
+    expect(resized.days).toBe(1);
+    expect(resized.itinerary).toEqual([{ day: 1, title: "", items: [{ place: "", description: "" }] }]);
+    expect(current.itinerary[0].day).toBe(3);
+  });
+
+  it("checks item content even without a day title and keeps an unordered first day", () => {
+    const first = draft("行程").itinerary[0];
+    const current = { ...draft("行程"), days: 3, itinerary: [
+      { day: 3, title: "", items: [{ place: "返程车站", description: "" }] }, first,
+    ] };
+    const confirm = vi.fn().mockReturnValue(true);
+    vi.stubGlobal("window", { confirm });
+    expect(resizeGuideDays(current, 1).itinerary).toEqual([first]);
+    expect(confirm).toHaveBeenCalledOnce();
+  });
+
+  it("does not confirm removing only empty days or alter unchanged/invalid input", () => {
+    const current = { ...draft("行程"), days: 3, itinerary: [
+      ...draft("行程").itinerary, { day: 3, title: " ", items: [{ place: "", description: " " }] },
+    ] };
+    const confirm = vi.fn();
+    vi.stubGlobal("window", { confirm });
+    for (const days of [3, 0, 366, 1.5, NaN]) expect(resizeGuideDays(current, days)).toBe(current);
+    expect(resizeGuideDays(current, 1).itinerary).toEqual(draft("行程").itinerary);
+    expect(confirm).not.toHaveBeenCalled();
+  });
+});
 
 describe("guide editor save timing", () => {
   it("keeps input changed while a save response is in flight", async () => {

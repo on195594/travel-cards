@@ -119,24 +119,25 @@ async function executeToolCall(
   id: string | number | undefined,
   name: string,
   args: Record<string, unknown>,
-  unknownToolStatus: 200 | 400
+  unknownToolStatus: 200 | 400,
+  cors: Record<string, string>
 ): Promise<{ response: Response } | { result: Record<string, unknown> }> {
   const scopes = guideToolScopes(name, args);
-  if (!scopes) return { response: protocolError(id, -32602, "Unknown tool", unknownToolStatus, { code: "UNKNOWN_TOOL" }) };
-  if (scopes.some((scope) => !hasCapability(actor, scope))) return { response: authChallenge(403, scopes) };
+  if (!scopes) return { response: protocolError(id, -32602, "Unknown tool", unknownToolStatus, { code: "UNKNOWN_TOOL" }, cors) };
+  if (scopes.some((scope) => !hasCapability(actor, scope))) return { response: authChallenge(403, scopes, cors) };
   let retryAfter: number;
   try {
     retryAfter = await consumeMcpToolCall(actor.actorLabel);
   } catch (error) {
     console.error("MCP rate limit failed", error instanceof Error ? error.name : "UnknownError");
-    return { response: protocolError(id, -32603, "Internal error", 500) };
+    return { response: protocolError(id, -32603, "Internal error", 500, undefined, cors) };
   }
-  if (retryAfter) return { response: protocolError(id, 429, "Tool call rate limit exceeded", 429, undefined, { "Retry-After": String(retryAfter) }) };
+  if (retryAfter) return { response: protocolError(id, 429, "Tool call rate limit exceeded", 429, undefined, { ...cors, "Retry-After": String(retryAfter) }) };
   try {
     const result = await callGuideTool(actor, name, args);
     return { result };
   } catch (error) {
-    if (error instanceof HttpError && error.status === 403) return { response: authChallenge(403, scopes) };
+    if (error instanceof HttpError && error.status === 403) return { response: authChallenge(403, scopes, cors) };
     return { result: toolFailure(error) };
   }
 }
@@ -207,7 +208,7 @@ export async function mcpPost(request: Request) {
         const { name, arguments: args = {} } = input.data;
         const headerName = decodeHeaderValue(request.headers.get("mcp-name"));
         if (headerName !== name) return protocolError(id, -32020, "Mcp-Name is missing or does not match the tool name", 400, undefined, cors);
-        const outcome = await executeToolCall(actor, id, name, args, 400);
+        const outcome = await executeToolCall(actor, id, name, args, 400, cors);
         if ("response" in outcome) return outcome.response;
         result = outcome.result;
         break;
@@ -249,7 +250,7 @@ export async function mcpPost(request: Request) {
       const input = legacyCallParams.safeParse(params);
       if (!input.success) return protocolError(id, -32602, "Invalid tools/call params", 200, undefined, cors);
       const { name, arguments: args = {} } = input.data;
-      const outcome = await executeToolCall(actor, id, name, args, 200);
+      const outcome = await executeToolCall(actor, id, name, args, 200, cors);
       if ("response" in outcome) return outcome.response;
       result = outcome.result;
       break;

@@ -13,7 +13,7 @@ export function mcpCorsHeaders(request: Request, methods: string[] = ["GET", "PO
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": methods.join(", "),
     "Access-Control-Allow-Headers": "Authorization, Content-Type, MCP-Protocol-Version, Mcp-Method, Mcp-Name, Accept",
-    "Access-Control-Expose-Headers": "WWW-Authenticate, Mcp-Protocol-Version",
+    "Access-Control-Expose-Headers": "WWW-Authenticate, Mcp-Protocol-Version, Retry-After",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   };

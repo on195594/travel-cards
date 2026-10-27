@@ -30,6 +30,20 @@ function contentOf(guide: Guide): GuideDraftInput {
   };
 }
 
+export function resizeGuideDays(current: GuideDraftInput, days: number): GuideDraftInput {
+  if (!Number.isInteger(days) || days < 1 || days > 365 || days === current.days) return current;
+  const removesContent = current.itinerary.some((day) => day.day > days && (
+    day.title.trim() || day.items.some((item) => Object.values(item).some((value) => value?.trim()))));
+  if (removesContent && !window.confirm(`缩短为 ${days} 天会删除第 ${days + 1} 天及之后已填写的行程，确定继续？`)) return current;
+  const byDay = new Map(current.itinerary.map((day) => [day.day, day]));
+  return {
+    ...current,
+    days,
+    itinerary: Array.from({ length: days }, (_, index) => byDay.get(index + 1)
+      ?? { day: index + 1, title: "", items: [{ place: "", description: "" }] }),
+  };
+}
+
 export function mergeSavedSnapshot(
   current: GuideDraftInput,
   sent: GuideDraftInput,
@@ -228,16 +242,7 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
   }
 
   function setDays(days: number) {
-    if (!Number.isInteger(days) || days < 1 || days > 365) return;
-    const count = days;
-    const removesContent = draft.itinerary.slice(count).some((day) =>
-      day.title.trim() || day.items.some((item) => Object.values(item).some((value) => value?.trim())));
-    if (removesContent && !window.confirm(`缩短为 ${count} 天会删除第 ${count + 1} 天及之后已填写的行程，确定继续？`)) return;
-    setDraft((current) => ({
-      ...current,
-      days: count,
-      itinerary: Array.from({ length: count }, (_, index) => current.itinerary[index] ?? { day: index + 1, title: "", items: [{ place: "", description: "" }] }).map((day, index) => ({ ...day, day: index + 1 })),
-    }));
+    setDraft(resizeGuideDays(draft, days));
   }
 
   function setDay(dayIndex: number, key: "title", value: string) {
