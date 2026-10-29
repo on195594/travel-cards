@@ -22,13 +22,12 @@
 - 不添加 Agent 框架；先用一个服务端 orchestration seam 调用 Gemini 内建工具。只有出现经验证的多模型、多代理或持久任务需求才重新评估。
 - 不新增收藏、点赞、多用户发布、地图规划、支付或通知，除非 spec 另行批准（轻量搜索功能已由 SPEC.md 4.4 批准）。
 
-## Required checks after implementation
+## Checks and deployment
 
-```bash
-npm test
-npm run lint
-npm run build
-docker compose config
-```
+按改动范围选最小检查，同一提交通过后不再重跑：
 
-涉及 AI、鉴权或上传时，还需运行对应的最小集成测试；没有真实凭证时使用依赖注入的 fake transport，不伪造真实外部调用成功。
+- 代码改动：`npm test`、`npm run lint`；涉及 AI、鉴权或上传时加对应的最小集成测试（无真实凭证用依赖注入的 fake transport，不伪造真实外部调用成功）。
+- 依赖、构建或容器配置改动：再加 `npm run build`、`docker compose config`。
+- 纯文档或测试改动：不构建、不部署。
+
+部署经授权后执行一次 `npm run deploy -- <commit> --skip-tests`（该提交已通过上述检查时），以脚本自带健康检查为准，另加至多一次公网请求。不再新增 `docs/deployments/` 发布记录或来源清单；README「当前状态」只保留最新一行版本与回退镜像，覆盖旧行而不是追加。
