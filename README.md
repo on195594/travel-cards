@@ -13,6 +13,7 @@
 - 正式 `/mcp` 已部署双协议：现代 2026 协议（`server/discover`、逐请求 `_meta` 与 HTTP 头绑定、`resultType: complete`）及标准 MCP 兼容模式（`initialize`、`notifications/*`、`ping`）。历史双协议镜像已通过隔离 HTTP/OAuth 测试；每个受限令牌的工具调用上限为 120 次/分钟，超限返回 429 / Retry-After。见[协议与补充说明](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
 - OAuth/DCR/PKCE、管理员同意/撤销已实现。新环境默认关闭，当前生产显式启用。令牌与客户端注册默认 100 × 365 天有效，并非永不过期；无 refresh token。旧注册与令牌不自动扩权或续期，需要重新注册授权。
 - 2026-10-27 北京时间 09:51 已发布 `feb9d02768402e1fe16d3719d076b296d2836240`：包含行程日期、MCP 错误 CORS、发布回滚修复及安全依赖升级。运行镜像 `sha256:918dcc4c9a8c2565d2eff44875159de97458a255f256029da16c5ed60a60936d`，revision 与源码归档 SHA 匹配；[发布、验证与回滚记录](./docs/deployments/2026-10-27-maintenance-release.md)。
+- 2026-10-29 已部署 MCP 执行效率与稳定性优化提交 `3f4544bc9cb5ed477a3bc4a5efc724451ac2e7dc`，运行镜像 `sha256:9f4ee1d7682a7a3eca173302a7fabb25036c55722600befb100e91d3b84b4b94`，OAuth 保持启用且部署后健康检查通过；[发布与验收记录](./docs/deployments/2026-10-29-mcp-optimization-release.md)。
 - `0dfe091` 的图片下载、编辑保护及搜索反馈修复已包含在当前版本；该批的镜像隔离 HTTP/OAuth 测试、25 项公网检查和回滚信息保留在[历史发布记录](./docs/deployments/2026-10-23-review-fixes.md)。历史测试不自动覆盖后续提交；当前检查范围见下方记录。
 - 历史协议的真实 Gemini 网页/手机双端验收已完成，依据为 2026-10-12 用户确认，见[验收状态记录](./docs/roadmaps/ai-client-integration.md#真实双端验收用户确认)。2026 协议的真实客户端兼容性待重新验收；图片上传专项未单独确认，非敏感配置后台尚未实现。
 - 历史核心实现与内部令牌审查分别见[核心审查](./docs/reviews/agy-final-implementation/closeout.md)、[7cc88f8 审查](./docs/reviews/agy-7cc88f8/closeout.md)；历史 APPROVE 仅覆盖当时范围。
@@ -31,7 +32,7 @@ Impeccable 已初始化 `PRODUCT.md`，用户选择的新页面构建默认是�
 
 ## 运行核对与推进建议（2026-10-27）
 
-审查、文档对齐、修复和上线均已完成。当前版本为 `feb9d02`；仅更新 Web，共用 MongoDB/Nginx 未重启，凭证、OAuth 开关、端口、网络别名和日志轮转保持。六篇公开攻略的响应内容在切换前后完全一致。目录职责与清理边界见 [docs/README](./docs/README.md)。
+2026-10-27 本轮修复与上线时，运行版本为 `feb9d02`；仅更新 Web，共用 MongoDB/Nginx 未重启，凭证、OAuth 开关、端口、网络别名和日志轮转保持。六篇公开攻略的响应内容在切换前后完全一致。后续版本见上方当前状态与对应发布记录。目录职责与清理边界见 [docs/README](./docs/README.md)。
 
 本次上线包含：
 
@@ -117,7 +118,7 @@ Mcp-Method: server/discover
 
 现有 OAuth 资源与令牌未轮换；客户端升级协议不等于需要重新授权或自动扩权。DCR 虽已在 2026 规范弃用，本项目继续现有注册流程，不宣称支持 CIMD。正式 `/mcp` 的双协议分流已通过可溯源镜像部署，真实 Gemini 兼容性待重新验收。相关背景与决定见[协议与补充说明](./docs/decisions/2026-10-21-mcp-2026-migration.md)。
 
-### MCP 执行优化（2026-10-29，本地实现）
+### MCP 执行优化（2026-10-29，已部署）
 
 - 服务端指令明确沿用用户已授权的任务范围，避免在客户端确认之外重复口头确认；引导一次提交全部修改、创建时直接发布、上传时直接挂接、复用返回的 revision 和可选摘要，减少多余的读取、更新和发布调用。
 - 指定攻略的图片／附件上传在下载前检查存在性及版本，过期版本直接返回 409；上传期间的并发修改仍由最终原子版本校验保护。普通草稿编辑未改 slug 时省去一次锁定状态查询。
@@ -126,7 +127,7 @@ Mcp-Method: server/discover
 
 本地验证：`npm test` 27 个文件、341 项通过；lint、构建（含 TypeScript）、Compose 配置及 `npm run test:oauth` 通过。使用隔离 MongoDB、合成账号及 fake 外部 transport，覆盖上传前拒绝、上传中并发冲突、索引初始化故障恢复和两种 MCP 协议的权限／撤销闭环。
 
-本轮未部署、未调用真实 Gemini/R2；真实网页／手机耗时和确认次数尚未验证。权限、OAuth 同意与撤销、限流及协议保持原契约，详见 [SPEC 3.3.4](./SPEC.md#334-mcp-执行效率与稳定性2026-10-29-优化范围)。
+本轮未调用真实 Gemini/R2；真实网页／手机耗时和确认次数尚未验证。权限、OAuth 同意与撤销、限流及协议保持原契约，详见 [SPEC 3.3.4](./SPEC.md#334-mcp-执行效率与稳定性2026-10-29-优化范围)及[发布验收记录](./docs/deployments/2026-10-29-mcp-optimization-release.md)。
 
 ## 已审查镜像的生产发布
 
