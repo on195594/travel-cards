@@ -1,8 +1,10 @@
 import mongoose from "mongoose";
 import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import type { ApiActor } from "@/lib/capabilities";
-import { getGuideById, type Guide } from "@/lib/guides";
+import { getGuideById, updateGuide, type Guide } from "@/lib/guides";
 import { callGuideTool, listGuideTools } from "@/lib/mcp/guide-tools";
+import * as imageFetch from "@/lib/storage/fetch-image";
+import * as attachmentFetch from "@/lib/storage/fetch-attachment";
 
 const runId = process.env.TRAVEL_CARDS_TEST_RUN_ID;
 if (!runId || !/^[a-z0-9_]+$/.test(runId)) throw new Error("Run database tests through npm test");
@@ -38,6 +40,8 @@ async function create(publish = false) {
 
 afterEach(async () => {
   vi.restoreAllMocks();
+  uploadImageMock.mockReset();
+  uploadAttachmentMock.mockReset();
   if (!mongoose.connection.db) return;
   if (mongoose.connection.db.databaseName !== `travel_cards_test_${runId}`) throw new Error("Refusing non-test database cleanup");
   await mongoose.connection.collection("guides").deleteMany({ slug: /^mcp-tool-/ });
@@ -54,6 +58,7 @@ describe("MCP Guide tool core (fake authenticated actor, real isolated persisten
     for (const tool of tools) {
       expect(tool.inputSchema).toMatchObject({ type: "object", additionalProperties: false });
       expect(tool.annotations.readOnlyHint).toBe(["list_guides", "get_guide"].includes(tool.name));
+      expect(tool.annotations.destructiveHint).toBe(!tool.annotations.readOnlyHint);
       expect(tool.annotations.openWorldHint).toBe(["upload_image", "upload_attachment"].includes(tool.name));
     }
     expect(tools.find((tool) => tool.name === "update_guide")!.description).toContain("never retry");
@@ -254,6 +259,44 @@ describe("MCP Guide tool core (fake authenticated actor, real isolated persisten
     const unknown = { authKind: "anonymous", actorLabel: "untrusted" } as unknown as ApiActor;
     expect(() => listGuideTools(unknown)).toThrow(expect.objectContaining({ status: 403 }));
     await expect(callGuideTool(unknown, "create_guide", { authKind: "session" })).rejects.toMatchObject({ status: 403, code: "FORBIDDEN" });
+  });
+
+  it.each(["upload_image", "upload_attachment"])("rejects missing and stale %s targets before downloading or uploading", async (name) => {
+    const downloadImage = vi.spyOn(imageFetch, "fetchImageFromUrl").mockResolvedValue({ bytes: Buffer.from(validPngBase64, "base64"), mime: "image/png" });
+    const downloadAttachment = vi.spyOn(attachmentFetch, "fetchAttachmentFromUrl").mockResolvedValue({ bytes: Buffer.from("%PDF-1.4 test"), type: "pdf", mime: "application/pdf", extension: "pdf" });
+    uploadImageMock.mockResolvedValue({ objectKey: "guides/new.png", publicUrl: "https://images.example.test/new.png" });
+    uploadAttachmentMock.mockResolvedValue({ objectKey: "attachments/new.pdf", publicUrl: "https://images.example.test/new.pdf", size: 13, type: "pdf" });
+    const guide = await create();
+    await updateGuide(guide.id, { expectedRevision: 1, title: "已由其他编辑保存" });
+    const args = name === "upload_image"
+      ? { url: "https://images.example.test/cover.png", alt: "封面" }
+      : { url: "https://images.example.test/route.pdf", name: "路线.pdf", type: "pdf" };
+    await expect(callGuideTool(actor, name, { ...args, guideId: "0".repeat(24), expectedRevision: 1 })).rejects.toMatchObject({ status: 404, code: "NOT_FOUND" });
+    await expect(callGuideTool(actor, name, { ...args, guideId: guide.id, expectedRevision: 1 })).rejects.toMatchObject({ status: 409, code: "REVISION_CONFLICT" });
+    expect(downloadImage).not.toHaveBeenCalled();
+    expect(downloadAttachment).not.toHaveBeenCalled();
+    expect(uploadImageMock).not.toHaveBeenCalled();
+    expect(uploadAttachmentMock).not.toHaveBeenCalled();
+    expect(await getGuideById(guide.id)).toMatchObject({ revision: 2, title: "已由其他编辑保存", coverImage: draft.coverImage, attachments: [] });
+  });
+
+  it.each(["upload_image", "upload_attachment"])("preserves concurrent edits made during %s and does not replay uploads", async (name) => {
+    const guide = await create();
+    const concurrentEdit = () => updateGuide(guide.id, { expectedRevision: 1, title: "上传期间保存的内容" });
+    uploadImageMock.mockImplementationOnce(async () => {
+      await concurrentEdit();
+      return { objectKey: "guides/new.png", publicUrl: "https://images.example.test/new.png" };
+    });
+    uploadAttachmentMock.mockImplementationOnce(async () => {
+      await concurrentEdit();
+      return { objectKey: "attachments/new.pdf", publicUrl: "https://images.example.test/new.pdf", size: 13, type: "pdf" };
+    });
+    const args = name === "upload_image"
+      ? { data: validPngBase64, alt: "封面" }
+      : { data: Buffer.from("%PDF-1.4 test").toString("base64"), name: "路线.pdf", type: "pdf" };
+    await expect(callGuideTool(actor, name, { ...args, guideId: guide.id, expectedRevision: 1 })).rejects.toMatchObject({ status: 409, code: "REVISION_CONFLICT" });
+    expect(name === "upload_image" ? uploadImageMock : uploadAttachmentMock).toHaveBeenCalledTimes(1);
+    expect(await getGuideById(guide.id)).toMatchObject({ revision: 2, title: "上传期间保存的内容", coverImage: draft.coverImage, attachments: [] });
   });
 
   it("checks cover replacement scope before any upload side effect", async () => {

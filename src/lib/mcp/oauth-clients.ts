@@ -4,6 +4,7 @@ import { z } from "zod";
 import { assertCapability, type ApiActor, AI_GUIDE_SCOPES, type AiGuideScope } from "@/lib/capabilities";
 import { connectDb } from "@/lib/db";
 import { HttpError } from "@/lib/http";
+import { ensureMcpModelReady } from "@/lib/mcp/model-ready";
 
 export const MCP_REGISTRATION_MAX_BYTES = 16 * 1024;
 export const MCP_REGISTRATION_LIMIT = 100;
@@ -75,7 +76,7 @@ const Window: Model<RegistrationWindow> = mongoose.models.McpOAuthRegistrationWi
 
 async function ready() {
   await connectDb();
-  await Promise.all([Client.init(), Window.init()]);
+  await Promise.all([ensureMcpModelReady(Client), ensureMcpModelReady(Window)]);
 }
 
 // Global DB quota, not an IP/header-based limit that untrusted proxies can bypass.

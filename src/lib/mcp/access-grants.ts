@@ -6,6 +6,7 @@ import { AI_GUIDE_SCOPES, assertCapability, type ApiActor } from "@/lib/capabili
 import { connectDb } from "@/lib/db";
 import { getAuthEnv } from "@/lib/env";
 import { HttpError } from "@/lib/http";
+import { ensureMcpModelReady } from "@/lib/mcp/model-ready";
 import { findRegisteredMcpClient, MCP_OAUTH_CLIENT_COLLECTION } from "@/lib/mcp/oauth-clients";
 
 const grantInput = z.object({
@@ -32,7 +33,7 @@ const GrantModel = mongoose.models.McpAccessGrant || mongoose.model("McpAccessGr
 
 async function ready() {
   await connectDb();
-  await GrantModel.init();
+  await ensureMcpModelReady(GrantModel);
 }
 function digest(token: string) {
   return createHash("sha256").update(token).digest("hex");

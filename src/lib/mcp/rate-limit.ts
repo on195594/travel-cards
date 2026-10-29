@@ -1,5 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 import { connectDb } from "@/lib/db";
+import { ensureMcpModelReady } from "@/lib/mcp/model-ready";
 
 export const MCP_TOOL_CALLS_PER_MINUTE = 120;
 const windowMs = 60_000;
@@ -16,7 +17,7 @@ export async function consumeMcpToolCall(actorLabel: string): Promise<number> {
   const window = Math.floor(now / windowMs);
   const expiresAt = new Date((window + 1) * windowMs);
   await connectDb();
-  await Window.init();
+  await ensureMcpModelReady(Window);
   // The actor label comes from the authenticated grant, never client-supplied metadata.
   const counter = await Window.findOneAndUpdate({ _id: `${actorLabel}:${window}` }, {
     $inc: { count: 1 }, $setOnInsert: { expiresAt },

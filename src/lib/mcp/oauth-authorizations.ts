@@ -6,6 +6,7 @@ import { assertAdmin, logAdminAction, type AdminActor } from "@/lib/admin";
 import { assertCapability, type AiGuideScope } from "@/lib/capabilities";
 import { connectDb } from "@/lib/db";
 import { HttpError } from "@/lib/http";
+import { ensureMcpModelReady } from "@/lib/mcp/model-ready";
 import { getMcpResource, issueMcpOAuthAccessGrant } from "@/lib/mcp/access-grants";
 import { authorizeMcpClient, findRegisteredMcpClient, type RegisteredMcpClient } from "@/lib/mcp/oauth-clients";
 
@@ -56,7 +57,7 @@ const digest = (value: string) => createHash("sha256").update(value).digest("hex
 
 async function ready() {
   await connectDb();
-  await Promise.all([Intent.init(), Code.init()]);
+  await Promise.all([ensureMcpModelReady(Intent), ensureMcpModelReady(Code)]);
 }
 function sessionOnly(actor: AdminActor) {
   assertCapability(actor, "config.manage");

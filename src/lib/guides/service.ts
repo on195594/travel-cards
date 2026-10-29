@@ -146,9 +146,8 @@ export async function updateGuide(id: string, input: unknown): Promise<Guide> {
     ...contentOf(current),
     ...patch,
   });
-  const slugLocked =
-    current.status === "published" || (await guideSlugIsLocked(id));
-  if (slugLocked && merged.slug !== current.slug) {
+  if (merged.slug !== current.slug &&
+    (current.status === "published" || (await guideSlugIsLocked(id)))) {
     throw new HttpError(
       400,
       "PUBLISHED_SLUG_IMMUTABLE",

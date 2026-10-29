@@ -69,10 +69,12 @@ export async function uploadImage(bytes: Uint8Array, declaredMime: string): Prom
       const { data, info } = await image.clone()
         .resize({ width, height: 1600, fit: "inside", withoutEnlargement: true })
         .webp({ quality: 80 }).timeout({ seconds: 5 }).toBuffer({ resolveWithObject: true });
-      if (variants.some((variant) => variant.width === info.width)) continue;
+      if (variants.some((variant) => variant.width === info.width)) break;
       const key = objectKey.replace(/\.[^.]+$/, `-${info.width}w.webp`);
       variants.push({ objectKey: key, publicUrl: new URL(key, env.publicBaseUrl).toString(), width: info.width, height: info.height });
       objects.push({ objectKey: key, bytes: data, mime: "image/webp" });
+      // Once bounded by the source size or max height, wider requests produce the same variant.
+      if (info.width < width || info.height === 1600) break;
     }
   } catch {
     throw new HttpError(400, "INVALID_IMAGE", "图片无法处理，请使用可解码且不超过 4000 万像素的图片");
