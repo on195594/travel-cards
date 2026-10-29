@@ -1,6 +1,6 @@
 # Gemini Apps MCP：以官方文档驱动接入
 
-初始日期：2026-10-09；状态对齐：2026-10-12。OAuth/DCR/PKCE 与业务 MCP 已上线；真实 Gemini 网页/手机双端验收已完成（用户确认），依据与范围见[接入路线图](../roadmaps/ai-client-integration.md#真实双端验收用户确认)。本文不是新一轮生产部署或凭证变更授权。
+初始日期：2026-10-09；状态对齐：2026-10-12。OAuth/DCR/PKCE 与业务 MCP 已上线；真实 Gemini 网页/手机双端验收已完成（用户确认），依据与范围见[接入路线图](../roadmaps/ai-client-integration.md#真实客户端验收)。本文不是新一轮生产部署或凭证变更授权。
 
 下文保留各批次的历史设计与验证，包括短效令牌、五个工具、未验收及 NOT_RUN 等当时状态，不代表当前状态；现行期限、工具范围及剩余事项以接入路线图为准。
 
@@ -76,12 +76,12 @@ Gemini Enterprise、Gemini CLI、Gemini API 和 Google 社区论坛不作为 Gem
 - `npm run test:http`：隔离 MongoDB 与本地生产启动路径通过，原 Token 的发布/更新/撤回/重新发布/删除及公开页面可见性回归正常。`git diff --check`：通过。
 - 官方 MCP Authorization 原文重新核对了 resource/audience 校验、无效/过期令牌 401、权限不足 403 与短效令牌建议。本批实现内部授权语义；HTTP `WWW-Authenticate` / discovery 尚未实现，不能宣称完整 OAuth 合规。
 - 下一批按顺序补 DCR/客户端注册与限额、发现元数据、S256 PKCE 一次性授权码、管理员同意/撤销界面，最后接入带正确协议错误映射的业务 MCP HTTP adapter。授权码及 refresh（若增加）需单独回归并发、重放与撤销。
-- 本批实现随后已提交并推送为 `7cc88f8`，真实 AGY 静态审查为 **APPROVE**，见 [审查记录](../reviews/agy-7cc88f8/closeout.md)。该阶段没有部署或真实 Gemini/R2 调用；完整 OAuth 和 Gemini 网页/原生手机验收仍 **pending / NOT_RUN**。
-- 此处测试数量记录该提交当时的结果，不作为后续工作树的固定计数；当前状态见 [接入路线图](../roadmaps/ai-client-integration.md)，后续清理与验证见 [维护记录](../maintenance/2026-10-10-cleanup.md)。
+- 本批实现随后已提交并推送为 `7cc88f8`，真实 AGY 静态审查为 **APPROVE**，见 审查记录（见 git 历史）。该阶段没有部署或真实 Gemini/R2 调用；完整 OAuth 和 Gemini 网页/原生手机验收仍 **pending / NOT_RUN**。
+- 此处测试数量记录该提交当时的结果，不作为后续工作树的固定计数；当前状态见 [接入路线图](../roadmaps/ai-client-integration.md)，后续清理与验证见 维护记录（见 git 历史）。
 
 ## 后续增量：客户端注册与限额（2026-10-10）
 
-`src/lib/mcp/oauth-clients.ts` 与 `POST /api/oauth/register` 落实 SPEC 3.3.2 的注册子步骤，行为和剩余缺口见 [接入路线图](../roadmaps/ai-client-integration.md#历史dcr-注册增量2026-10-10)。该入口默认关闭，不创建内容访问令牌，也不代表管理员同意、长期授权撤销或 Gemini 握手已经完成。
+`src/lib/mcp/oauth-clients.ts` 与 `POST /api/oauth/register` 落实 SPEC 3.3.2 的注册子步骤，行为和剩余缺口见 [接入路线图](../roadmaps/ai-client-integration.md#历史)。该入口默认关闭，不创建内容访问令牌，也不代表管理员同意、长期授权撤销或 Gemini 握手已经完成。
 
 注册增量直接核对 [RFC 7591](https://www.rfc-editor.org/rfc/rfc7591) 的注册默认 basic、201 响应、secret 到期时间与顶层错误结构，以及 [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700) 的回调精确匹配要求。没有预设 Google 回调地址、访问客户端 metadata URL 或调用真实 Gemini/R2。历史 AGY 结论不覆盖本轮增量。
 
@@ -91,9 +91,9 @@ Gemini Enterprise、Gemini CLI、Gemini API 和 Google 社区论坛不作为 Gem
 
 管理员页面沿用现有布局，名称始终标为未验证。HTML 使用 `same-origin` referrer 保留原生 POST 的 Origin，回调响应仍 `no-referrer`；不通过允许 `null` Origin 修复浏览器提交问题。新入口和正式 OAuth 验证默认关闭，该 OAuth 子批当时没有接通业务 `/api/mcp`；后续业务 HTTP 实现见路线图。
 
-本轮直接核对 [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)、[RFC 9728](https://www.rfc-editor.org/rfc/rfc9728)、[RFC 9207](https://www.rfc-editor.org/rfc/rfc9207) 及 MCP 2025-11-25 Authorization 原文。local fake 客户端/合成 Session 的完整 HTTP 验证、并发/重放/撤销测试不替代 Google 的真实注册/授权/换码和手机验收；详见 [最新路线图](../roadmaps/ai-client-integration.md#历史本地-oauth-授权闭环2026-10-10)。
+本轮直接核对 [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)、[RFC 9728](https://www.rfc-editor.org/rfc/rfc9728)、[RFC 9207](https://www.rfc-editor.org/rfc/rfc9207) 及 MCP 2025-11-25 Authorization 原文。local fake 客户端/合成 Session 的完整 HTTP 验证、并发/重放/撤销测试不替代 Google 的真实注册/授权/换码和手机验收；详见 [最新路线图](../roadmaps/ai-client-integration.md#历史)。
 
 
 ## 2026-10-10 独立路由迁移（已上线）
 
-用户确认 `/api/*` 保留 REST/OAuth、正式 MCP 独立至 `/mcp`。当前精确 resource 为 `AUTH_URL` 对应的 `/mcp`，401 challenge 指向 `/.well-known/oauth-protected-resource/mcp`；旧业务及路径式元数据入口均 404。旧 resource 的意图、码、令牌拒绝，不改写历史绑定；需重新授权。此前章节和发布证据中的 `/api/mcp` 是当时路径，不是当前接入地址。本轮审查、精确镜像、上线及回滚证据见 [迁移记录](../deployments/2026-10-10-mcp-route.md)；真实 Gemini 双端仍未验收。
+用户确认 `/api/*` 保留 REST/OAuth、正式 MCP 独立至 `/mcp`。当前精确 resource 为 `AUTH_URL` 对应的 `/mcp`，401 challenge 指向 `/.well-known/oauth-protected-resource/mcp`；旧业务及路径式元数据入口均 404。旧 resource 的意图、码、令牌拒绝，不改写历史绑定；需重新授权。此前章节和发布证据中的 `/api/mcp` 是当时路径，不是当前接入地址。本轮审查、精确镜像、上线及回滚证据见 迁移记录（见 git 历史）；真实 Gemini 双端仍未验收。

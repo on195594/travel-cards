@@ -61,12 +61,9 @@ Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻
 ## Evidence on Hand
 
 - 实现：`src/app/`、`src/components/`、`src/lib/`。
-- 当前功能及安全契约：`SPEC.md`；入口与验证：`README.md`；目录及文档分层：`docs/README.md`；2026 协议迁移与验证：`docs/decisions/2026-10-21-mcp-2026-migration.md`。
-- UI 审查与部署前验证：`docs/reviews/ui-impeccable-review.md`；真实 AGY 复审原文：`docs/reviews/agy-ui-review.txt`。
-- 接入状态与下一步：`docs/roadmaps/ai-client-integration.md`；认证设计与实现证据：`docs/decisions/2026-10-09-gemini-mcp-auth.md`。
-- 短效令牌提交的真实 AGY 审查：`docs/reviews/agy-7cc88f8/closeout.md`；APPROVE 仅覆盖内部底座，不代表 OAuth/客户端验收完成。
-- 当前可溯源发布为 `feb9d02`，运行核对见 `README.md`；`0dfe091` 的隔离测试及公网检查保留在 `docs/deployments/2026-10-23-review-fixes.md`。2026-10-27 行程日期、CORS、运维修复与安全依赖升级已部署，见 `docs/deployments/2026-10-27-maintenance-release.md`；历史发布证据不重写。
-- 性能优化审查与修复：`docs/reviews/2026-10-23-performance-agy.md`；真实 AGY 静态审查原文：`docs/reviews/2026-10-23-performance-agy.txt`；首页用例先失败后通过验证与浏览器回归见 `docs/frontend.md`。
+- 功能及安全契约：`SPEC.md`；入口、部署与验证：`README.md`；目录：`docs/README.md`。
+- 接入状态与下一步：`docs/roadmaps/ai-client-integration.md`；认证与协议决定：`docs/decisions/`。
+- UI 技术事实：`docs/frontend.md`。历史审查与发布记录见 git 历史。
 
 ## Product Principles
 

@@ -1,11 +1,11 @@
 # Travel Cards MVP Specification
 
-- **状态**：核心应用、MCP 权限/工具/令牌与 OAuth/DCR/PKCE 已实现；正式 `/mcp` 支持 2026 协议并向后兼容标准 MCP。双协议自 `0dfe091` 上线，2026-10-29 优化提交 `3f4544b` 已部署，镜像 revision/源码归档哈希一致；真实 Gemini 客户端验收待重新验证，生产状态以 README 的实测记录为准
-- **更新日期**：2026-10-29（MCP 执行效率与稳定性优化已部署；真实 Gemini 客户端专项尚未重验）
+- **状态**：核心应用、MCP 工具／令牌与 OAuth/DCR/PKCE 已实现并上线；正式 `/mcp` 支持 2026 协议并兼容标准 MCP。部署版本见 [README](./README.md#当前状态)
+- **更新日期**：2026-10-29
 - **项目根目录**：`/home/lin/travel-cards`
 - **产品语言**：首版中文界面与中文内容
 
-本文件中“已上线／双端验收已完成”描述历史 MCP 批次及 2026-10-12 用户确认，不覆盖 3.3.3 的协议迁移；该迁移此前以 `80a2b8a` 部署，10-22 的双协议向后兼容改动已于 2026-10-23 随 `0dfe091` 部署，真实客户端待重新验收。当前运行核对见 [README](./README.md#当前状态)；`0dfe091` 的固定镜像、隔离测试及公网检查见[历史发布记录](./docs/deployments/2026-10-23-review-fixes.md)，[历史发布记录](./docs/deployments/2026-10-21-mcp-2026-release.md)保留。
+文中“已上线／双端验收已完成”指旧协议批次及 2026-10-12 用户确认；2026 协议的真实客户端验收待重新进行。
 
 ## 1. 目标
 
@@ -62,7 +62,7 @@
 - 外部 AI 禁止删除攻略或修改应用配置；管理员保留删除及配置管理权限。撤回暂不开放；图片上传与替换能力已由 2026-10-10 用户授权开放（提供 `upload_image` 工具用于上传封面及替换攻略图片，需 `image.upload` 权限）；附件上传与路线轨迹能力已由 2026-10-27 用户授权开放（提供 `upload_attachment` 工具用于上传 GPX/KML 路线与 PDF 文档供用户下载，需 `attachment.upload` 权限，直接追加至攻略还需 `guide.update`）。
 - **认证边界**：当前 API Token 属于管理员等价凭证，仍可调用 DELETE；管理员 REST 有意拒绝受限 MCP 凭证，外部 AI 通过正式 `/mcp` 调用共享业务规则。能力守卫、长效令牌及 OAuth/DCR/PKCE 管理员同意/撤销已实现，业务 MCP HTTP adapter 有历史上线与双端用户验收记录；新环境开关默认关闭。后续扩展仍须落实服务端能力隔离并验证禁止操作；只不展示删除工具不能满足权限要求。
 - 首个客户端目标为 Gemini 网页及手机 App，不能用 Gemini API / CLI 联调代替。账号、地区、语言、服务端认证与客户端兼容性均需真实验收，详见 `docs/roadmaps/ai-client-integration.md`。
-- 认证实现按 Gemini 官方帮助支持的 OAuth + Dynamic Client Registration（DCR）方向推进，不再以用户逐屏截图为开发前置条件。DCR 注册不授予攻略权限，仍需管理员同意客户端授权、精确 resource/audience 与 scopes 校验及服务端撤销；不能复用管理员 Token。方向与实现状态见 `docs/decisions/2026-10-09-gemini-mcp-auth.md`，授权服务器与业务 MCP 已实现并上线，用户已确认真实 Gemini 双端验收完成，记录见[接入路线图](./docs/roadmaps/ai-client-integration.md#真实双端验收用户确认)；此结论不是由服务端上线或单测推定。
+- 认证实现按 Gemini 官方帮助支持的 OAuth + Dynamic Client Registration（DCR）方向推进，不再以用户逐屏截图为开发前置条件。DCR 注册不授予攻略权限，仍需管理员同意客户端授权、精确 resource/audience 与 scopes 校验及服务端撤销；不能复用管理员 Token。方向与实现状态见 `docs/decisions/2026-10-09-gemini-mcp-auth.md`，授权服务器与业务 MCP 已实现并上线，用户已确认真实 Gemini 双端验收完成，记录见[接入路线图](./docs/roadmaps/ai-client-integration.md#真实客户端验收)；此结论不是由服务端上线或单测推定。
 
 #### 3.3.1 受限访问令牌底座
 
@@ -400,7 +400,7 @@ type AiResult<T> =
 
 ### 10.6 外部 AI / MCP 与配置管理扩展
 
-真实 Gemini 网页/手机双端验收已完成，依据为 2026-10-12 用户确认；各专项证据范围见[验收状态记录](./docs/roadmaps/ai-client-integration.md#真实双端验收用户确认)。配置后台尚未实现，不能将本节全部扩展项标为已验收。
+真实 Gemini 网页/手机双端验收已完成，依据为 2026-10-12 用户确认；各专项证据范围见[验收状态记录](./docs/roadmaps/ai-client-integration.md#真实客户端验收)。配置后台尚未实现，不能将本节全部扩展项标为已验收。
 
 - Gemini 网页添加 MCP 后在手机 App 可调用，并明确记录验收账号的可用条件及客户端写入确认；未具备条件时标记 blocked，不伪造接入成功。
 - 受限 AI 身份可读取、创建、更新及直接发布；DELETE 和配置写接口在服务端拒绝，不能借其他 API 绕过，拒绝后数据不变。
