@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { CopyLink } from "@/components/copy-link";
+import { MarkdownContent } from "@/components/markdown-content";
 import { getSiteOrigin } from "@/lib/env";
 import { imageSrcSet } from "@/lib/storage/image-srcset";
 import { getPublishedGuideBySlug } from "@/lib/guides";
@@ -209,7 +210,7 @@ export default async function GuidePage({ params }: Props) {
                 </span>
               </div>
               <h2>{section.title}</h2>
-              <p className="preline">{section.body}</p>
+              <MarkdownContent content={section.body} />
             </section>
           );
         })}
@@ -251,12 +252,12 @@ export default async function GuidePage({ params }: Props) {
           </section>
         )}
 
-        <section className="section-block panel" id="sources">
-          <div className="section-badge-wrapper"><span className="kind-badge">参考来源</span></div>
-          <h2>出行参考资料</h2>
-          {guide.sources.length ? (
+        {guide.sources.length > 0 && (
+          <section className="section-block panel" id="sources">
+            <div className="section-badge-wrapper"><span className="kind-badge">参考来源</span></div>
+            <h2>出行参考资料 ({guide.sources.length})</h2>
             <ul className="sources-list">
-              {guide.sources.map((source, index) => (
+              {guide.sources.slice(0, 3).map((source, index) => (
                 <li className="source-card" key={`${source.url}-${index}`}>
                   <a className="source-title" href={source.url} target="_blank" rel="noreferrer">
                     {source.title} <span aria-hidden="true">↗</span>
@@ -268,11 +269,33 @@ export default async function GuidePage({ params }: Props) {
                 </li>
               ))}
             </ul>
-          ) : (
-            <p>本攻略未附外部来源。</p>
-          )}
-          <p className="warning">旅行政策、开放时间和价格可能变化，请在出发前通过官方渠道复核。</p>
-        </section>
+            {guide.sources.length > 3 && (
+              <details className="sources-more-details">
+                <summary className="sources-more-summary">
+                  <span>查看其余 {guide.sources.length - 3} 项出行参考来源</span>
+                  <span className="accordion-chevron" aria-hidden="true">▾</span>
+                </summary>
+                <ul className="sources-list sources-more-list">
+                  {guide.sources.slice(3).map((source, index) => (
+                    <li className="source-card" key={`${source.url}-${index + 3}`}>
+                      <a className="source-title" href={source.url} target="_blank" rel="noreferrer">
+                        {source.title} <span aria-hidden="true">↗</span>
+                      </a>
+                      <small className="source-meta">
+                        访问于 {new Date(source.accessedAt).toLocaleDateString("zh-CN")}
+                      </small>
+                      {source.citedText && <blockquote className="source-quote">{source.citedText}</blockquote>}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </section>
+        )}
+
+        <p className="warning" style={{ marginBlock: "2rem 1rem" }}>
+          旅行政策、开放时间和价格可能变化，请在出发前通过官方渠道复核。
+        </p>
 
         <div className="detail-footer-actions">
           <div className="footer-action-group">

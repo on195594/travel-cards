@@ -42,7 +42,7 @@
 
 - OAuth 页面：`/admin/oauth/consent` 显示客户端名称、精确回调与 scopes，原生表单同意／拒绝；`/admin/oauth` 列出客户端并可撤销。页面 metadata 用 `same-origin` referrer，服务端拒绝缺失或 `null` Origin；登录 returnTo 只允许本站 authorize/consent。
 - 搜索：服务端按 `q` 直出首屏结果；输入停顿 250ms 后远端查询，清空或改词取消旧请求，过期响应不回写；查询中、失败（可重新搜索）、无结果分别展示。
-- 详情：正文行高 1.85、最长 65ch；天数与板块胶囊跳转，语义锚点带 `scroll-margin-top` 与 `:target` 高亮；提示／警告用全包围边框（无 side-tab）；底部“回到行程顶部”。
+- 详情：正文行高 1.85、最长 65ch；各实用板块恢复完整实体卡片形态（`.panel`）；正文接入轻量防注入 Markdown 渲染器，支持响应式 Markdown 表格（横向拖动容器）、加粗、安全链接（带新窗口指示）与列表；多主题子章节（`###`）自动分化为渐进式披露的 sub-section 折叠抽屉；参考来源空态时不展示空块，超过 3 条时支持渐进式展开其余来源；天数与板块胶囊跳转，语义锚点带 `scroll-margin-top` 与 `:target` 高亮；提示／警告用全包围边框（无 side-tab）；底部“回到行程顶部”。
 - 编辑器：按 `day` 匹配行程，缩短已填写行程先确认；`beforeunload` 保护未保存修改；首次保存只更新 URL、不重建编辑器；服务端 `issues` 按字段显示并以 `role="alert"` 通知；`datetime-local` 按本地时间显示、以 UTC ISO 提交。
 - 图片上传生成 480/960/1600px WebP `variants`，旧图片无 variants 时用原图。
 
