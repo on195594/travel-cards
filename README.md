@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-- 生产：<https://travel.keyi.win>，运行 `b4fac7a`（2026-11-11 实用卡片富文本排版与信息过载治理），OAuth 启用。回退：`npm run deploy -- e18322b --skip-tests`，本机保留旧镜像 `travel-cards:git-<提交>`。
+- 生产：<https://travel.keyi.win>，运行 `735db9e`（2026-11-11 实用卡片富文本排版与健壮性加固），OAuth 启用。回退：`npm run deploy -- b4fac7a --skip-tests`，本机保留旧镜像 `travel-cards:git-<提交>`。
 - 已实现：Next.js 16、Auth.js、MongoDB；攻略 CRUD／发布／撤回；R2 封面及 GPX/KML/PDF 附件；应用内 Gemini + Google Search 候选助手（只生成待采纳草稿）。
 - MCP：正式入口 `/mcp`，七个工具（list/get/create/update/publish、`upload_image`、`upload_attachment`），支持 2026 协议与标准 MCP 兼容模式；OAuth/DCR/PKCE 与管理员同意／撤销；受限令牌不可删除或管理配置，每令牌 120 次/分钟。
 - 待做：2026 协议下真实 Gemini 网页／手机端重新验收；非敏感配置后台。
