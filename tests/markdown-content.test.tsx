@@ -72,4 +72,34 @@ describe("MarkdownContent renderer", () => {
     expect(html).toContain('<ol class="markdown-ol">');
     expect(html).toContain("下载轨迹");
   });
+
+  it("safely handles malformed tables and single-pipe lines without dropping content or looping infinitely", () => {
+    const malformed = `
+| 孤立竖线行
+| 表头一 | 表头二 |
+| --- |
+| 内容一 |
+####
+普通正文
+`.trim();
+
+    const html = renderToString(<MarkdownContent content={malformed} />);
+    expect(html).toContain("孤立竖线行");
+    expect(html).toContain("表头一");
+    expect(html).toContain("普通正文");
+  });
+
+  it("pads table rows when row has fewer columns than header", () => {
+    const markdown = `
+| 类别 | 项目 | 金额 |
+| --- | --- | --- |
+| 交通 | 地铁 |
+`.trim();
+
+    const html = renderToString(<MarkdownContent content={markdown} />);
+    expect(html).toContain("<table class=\"markdown-table\">");
+    expect(html).toContain("<td style=\"text-align:left\">交通</td>");
+    expect(html).toContain("<td style=\"text-align:left\">地铁</td>");
+    expect(html).toContain("<td style=\"text-align:left\"></td>");
+  });
 });

@@ -91,8 +91,34 @@ function parseTable(lines: string[]): {
     return "left";
   });
 
-  const rows = lines.slice(2).map(splitRow);
+  const rows = lines.slice(2).map((line) => {
+    const cells = splitRow(line);
+    while (cells.length < headers.length) {
+      cells.push("");
+    }
+    return cells.slice(0, headers.length);
+  });
   return { headers, alignments, rows };
+}
+
+function isTableStart(lines: string[], index: number): boolean {
+  if (index + 1 >= lines.length) return false;
+  const header = lines[index].trim();
+  const sep = lines[index + 1].trim();
+  if (!header.startsWith("|") || !sep.startsWith("|")) return false;
+  return /^[|:\s-]+$/.test(sep);
+}
+
+function isSpecialBlockStart(lines: string[], index: number): boolean {
+  if (index >= lines.length) return false;
+  const line = lines[index];
+  const trimmed = line.trim();
+  if (!trimmed) return true;
+  if (/^####\s+/.test(trimmed)) return true;
+  if (/^\s*[-*]\s+/.test(line)) return true;
+  if (/^\s*\d+\.\s+/.test(line)) return true;
+  if (isTableStart(lines, index)) return true;
+  return false;
 }
 
 function renderBlocks(lines: string[]): React.ReactNode[] {
@@ -109,11 +135,12 @@ function renderBlocks(lines: string[]): React.ReactNode[] {
     }
 
     // Markdown Table
-    if (trimmed.startsWith("|") && i + 1 < lines.length && lines[i + 1].trim().startsWith("|") && /^[|:\s-]+$/.test(lines[i + 1].trim())) {
+    if (isTableStart(lines, i)) {
       const tableLines: string[] = [];
-      while (i < lines.length && lines[i].trim().startsWith("|")) {
-        tableLines.push(lines[i]);
-        i++;
+      let j = i;
+      while (j < lines.length && lines[j].trim().startsWith("|")) {
+        tableLines.push(lines[j]);
+        j++;
       }
       const tableData = parseTable(tableLines);
       if (tableData) {
@@ -143,8 +170,11 @@ function renderBlocks(lines: string[]): React.ReactNode[] {
             </table>
           </div>
         );
+        i = j;
         continue;
       }
+      // If tableData is null (e.g. malformed header/sep mismatch), do not advance j;
+      // fall through to paragraph/fallback so lines are rendered and i advances.
     }
 
     // Sub-headings (H4)
@@ -209,19 +239,18 @@ function renderBlocks(lines: string[]): React.ReactNode[] {
       continue;
     }
 
-    // Normal Paragraph
+    // Paragraph & Fallback (guaranteed to advance i by at least 1)
     const paraLines: string[] = [];
-    while (
-      i < lines.length &&
-      lines[i].trim() &&
-      !lines[i].trim().startsWith("|") &&
-      !lines[i].trim().startsWith("####") &&
-      !/^\s*[-*]\s+/.test(lines[i]) &&
-      !/^\s*\d+\.\s+/.test(lines[i])
-    ) {
+    while (i < lines.length && !isSpecialBlockStart(lines, i)) {
       paraLines.push(lines[i]);
       i++;
     }
+
+    if (paraLines.length === 0 && i < lines.length) {
+      paraLines.push(lines[i]);
+      i++;
+    }
+
     if (paraLines.length > 0) {
       elements.push(
         <p className="markdown-p" key={`p-${elements.length}`}>
