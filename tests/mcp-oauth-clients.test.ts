@@ -41,16 +41,18 @@ afterAll(async () => {
 });
 
 describe("MCP OAuth DCR (fake clients, isolated MongoDB, no consent or tokens)", () => {
-  it.each([undefined, "false", "TRUE", "1"])("stays closed without the exact opt-in (%s), before body or DB access", async (flag) => {
-    if (flag === undefined) delete process.env.MCP_OAUTH_ENABLED;
-    else vi.stubEnv("MCP_OAUTH_ENABLED", flag);
-    const quota = vi.spyOn(clients, "takeMcpRegistrationQuota");
-    const req = request();
-    const res = await POST(req);
-    expect(res.status).toBe(404);
-    expect(req.bodyUsed).toBe(false);
-    expect(quota).not.toHaveBeenCalled();
-    expect(res.headers.get("cache-control")).toContain("no-store");
+  it("stays closed without the exact opt-in flag, before body or DB access", async () => {
+    for (const flag of [undefined, "false", "TRUE", "1"]) {
+      if (flag === undefined) delete process.env.MCP_OAUTH_ENABLED;
+      else vi.stubEnv("MCP_OAUTH_ENABLED", flag);
+      const quota = vi.spyOn(clients, "takeMcpRegistrationQuota");
+      const req = request();
+      const res = await POST(req);
+      expect(res.status).toBe(404);
+      expect(req.bodyUsed).toBe(false);
+      expect(quota).not.toHaveBeenCalled();
+      expect(res.headers.get("cache-control")).toContain("no-store");
+    }
   });
 
   it.each([undefined, "none", "client_secret_basic", "client_secret_post"])("registers %s clients without granting access; secrets are returned once and only hashed in storage", async (method) => {
@@ -97,30 +99,36 @@ describe("MCP OAuth DCR (fake clients, isolated MongoDB, no consent or tokens)",
     ]));
   });
 
-  it.each([
-    "http://client.example.test/callback", "https:///client.example.test/callback", "https://user:password@client.example.test/callback",
-    "https://client.example.test/callback#fragment", "https://client.example.test/callback#",
-    "https://*.example.test/callback", " https://client.example.test/callback",
-    "https://client.example.test/back\\slash", "not-a-url", "https://client.example.test/with space",
-  ])("rejects unsafe redirect URI %s with a DCR error before storage", async (uri) => {
-    const res = await POST(request({ ...metadata, redirect_uris: [uri] }));
-    expect(res.status).toBe(400);
-    expect(await res.json()).toMatchObject({ error: "invalid_redirect_uri" });
+  it("rejects unsafe redirect URIs with a DCR error before storage", async () => {
+    const unsafeUris = [
+      "http://client.example.test/callback", "https:///client.example.test/callback", "https://user:password@client.example.test/callback",
+      "https://client.example.test/callback#fragment", "https://client.example.test/callback#",
+      "https://*.example.test/callback", " https://client.example.test/callback",
+      "https://client.example.test/back\\slash", "not-a-url", "https://client.example.test/with space",
+    ];
+    for (const uri of unsafeUris) {
+      const res = await POST(request({ ...metadata, redirect_uris: [uri] }));
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ error: "invalid_redirect_uri" });
+    }
     expect(await ownedDb().collection("mcp_oauth_clients").countDocuments({})).toBe(0);
   });
 
-  it.each([
-    { redirect_uris: [] }, { redirect_uris: [metadata.redirect_uris[0], metadata.redirect_uris[0]] },
-    { redirect_uris: Array.from({ length: 11 }, (_, i) => `https://client.example.test/${i}`) },
-    { token_endpoint_auth_method: "private_key_jwt" }, { grant_types: ["refresh_token"] },
-    { grant_types: ["authorization_code", "refresh_token"] }, { response_types: ["token"] },
-    { scope: "guide.delete" }, { scope: "guide.read guide.delete" }, { scope: "guide.create" },
-    { scope: "guide.read guide.read" }, { scope: "guide.read  guide.create" }, { scope: "guide.read\tguide.create" },
-    { scope: "" }, { client_name: "x".repeat(129) }, { client_name: " " },
-  ])("rejects unsupported or unbounded metadata %j", async (override) => {
-    const res = await POST(request({ ...metadata, ...override }));
-    expect(res.status).toBe(400);
-    expect((await res.json()).error).toBe(override.redirect_uris ? "invalid_redirect_uri" : "invalid_client_metadata");
+  it("rejects unsupported or unbounded metadata", async () => {
+    const invalidOverrides = [
+      { redirect_uris: [] }, { redirect_uris: [metadata.redirect_uris[0], metadata.redirect_uris[0]] },
+      { redirect_uris: Array.from({ length: 11 }, (_, i) => `https://client.example.test/${i}`) },
+      { token_endpoint_auth_method: "private_key_jwt" }, { grant_types: ["refresh_token"] },
+      { grant_types: ["authorization_code", "refresh_token"] }, { response_types: ["token"] },
+      { scope: "guide.delete" }, { scope: "guide.read guide.delete" }, { scope: "guide.create" },
+      { scope: "guide.read guide.read" }, { scope: "guide.read  guide.create" }, { scope: "guide.read\tguide.create" },
+      { scope: "" }, { client_name: "x".repeat(129) }, { client_name: " " },
+    ];
+    for (const override of invalidOverrides) {
+      const res = await POST(request({ ...metadata, ...override }));
+      expect(res.status).toBe(400);
+      expect((await res.json()).error).toBe(override.redirect_uris ? "invalid_redirect_uri" : "invalid_client_metadata");
+    }
     expect(await ownedDb().collection("mcp_oauth_clients").countDocuments({})).toBe(0);
   });
 

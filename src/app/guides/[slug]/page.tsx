@@ -245,6 +245,9 @@ export default async function GuidePage({ params }: Props) {
                 </li>
               ))}
             </ul>
+            <p className="tip" style={{ marginTop: "1rem" }}>
+              路线文件使用提示：下载 GPX/KML 路线文件后，可在手机“文件”或“下载管理”中选择“用两步路 / 奥维互动地图 / 高德地图打开”加载离线轨迹。若在微信等应用内置浏览器中无法直接下载，请点击右上角菜单选择“在浏览器中打开”。
+            </p>
           </section>
         )}
 

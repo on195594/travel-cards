@@ -83,6 +83,7 @@ describe("Attachment upload to R2", () => {
       CacheControl: "public, max-age=31536000, immutable",
     });
     expect(command.input.ContentDisposition).toContain("attachment; filename=");
+    expect(command.input.ContentDisposition).toContain("filename*=UTF-8''%E6%94%BB%E7%95%A5%E8%B7%AF%E7%BA%BF%E6%89%8B%E5%86%8C.pdf");
   });
 
   it("fails with 500 when R2 environment is missing", async () => {

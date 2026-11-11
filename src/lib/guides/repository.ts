@@ -176,7 +176,7 @@ export async function findPublishedGuideSummaries(q: string | undefined, limit: 
   const search = searchFilter(q);
   if (search) filter.$or = search;
   const records = await GuideModel.find(filter)
-    .select("title slug destination excerpt days coverImage status revision publishedAt createdAt updatedAt")
+    .select("title slug destination excerpt days coverImage attachments status revision publishedAt createdAt updatedAt")
     .sort({ publishedAt: -1 })
     .limit(limit)
     .lean();
@@ -197,7 +197,7 @@ export async function findAdminGuideSummaries(q: string | undefined, limit: numb
   const search = searchFilter(q);
   if (search) filter.$or = [...search, { slug: search[0].title }];
   const records = await GuideModel.find(filter)
-    .select("title slug destination excerpt days coverImage status revision publishedAt createdAt updatedAt")
+    .select("title slug destination excerpt days coverImage attachments status revision publishedAt createdAt updatedAt")
     .sort({ updatedAt: -1 })
     .limit(limit)
     .lean();

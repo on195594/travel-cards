@@ -96,6 +96,7 @@ function errorMessage(value: unknown): string | undefined {
     coverImage: "封面图片", alt: "图片描述", itinerary: "逐日行程", items: "地点安排",
     time: "时间", place: "地点", description: "说明", tips: "提示", sections: "实用章节",
     kind: "类型", body: "正文", sources: "来源", url: "URL", accessedAt: "访问时间", citedText: "引用内容",
+    attachments: "附件", name: "附件名称",
   };
   const details = Array.isArray(issues) ? issues.filter(isRecord).map((issue) => {
     const path = Array.isArray(issue.path) ? issue.path : [];
@@ -112,6 +113,12 @@ function errorMessage(value: unknown): string | undefined {
 }
 
 const subscribeToClient = () => () => {};
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 export function localDateTime(value: string): string {
   const date = new Date(value);
@@ -457,7 +464,7 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
         ...current,
         attachments: [...(current.attachments ?? []), result.data.attachment],
       }));
-      setMessage({ kind: "success", text: "附件已上传；保存攻略后生效。" });
+      setMessage({ kind: "success", text: "附件已上传；可修改名称与说明，保存攻略后生效。" });
     } finally {
       finishOperation();
     }
@@ -903,20 +910,71 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
             {draft.attachments && draft.attachments.length > 0 && (
               <ul className="attachments-list" style={{ marginBottom: "1rem" }}>
                 {draft.attachments.map((att, index) => (
-                  <li className="attachment-card" key={att.id || index}>
-                    <div className="attachment-info">
+                  <li className="attachment-card" key={att.id || index} style={{ alignItems: "flex-start" }}>
+                    <div className="attachment-info" style={{ flex: 1, minWidth: "240px" }}>
                       <div className="attachment-header">
                         <span className={`attachment-badge badge-${att.type}`}>
                           {att.type.toUpperCase()}
                         </span>
-                        <strong className="attachment-name">{att.name}</strong>
+                        <span className="attachment-size">{formatFileSize(att.size)}</span>
                       </div>
-                      {att.description && <p className="attachment-desc">{att.description}</p>}
+                      <label style={{ marginBlock: ".4rem 0" }}>
+                        附件名称
+                        <input
+                          type="text"
+                          value={att.name}
+                          maxLength={200}
+                          required
+                          disabled={busy || unknownWrite}
+                          onChange={(e) =>
+                            field(
+                              "attachments",
+                              (draft.attachments ?? []).map((entry, inner) =>
+                                inner === index ? { ...entry, name: e.target.value } : entry
+                              )
+                            )
+                          }
+                          onBlur={(e) => {
+                            if (!e.target.value.trim()) {
+                              const fallback = att.objectKey.split("/").pop() || `attachment.${att.type}`;
+                              field(
+                                "attachments",
+                                (draft.attachments ?? []).map((entry, inner) =>
+                                  inner === index ? { ...entry, name: fallback } : entry
+                                )
+                              );
+                            }
+                          }}
+                          placeholder="例如：秦岭分水岭一日亲子线.gpx"
+                        />
+                      </label>
+                      <label style={{ marginBlock: ".4rem 0" }}>
+                        路线与资料说明（选填）
+                        <input
+                          type="text"
+                          value={att.description ?? ""}
+                          maxLength={1000}
+                          disabled={busy || unknownWrite}
+                          onChange={(e) =>
+                            field(
+                              "attachments",
+                              (draft.attachments ?? []).map((entry, inner) =>
+                                inner === index
+                                  ? { ...entry, description: e.target.value ? e.target.value : undefined }
+                                  : entry
+                              )
+                            )
+                          }
+                          placeholder="例如：适合5岁以上儿童，顺时针行进，拔高350米，需备登山杖"
+                        />
+                      </label>
                     </div>
                     <button
                       className="text-button"
                       type="button"
+                      disabled={busy || unknownWrite}
                       onClick={() => field("attachments", draft.attachments?.filter((_, i) => i !== index) ?? [])}
+                      style={{ marginTop: "1.8rem" }}
                     >
                       移除附件
                     </button>
@@ -968,6 +1026,19 @@ export function GuideEditor({ initialGuide }: { initialGuide?: Guide }) {
               </ul>
             </div>
           ))}
+          {draft.attachments && draft.attachments.length > 0 && (
+            <div>
+              <h3>路线与资料附件 ({draft.attachments.length})</h3>
+              <ul>
+                {draft.attachments.map((att, index) => (
+                  <li key={att.id || index}>
+                    [{att.type.toUpperCase()}] {att.name || "未命名附件"}
+                    {att.description ? ` · ${att.description}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </aside>
       </div>
     </>

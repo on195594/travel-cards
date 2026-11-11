@@ -209,4 +209,28 @@ describe("Guide aggregate", () => {
       })
     ).rejects.toThrow();
   });
+
+  it("exposes hasRouteTrack and hasAttachments flags in published guide summaries", async () => {
+    await createGuide({
+      ...threeDayGuide("track-summary-guide"),
+      status: "published",
+      attachments: [
+        {
+          id: "att-1",
+          name: "环线轨迹.gpx",
+          type: "gpx",
+          size: 1024,
+          objectKey: "attachments/test.gpx",
+          publicUrl: "https://example.test/attachments/test.gpx",
+        },
+      ],
+    });
+    const summaries = await listPublishedGuides();
+    expect(summaries).toHaveLength(1);
+    expect(summaries[0]).toMatchObject({
+      slug: "track-summary-guide",
+      hasRouteTrack: true,
+      hasAttachments: true,
+    });
+  });
 });

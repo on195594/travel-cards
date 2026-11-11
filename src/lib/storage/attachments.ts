@@ -91,6 +91,9 @@ export async function uploadAttachment(
 
   const objectKey = `attachments/${randomUUID()}.${extension}`;
   const safeFilename = filename.trim().replace(/[\r\n"]/g, "_") || `attachment.${extension}`;
+  const asciiFallback = safeFilename.replace(/[^\w.-]/g, "_").replace(/^_+|_+$/g, "") || `attachment.${extension}`;
+  const encodedUtf8 = encodeURIComponent(safeFilename);
+  const contentDisposition = `attachment; filename="${asciiFallback}"; filename*=UTF-8''${encodedUtf8}`;
 
   const uploadAbort = new AbortController();
   const abortSignal = AbortSignal.any([uploadAbort.signal, AbortSignal.timeout(20_000)]);
@@ -102,7 +105,7 @@ export async function uploadAttachment(
         Body: bytes,
         ContentType: mime,
         ContentLength: bytes.length,
-        ContentDisposition: `attachment; filename="${encodeURIComponent(safeFilename)}"`,
+        ContentDisposition: contentDisposition,
         CacheControl: "public, max-age=31536000, immutable",
       }),
       { abortSignal }

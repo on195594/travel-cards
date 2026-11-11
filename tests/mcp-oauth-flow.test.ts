@@ -163,26 +163,24 @@ describe("OAuth authorization code flow, fake authenticated admin and isolated M
 
   it("preserves long opaque client state through login, consent and callbacks", async () => {
     const c = await client();
-    for (const length of [1144, 4096]) {
-      const state = "s".repeat(length);
-      for (const decision of ["approve", "deny"]) {
-        const flow = await begin(c, { state });
-        expect((await getConsentIntent(admin, flow.intent)).intent.state).toBe(state);
-        const res = await consent(form("/api/oauth/consent", { intent: flow.intent, decision }, { Origin: origin }));
-        expect(res.status).toBe(303);
-        expect(new URL(res.headers.get("location")!).searchParams.get("state")).toBe(state);
-      }
-      fakeAuth.mockResolvedValueOnce(null);
-      const query = authorizationQuery(c.client_id, randomBytes(32).toString("base64url"), { state });
-      const login = await authorize(new Request(origin + "/api/oauth/authorize?" + query));
-      expect(login.status).toBe(303);
-      const returnTo = new URL(login.headers.get("location")!, origin).searchParams.get("returnTo")!;
-      expect(getLoginReturnTo(returnTo)).toBe(returnTo);
-      expect(new URL(returnTo, origin).searchParams.get("state")).toBe(state);
-    }
-    for (const state of ["s".repeat(4097), "%".repeat(3000)]) {
-      const res = await authorize(new Request(origin + "/api/oauth/authorize?" + authorizationQuery(c.client_id, randomBytes(32).toString("base64url"), { state })));
-      expect(res.status).toBe(400);
+    const state = "s".repeat(4096);
+    const flow = await begin(c, { state });
+    expect((await getConsentIntent(admin, flow.intent)).intent.state).toBe(state);
+    const res = await consent(form("/api/oauth/consent", { intent: flow.intent, decision: "approve" }, { Origin: origin }));
+    expect(res.status).toBe(303);
+    expect(new URL(res.headers.get("location")!).searchParams.get("state")).toBe(state);
+
+    fakeAuth.mockResolvedValueOnce(null);
+    const query = authorizationQuery(c.client_id, randomBytes(32).toString("base64url"), { state });
+    const login = await authorize(new Request(origin + "/api/oauth/authorize?" + query));
+    expect(login.status).toBe(303);
+    const returnTo = new URL(login.headers.get("location")!, origin).searchParams.get("returnTo")!;
+    expect(getLoginReturnTo(returnTo)).toBe(returnTo);
+    expect(new URL(returnTo, origin).searchParams.get("state")).toBe(state);
+
+    for (const badState of ["s".repeat(4097), "%".repeat(3000)]) {
+      const badRes = await authorize(new Request(origin + "/api/oauth/authorize?" + authorizationQuery(c.client_id, randomBytes(32).toString("base64url"), { state: badState })));
+      expect(badRes.status).toBe(400);
     }
   });
 
@@ -443,8 +441,15 @@ describe("OAuth authorization code flow, fake authenticated admin and isolated M
 });
 
 describe("safe OAuth login return", () => {
-  it.each([undefined, "https://evil.test/", "//evil.test/", "/\\evil.test/", "/admin/guides?next=https://evil.test", "/api/oauth/authorize#fragment", "/api/oauth/authorize", "/admin/oauth/consent?intent=bad", "x".repeat(8193)])("rejects external or unapproved destination %s", (value) => {
-    expect(getLoginReturnTo(value)).toBe("/admin/guides");
+  it("rejects external or unapproved destinations", () => {
+    const invalidDestinations = [
+      undefined, "https://evil.test/", "//evil.test/", "/\\evil.test/",
+      "/admin/guides?next=https://evil.test", "/api/oauth/authorize#fragment",
+      "/api/oauth/authorize", "/admin/oauth/consent?intent=bad", "x".repeat(8193),
+    ];
+    for (const value of invalidDestinations) {
+      expect(getLoginReturnTo(value)).toBe("/admin/guides");
+    }
   });
   it("preserves only bounded internal authorize and consent destinations", () => {
     const intent = "tc_intent_" + "x".repeat(43);

@@ -51,9 +51,20 @@ describe("environment validation", () => {
     expect(() => getR2Env()).toThrow("safe HTTPS URL");
   });
 
-  it.each(["", "not-a-url", "data:image/png;base64,AAAA", "http://images.example.test", "https://user:password@images.example.test", "https://images.example.test/?token=test", "https://images.example.test/#fragment"])("omits image connection hints for invalid public base %s", (value) => {
-    vi.stubEnv("R2_PUBLIC_BASE_URL", value);
-    expect(getImageOrigin()).toBeNull();
+  it("omits image connection hints for invalid or unsafe public base URLs", () => {
+    const invalidUrls = [
+      "",
+      "not-a-url",
+      "data:image/png;base64,AAAA",
+      "http://images.example.test",
+      "https://user:password@images.example.test",
+      "https://images.example.test/?token=test",
+      "https://images.example.test/#fragment",
+    ];
+    for (const value of invalidUrls) {
+      vi.stubEnv("R2_PUBLIC_BASE_URL", value);
+      expect(getImageOrigin()).toBeNull();
+    }
   });
 
   it("extracts only the image origin without requiring storage credentials", () => {

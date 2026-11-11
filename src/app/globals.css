@@ -127,9 +127,12 @@ h2 { margin-block: .4rem 1rem; font-size: 1.45rem; line-height: 1.3; letter-spac
 .card-media-destination { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; overflow-wrap: anywhere; font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: clamp(1.35rem, 2.5vw, 1.8rem); line-height: 1.5; }
 .card-body { display: flex; flex: 1; flex-direction: column; padding: 1.25rem; }
 .card-cta { display: flex; justify-content: space-between; align-items: center; margin-top: auto; padding-top: .9rem; border-top: 1px solid var(--line); color: var(--green); font-size: .85rem; font-weight: 650; }
-.card-meta { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.card-meta .eyebrow { margin: 0; line-height: 1.6; letter-spacing: .06em; }
-.card-meta > span { flex-shrink: 0; color: var(--muted); font-size: .78rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.card-meta { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.card-meta .eyebrow { margin: 0; line-height: 1.6; letter-spacing: .06em; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-meta-tags { display: inline-flex; align-items: center; gap: .45rem; flex-shrink: 0; }
+.card-meta-tags > span, .card-meta > span { flex-shrink: 0; color: var(--muted); font-size: .78rem; font-weight: 750; font-variant-numeric: tabular-nums; }
+.meta-badge { display: inline-flex; align-items: center; border-radius: .35rem; padding: .1rem .4rem; font-size: .72rem; font-weight: 800; line-height: 1.3; }
+.badge-track { background: color-mix(in srgb, var(--green) 12%, var(--surface)); color: var(--green); border: 1px solid color-mix(in srgb, var(--green) 30%, transparent); }
 .card h3 { margin: .55rem 0 .5rem; font-family: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, serif; font-size: 1.2rem; line-height: 1.55; letter-spacing: -.01em; }
 .card-body > p:not(.eyebrow) { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; min-height: 3.2em; margin: 0 0 1.2rem; color: var(--muted); font-size: .95rem; line-height: 1.6; }
 .empty { background: var(--surface); border: 1px dashed var(--field-border); border-radius: 1rem; padding: 3rem 2rem; color: var(--muted); text-align: center; }
@@ -286,7 +289,7 @@ h1, h2, h3, p, a { overflow-wrap: anywhere; }
   .search-filter-dock { flex-direction: column; align-items: stretch; gap: .8rem; }
   .search-box { flex: none; width: 100%; }
   .destination-chips { width: 100%; padding-block: .4rem; overscroll-behavior-x: contain; }
-  .destination-chips .chip { white-space: nowrap; max-width: none; }
+  .destination-chips .chip { white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
   .hero-compact-lede { max-width: 28em; }
   .article > .cover { aspect-ratio: 4 / 3; }
   .article .timeline-list { padding-left: 1rem; }
@@ -296,7 +299,7 @@ h1, h2, h3, p, a { overflow-wrap: anywhere; }
   .chip { flex-shrink: 0; }
   .feed-meta-row { align-items: baseline; }
   .brand span { display: none; }
-  .site-footer { flex-direction: column; }
+  .site-footer { flex-direction: column; padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px)); padding-right: 4.5rem; }
   .admin-header { align-items: flex-start; flex-direction: column; }
   .form-grid, .item-grid { grid-template-columns: 1fr; }
   .wide { grid-column: auto; }

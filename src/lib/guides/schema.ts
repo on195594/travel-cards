@@ -125,7 +125,7 @@ export const guideSchema = draftGuideObject.extend({
   updatedAt: z.string().datetime(),
 }).superRefine(checkDayNumbers);
 
-export const guideSummarySchema = z.object({
+const baseSummaryObject = z.object({
   id: z.string(),
   title: z.string(),
   slug: optionalSlug,
@@ -133,12 +133,37 @@ export const guideSummarySchema = z.object({
   excerpt: z.string(),
   days: z.number().int().min(1),
   coverImage: draftGuideObject.shape.coverImage.optional(),
+  hasRouteTrack: z.boolean().optional(),
+  hasAttachments: z.boolean().optional(),
   status: z.enum(["draft", "published"]),
   revision: z.number().int().min(1),
   publishedAt: z.string().datetime().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });
+
+export const guideSummarySchema = z.preprocess((val) => {
+  if (typeof val === "object" && val !== null) {
+    const record = val as Record<string, unknown>;
+    const attachments = Array.isArray(record.attachments) ? record.attachments : undefined;
+    const hasRouteTrack = record.hasRouteTrack !== undefined
+      ? record.hasRouteTrack
+      : attachments
+        ? attachments.some((a) => typeof a === "object" && a !== null && ((a as Record<string, unknown>).type === "gpx" || (a as Record<string, unknown>).type === "kml")) || undefined
+        : undefined;
+    const hasAttachments = record.hasAttachments !== undefined
+      ? record.hasAttachments
+      : attachments
+        ? attachments.length > 0 || undefined
+        : undefined;
+    return {
+      ...record,
+      ...(hasRouteTrack !== undefined ? { hasRouteTrack } : {}),
+      ...(hasAttachments !== undefined ? { hasAttachments } : {}),
+    };
+  }
+  return val;
+}, baseSummaryObject);
 
 export const guidePatchSchema = z.object({
   expectedRevision: z.number().int().min(1),
