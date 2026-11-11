@@ -29,7 +29,7 @@ Travel Cards 是供人和 AI 协作维护的中文旅行攻略工作台。让攻
 - 现有 Bearer API Token 接口保留；MCP 固定数据探针已部署，内部攻略工具、受限令牌与本地 OAuth/DCR/PKCE 已实现，业务 MCP 服务端已上线，真实 Gemini 双端验收已由用户确认完成，图片上传专项验收未单独确认，配置后台尚未实现。
 - Gemini 网页／手机 App 是首个验收目标，但客户端地区、账号及认证支持需单独验收，不能用 Gemini API 或 CLI 测试替代。
 - 产品契约以 `SPEC.md` 为准。代码优先的构建默认记录在 `.impeccable/config.json`，不是产品权限或平台设置。
-- 正式 MCP 已按 2026-10-22 用户确认，在 2026-07-28 模式之外恢复标准 `initialize` / `notifications/*` / `ping` 兼容分支，业务权限及七个工具（含 `upload_image` 与 `upload_attachment`）落实。当前生产运行镜像为 `e18322b`（2026-11-11 路线附件与交互体验优化），包含双协议兼容、性能优化、路线轨迹徽章与移动端交互保护；运行证据集中在 README。下文“双端验收”仍描述历史客户端批次，不能作为双协议版本的真实 Gemini 验收证明。
+- 正式 MCP 已按 2026-10-22 用户确认，在 2026-07-28 模式之外恢复标准 `initialize` / `notifications/*` / `ping` 兼容分支，业务权限及七个工具（含 `upload_image` 与 `upload_attachment`）落实。当前生产运行镜像为 `b4fac7a`（2026-11-11 实用卡片富文本排版与信息过载治理），包含双协议兼容、性能优化、路线轨迹徽章、实用卡片结构化与渐进式披露；运行证据集中在 README。下文“双端验收”仍描述历史客户端批次，不能作为双协议版本的真实 Gemini 验收证明。
 - 2026-10-23 性能优化（响应式 WebP 衍生尺寸、首屏 SSR 搜索直出、MCP 鉴权关联查询合并与可选 limit/summary）已完成上线，真实 AGY 静态审查给出 APPROVE 且无阻塞项。
 
 ## Capabilities and Constraints
