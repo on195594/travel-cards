@@ -8,7 +8,7 @@
 
 1. `SPEC.md` 定义产品与安全契约。
 2. `README.md` 定义阶段和项目入口；`PRODUCT.md` 记录已确认产品定位，不得将待实现能力写成现有能力。
-3. `docs/frontend.md` 记录现有 UI 实现事实；Impeccable 构建默认读取 `.impeccable/config.json`。初始化不等于重做视觉系统。
+3. `docs/frontend.md` 记录现有 UI 实现事实；公开页面沿用现有视觉系统，不擅自重做品牌或组件体系。
 4. 若实现需要改变行为，先更新并确认 spec，不得让代码静默偏离。
 
 ## Implementation rules

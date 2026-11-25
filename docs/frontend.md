@@ -1,4 +1,4 @@
-# 现有前端实现与 Impeccable 工作流
+# 现有前端实现
 
 这是从源码提取的技术快照，不是新视觉方向或 `DESIGN.md` 的替代承诺。产品事实见 `PRODUCT.md`，行为与安全契约见 `SPEC.md`。公开页面沿用现有视觉系统做局部优化，不引入新的创作隐喻、色彩命名或组件体系。
 
@@ -45,14 +45,6 @@
 - 详情：正文行高 1.85、最长 65ch；各实用板块恢复完整实体卡片形态（`.panel`）；正文接入轻量防注入 Markdown 渲染器，支持响应式 Markdown 表格（横向拖动容器）、加粗、安全链接（带新窗口指示）与列表；多主题子章节（`###`）自动分化为渐进式披露的 sub-section 折叠抽屉；参考来源空态时不展示空块，超过 3 条时支持渐进式展开其余来源；天数与板块胶囊跳转，语义锚点带 `scroll-margin-top` 与 `:target` 高亮；提示／警告用全包围边框（无 side-tab）；底部“回到行程顶部”。
 - 编辑器：按 `day` 匹配行程，缩短已填写行程先确认；`beforeunload` 保护未保存修改；首次保存只更新 URL、不重建编辑器；服务端 `issues` 按字段显示并以 `role="alert"` 通知；`datetime-local` 按本地时间显示、以 UTC ISO 提交。
 - 图片上传生成 480/960/1600px WebP `variants`，旧图片无 variants 时用原图。
-
-## Impeccable 初始化状态
-
-- `PRODUCT.md`：已确认的产品事实，明确区分当前能力、批准的扩展与待决定事项。
-- `.impeccable/config.json`：用户选择 `buildPath: code`，新页面代码优先。
-- `.impeccable/live/config.json`：仅记录 Next.js App Router 的开发期注入目标 `src/app/layout.tsx`。CSP 检测无现有策略需要修改；本轮没有启动 live、注入脚本或修改生产页面。
-- 本地会话、注入 journal、临时截图不提交；共享工作流与 setup config 可以提交。不得在生产站点注入开发 helper。
-- 后续若要建立正式 `DESIGN.md`，按 Impeccable document 流程确认定性设计语言；若要改版，另行确认方向，不把本次产品初始化当作改版授权。
 
 ## 修改后验证
 
