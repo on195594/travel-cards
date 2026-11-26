@@ -1,7 +1,7 @@
 # Travel Cards MVP Specification
 
-- **状态**：核心应用、MCP 工具／令牌与 OAuth/DCR/PKCE 已实现并上线；正式 `/mcp` 支持 2026 协议并兼容标准 MCP。部署版本见 [README](./README.md#当前状态)
-- **更新日期**：2026-10-29
+- **状态**：核心应用、MCP 工具／令牌与 OAuth/DCR/PKCE 已实现并上线；正式 `/mcp` 源码已切换为官方 MCP SDK（仅支持 `2026-07-28`，待授权部署），当前生产 `735db9e` 仍运行切换前双协议版本（见 3.3.3）。部署版本见 [README](./README.md#当前状态)
+- **更新日期**：2026-11-26
 - **项目根目录**：`/home/lin/travel-cards`
 - **产品语言**：首版中文界面与中文内容
 
@@ -49,7 +49,7 @@
 管理员与持有有效 Token 的自动化客户端可以：
 
 - 新建、编辑、预览、发布、撤回和删除攻略；
-- 上传攻略图片至 Cloudflare R2；
+- 上传攻略封面图片与路线／资料附件至 Cloudflare R2；
 - 调用 AI Agent 生成草稿、问答和调整建议；
 - 审核后显式采纳 AI 建议。
 
@@ -84,7 +84,11 @@
 - 本批增加管理员授权列表/撤销和授权同意页面，复用既有样式。OAuth 不要求逐篇发布审批；外部 AI 的操作范围仍仅 Guide read/create/update/publish、image.upload 与 attachment.upload。
 - 先完成本地 fake 客户端完整流程、输入/重放/并发/撤销/跨资源/REST 绕过回归及 AGY 审查。生产部署、开关启用、真实账号和 Gemini 双端验收需单独授权，不修改既有生产凭证。
 
-#### 3.3.3 MCP 双协议支持与向后兼容（2026-10-22 用户确认）
+#### 3.3.3 正式 `/mcp` 协议契约
+
+**当前源码契约（官方 SDK，待授权部署）：** 切换到官方 SDK 时，`/mcp` 只提供 `2026-07-28` 现代协议，不再协商旧版，显式关闭 SDK 默认的无状态旧协议回退、SSE 升级、`subscriptions/listen` 订阅流与 `tools.listChanged` 广播，不保证旧握手、无现代元数据的工具调用或手写版的旧 JSON-RPC 错误细节。同步结果与协议／入参校验错误按 SDK 原生现代行为返回（工具只声明 `inputSchema` 并返回 `{ structuredContent }`，409／404 等业务执行期失败保留 `structuredContent.error` 与 `isError: true`；入参 schema 失败返回文本 `isError: true`、未知工具返回 HTTP `200` / `-32602`、无法确定请求 `id` 返回 `id: null`、无 `id` 通知返回 `202` 丢弃且无写副作用）。仅支持旧握手的客户端届时无法使用。外层继续承担 `MCP_OAUTH_ENABLED` 开关、CORS `OPTIONS` 预检、Origin 与 OAuth 挑战、非 POST `405`、`Accept` 拒绝 JSON 的 `406`、2 MiB 有界读取、已知工具在进入 SDK 回调前的组合权限 `403` 最小 step-up 挑战、120 次/分钟持久限流（`429 Retry-After` 及存储故障 `500 / -32603`）以及全响应 `no-store`／CORS 头。七个工具及既有授权不因换协议而改变；实施和切换条件见[迁移方案](./docs/roadmaps/mcp-sdk-migration.md)。
+
+**切换前线上仍在运行的双协议契约（735db9e，2026-10-22）：** 以下是生产尚未切换前的旧实现记录，仓库源码已移除双协议分发器。
 
 - 正式 `/mcp` 采用双协议支持：既支持 `2026-07-28` 现代协议，又向后兼容以 Google Gemini Apps 为代表的标准 MCP 客户端规范（`initialize`、`notifications/*`、`ping`）。
 - **共享契约与边界**：
@@ -115,7 +119,7 @@
     7. HTTP 429：工具调用超过自然分钟 120 次限流配额（带 Retry-After）；
     8. HTTP 500：内部基础设施故障或限流存储异常（`-32603`）；
     （注：无 id 的 `notifications/*` 正常返回 HTTP 202 确认）。
-- 六个工具及业务权限、resource URI、已有令牌有效期和撤销语义不变。
+- 正式入口保留七个工具（含 `upload_image` 和 `upload_attachment`）及其业务权限、resource URI、已有令牌有效期和撤销语义。
 - `6a5f28d` 已实现的换码兼容：单资源授权码换码可省略 `resource`，此时使用服务端规范 `/mcp` 资源；显式传入其他资源仍拒绝。兼容接收可选 `scope` 字段，签发权限仍取授权码已批准的 scopes，不由该字段扩权。元数据、注册、换码和正式 MCP 提供允许来源的 CORS 响应及 OPTIONS 预检。2026-10-27 用户授权推进审查修复：正式 MCP 的工具错误响应也必须保留允许来源的 CORS 头，包含未知工具、权限不足、限流和基础设施故障；浏览器可读取 `WWW-Authenticate` 与 `Retry-After`，不改变状态码、权限或限流规则。
 - DCR 在 2026 规范中已弃用但仍保留；本轮继续现有 OAuth 注册流程，不引入 CIMD URL 拉取或新的网络信任面。原公开探针仍是独立的旧协议诊断入口，不用它证明正式服务的 2026 合规或真实 Gemini 兼容。
 - 先跑 fake 客户端、隔离 MongoDB 与本地 HTTP 回归；不自动部署或重验真实账号。完整协议变更与官方依据见 `docs/decisions/2026-10-21-mcp-2026-migration.md`。
@@ -162,7 +166,7 @@
 
 ### 4.2 分享卡片与详情导览
 
-“旅行卡片”是同一篇攻略的列表卡片、Open Graph 预览和公开详情呈现，不创建第二套 Card 数据模型。公开详情 URL 使用稳定 slug，例如 `/guides/[slug]`。公开详情页支持结构化逐日行程与实用板块（交通出行、住宿推荐、餐饮美食、费用预算、安全防范、实用建议及参考资料）的全章节快速跳转导航与锚点定位。
+“旅行卡片”是同一篇攻略的列表卡片、Open Graph 预览和公开详情呈现，不创建第二套 Card 数据模型。公开详情 URL 使用稳定 slug，例如 `/guides/[slug]`。公开详情页支持结构化逐日行程、路线轨迹与资料附件下载，以及实用板块（交通出行、住宿推荐、餐饮美食、费用预算、安全防范、实用建议及参考资料）的全章节快速跳转导航与锚点定位。
 
 首版提供可复制公开链接和基础 Open Graph metadata；不接入第三方社交平台发布 API。
 
@@ -213,7 +217,7 @@
 - 保留现有 API Token 接口；新的客户端认证方式必须满足 Gemini 网页／手机 App 的实际支持，不能假定客户端可以输入当前 Bearer Token。
 - 配置管理属于管理员后台能力，仅管理非敏感应用设置。字段清单及存储方式实现前确定；API Key、Auth、数据库和 R2 凭证仍使用环境变量，不在后台展示或回传给外部 AI。
 - OAuth 授权与业务 MCP endpoint 已上线，真实 Gemini 双端验收已由用户确认完成；配置 API 尚未完成，不增加模型厂商专用 Agent 框架或自主后台任务。
-- 2026-10-23 用户确认的兼容性能扩展：`list_guides` 可选 `limit`（1–100，省略仍为 100），返回 `hasMore` 明示是否还有匹配项，不新增分页承诺；需要更精确结果时使用 `q` 缩小范围。写工具可选 `responseMode: "summary"`，返回包含 id、slug、状态和新 revision 的攻略摘要；省略或指定 `"full"` 时仍返回完整攻略。保留文本与 structuredContent 双份兼容结果，不改变权限、冲突及写入确认规则。工具说明优先引导一次创建并发布、一次上传并替换封面，并使用成功响应中的 revision，避免重复读取或更新。
+- 2026-10-23 用户确认的兼容性能扩展：`list_guides` 可选 `limit`（1–100，省略仍为 100），返回 `hasMore` 明示是否还有匹配项，不新增分页承诺；需要更精确结果时使用 `q` 缩小范围。写工具可选 `responseMode: "summary"`，返回包含 id、slug、状态和新 revision 的攻略摘要；省略或指定 `"full"` 时仍返回完整攻略。当前双协议实现保留文本与 structuredContent 双份结果；切换官方 SDK 后按 3.3.3 以 SDK 现代协议结果封装为准，不改变权限、冲突及写入确认规则。工具说明优先引导一次创建并发布、一次上传并替换封面，并使用成功响应中的 revision，避免重复读取或更新。
 - 访问令牌与 active 客户端可合并为单次有索引的数据库关联查询；每次认证仍检查撤销、到期、resource、客户端绑定和批准 scopes，不缓存授权结果。
 
 ## 5. 数据契约
@@ -241,6 +245,16 @@ type ItineraryDay = {
   }>;
 };
 
+type GuideAttachment = {
+  id: string;
+  name: string;
+  type: "gpx" | "kml" | "pdf" | "other";
+  size: number;
+  objectKey: string;
+  publicUrl: string;
+  description?: string;
+};
+
 type Guide = {
   id: string;
   title: string;
@@ -261,6 +275,7 @@ type Guide = {
     body: string;
   }>;
   sources: SourceRef[];
+  attachments: GuideAttachment[];
   status: GuideStatus;
   revision: number;
   publishedAt?: string;
@@ -270,7 +285,7 @@ type Guide = {
 
 type GuideCandidate = Omit<
   Guide,
-  "id" | "slug" | "coverImage" | "status" | "revision" | "publishedAt" | "createdAt" | "updatedAt"
+  "id" | "slug" | "coverImage" | "attachments" | "status" | "revision" | "publishedAt" | "createdAt" | "updatedAt"
 >;
 
 type GuideAnswer = {
@@ -316,7 +331,7 @@ type AiResult<T> =
 - `POST /api/guides/[id]/publish`：管理员或携带有效 Token 请求显式发布；
 - `POST /api/guides/[id]/unpublish`：管理员或携带有效 Token 请求显式撤回为草稿，并清空 publishedAt；
 - `POST /api/uploads`：管理员或携带有效 Token 请求上传一张受限图片，服务端校验后写入 R2；
-- `POST /api/attachments`：管理员或携带有效 Token/attachment.upload 请求上传一份受限附件（GPX/KML/PDF 等），服务端校验白名单和文件头后写入 R2；
+- `POST /api/attachments`：管理员或携带有效 API Token 请求上传一份受限附件（GPX/KML/PDF），服务端校验白名单与文件头后写入 R2（受限外部 AI 仅通过 `/mcp` 的 `upload_attachment` 调用，管理员 REST 拒绝受限 OAuth 令牌）；
 - `POST /api/ai/generate`：生成攻略候选；
 - `POST /api/ai/revise`：生成调整候选；
 - `POST /api/ai/answer`：基于攻略问答；
@@ -330,8 +345,8 @@ type AiResult<T> =
 - 环境变量至少包括 Auth secret、管理员身份/密码哈希、MongoDB URI、Gemini API key、Gemini model、R2 endpoint/bucket/access keys、public base URL 以及可选的 `HERMES_API_TOKEN`。
 - API Token 长度不得少于 16 个字符，校验采用常数时间比较防范时序攻击。
 - `.env*`（示例文件除外）不得提交 Git。
-- 所有 JSON 写请求在鉴权和同源校验后、解析前限制为 2 MiB；缺失或不可信的长度仍执行有界流式读取。上传 Route Handler 必须在读 body 前拒绝已声明超过 `10 MiB + 64 KiB` multipart 包络上限的请求；对缺失或不可信的长度仍执行有界流式读取，并在解析后独立拒绝实际图片文件超过 10 MiB 的请求。同时校验 MIME 与文件签名一致。object key 由服务端生成，不接受任意路径。
-- MCP 图片 URL 下载仅接受无用户凭证的 HTTPS；每次重定向都重新校验主机及全部 DNS 地址，并将通过校验的地址固定用于该次 TLS 连接，保留原主机的证书校验。拒绝内网、回环、链路本地、保留地址及 IPv6 映射/隧道特殊地址；最多请求 5 跳，整个下载共用 15 秒期限，实际流量仍限制为 10 MiB（遇到 429/503 瞬态限流增加至多 1 次轻量退避重试且不计入跳数；若 Retry-After 超过 5 秒合理预算或总超时已到期则不予重试）。替换封面所需权限在下载与上传前校验。
+- 所有 JSON 写请求在鉴权和同源校验后、解析前限制为 2 MiB；缺失或不可信的长度仍执行有界流式读取。上传 Route Handler 必须在读 body 前拒绝已声明超出 multipart 包络上限的请求（图片 `10 MiB + 64 KiB`、附件 `20 MiB + 64 KiB`）；对缺失或不可信的长度仍执行有界流式读取，并在解析后独立拒绝实际文件超限请求（图片 10 MiB、GPX/KML 轨迹 10 MiB、PDF 20 MiB），同时校验格式白名单与文件签名／内容一致。object key 由服务端生成，不接受任意路径。
+- MCP 图片与附件 URL 下载仅接受无用户凭证的 HTTPS；每次重定向都重新校验主机及全部 DNS 地址，并将通过校验的地址固定用于该次 TLS 连接，保留原主机的证书校验。拒绝内网、回环、链路本地、保留地址及 IPv6 映射/隧道特殊地址；最多请求 5 跳，整个下载共用 15 秒期限，单次下载读取流量限制为图片 10 MiB、附件 20 MiB，下载完成后再按格式独立校验实际文件上限（图片 10 MiB、GPX/KML 轨迹 10 MiB、PDF 20 MiB）（遇到 429/503 瞬态限流增加至多 1 次轻量退避重试且不计入跳数；若 Retry-After 超过 5 秒合理预算或总超时已到期则不予重试）。替换封面或追加附件所需权限与目标 revision 在下载与上传前校验。
 - 发布镜像从明确提交的源码归档构建，记录完整 Git revision 与归档 SHA-256；发布构建入口校验镜像标签，不能把未提交文件纳入快照，也不自动部署或覆盖已有发布标签。源码修复不等于已更换线上镜像。
 - Markdown 或结构化正文渲染必须防止脚本注入；不允许未经净化的 HTML。
 - AI 请求不得接收任意系统提示词或工具定义；用户内容作为不可信数据处理。
@@ -433,7 +448,7 @@ docker compose config
 
 - 编辑器调整总天数按行程的 `day` 保留日期归属，兼容服务端允许的稀疏/乱序行程；删除超出新天数的已填写内容须先确认，取消后内容保持不变。
 - 发布前验证镜像完整 revision 与该提交源码归档 SHA；隔离预检和实际切换使用同一 image ID。切换命令失败或新版本健康失败均尝试恢复原镜像及原运行配置；回滚后复查健康，失败不得报告成功。不从健康检查推定完整业务验收。
-- 恢复独立 OAuth/MCP HTTP 验证与合成数据恢复演练：前者覆盖授权码/PKCE、两种协议、权限、409 与撤销；后者限定带所有权标记的临时 MongoDB 与合成图片，校验恢复数据、索引及校验和，不操作共享实例或真实 R2。
+- 恢复独立 OAuth/MCP HTTP 验证与合成数据恢复演练：前者当前覆盖授权码/PKCE、两种协议、权限、409 与撤销（切换官方 SDK 后改为现代协议与旧握手拒绝断言）；后者限定带所有权标记的临时 MongoDB 与合成图片，校验恢复数据、索引及校验和，不操作共享实例或真实 R2。
 
 回滚以 Git 提交为边界；数据库 schema 变更必须向后兼容或附可验证的备份/恢复步骤。外部 R2/Gemini 配置与应用代码分离，禁用对应环境变量即可停止相关能力，不影响已有攻略的只读浏览。
 

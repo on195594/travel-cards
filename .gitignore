@@ -18,3 +18,4 @@ backups/
 # Local uploads/test artifacts
 tmp/
 .playwright-mcp/
+.pi/

@@ -1,10 +1,15 @@
 import { createHash } from "node:crypto";
 import mongoose from "mongoose";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { POST } from "@/app/mcp/route";
 import { assertAdminOrToken, type AdminActor } from "@/lib/admin";
 import { assertCapability, type ApiActor } from "@/lib/capabilities";
-import { authenticateMcpAccessToken, getMcpResource, issueMcpAccessGrant, revokeMcpAccessGrant } from "@/lib/mcp/access-grants";
-import { callGuideTool, listGuideTools } from "@/lib/mcp/guide-tools";
+import { authenticateMcpAccessToken, getMcpResource, issueMcpAccessGrant, issueMcpOAuthAccessGrant, revokeMcpAccessGrant } from "@/lib/mcp/access-grants";
+import { guideToolScopes } from "@/lib/mcp/guide-tools";
+import { authorizeMcpClient, registerMcpClient } from "@/lib/mcp/oauth-clients";
+
+const fakeAuth = vi.hoisted(() => vi.fn());
+vi.mock("@/auth", () => ({ auth: fakeAuth }));
 
 const runId = process.env.TRAVEL_CARDS_TEST_RUN_ID;
 if (!runId || !/^[a-z0-9_]+$/.test(runId)) throw new Error("Run database tests through npm test");
@@ -13,31 +18,75 @@ const automation: AdminActor = { ...admin, authKind: "token", actorLabel: "api-t
 const readOnly: ApiActor = { authKind: "restricted-ai", actorLabel: "other-client", scopes: ["guide.read"] };
 const scopes = ["guide.read", "guide.create", "guide.update", "guide.publish", "image.upload", "attachment.upload"];
 const draft = {
-  title: "杭州一日游", slug: "mcp-grant-hangzhou", destination: "杭州", excerpt: "西湖漫步", days: 1,
+  title: "杭州一日游",
+  slug: "mcp-grant-hangzhou",
+  destination: "杭州",
+  excerpt: "西湖漫步",
+  days: 1,
   coverImage: { objectKey: "guides/test.jpg", publicUrl: "https://images.example.test/test.jpg", alt: "西湖" },
   itinerary: [{ day: 1, title: "西湖", items: [{ place: "西湖", description: "步行游览" }] }],
 };
+
 function ownedDb() {
   if (!mongoose.connection.db || mongoose.connection.db.databaseName !== `travel_cards_test_${runId}`) throw new Error("Refusing non-test database access");
   return mongoose.connection.db;
 }
+
+const origin = "https://travel.example.test";
+const version = "2026-07-28";
+const meta = { "io.modelcontextprotocol/protocolVersion": version, "io.modelcontextprotocol/clientCapabilities": {} };
+
 async function issue(grantedScopes = scopes) {
   return issueMcpAccessGrant(admin, { clientId: "fake-registered-client", scopes: grantedScopes });
 }
 
+async function oauthIssue(grantedScopes = scopes) {
+  const client = await registerMcpClient({
+    redirect_uris: ["https://fake-client.example.test/callback"],
+    token_endpoint_auth_method: "none",
+    scope: grantedScopes.join(" "),
+  });
+  await authorizeMcpClient(admin, client.client_id, grantedScopes as Parameters<typeof authorizeMcpClient>[2]);
+  return issueMcpOAuthAccessGrant(admin, { clientId: client.client_id, scopes: grantedScopes });
+}
+
+async function mcpPost(accessToken: string, method: string, params: Record<string, unknown> = {}) {
+  const response = await POST(new Request(origin + "/mcp", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json, text/event-stream",
+      "MCP-Protocol-Version": version,
+      "Mcp-Method": method,
+      ...(method === "tools/call" && typeof params.name === "string" ? { "Mcp-Name": params.name } : {}),
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params: { _meta: meta, ...params } }),
+  }));
+  return { response, body: await response.json() as Record<string, unknown> };
+}
+
 beforeEach(() => {
-  vi.stubEnv("AUTH_URL", "https://travel.example.test");
+  vi.stubEnv("AUTH_URL", origin);
+  vi.stubEnv("MCP_OAUTH_ENABLED", "true");
   vi.stubEnv("HERMES_API_TOKEN", "legacy-automation-test-token-12345");
+  fakeAuth.mockResolvedValue({ user: admin.user });
 });
+
 afterEach(async () => {
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllEnvs();
+  fakeAuth.mockReset();
   if (!mongoose.connection.db) return;
   const db = ownedDb();
-  await db.collection("mcp_access_grants").deleteMany({ clientId: "fake-registered-client" });
+  for (const collection of ["mcp_oauth_clients", "mcp_oauth_registration_windows", "mcp_access_grants"]) {
+    await db.collection(collection).deleteMany({});
+  }
+  await db.collection<{ _id: string }>("mcp_tool_rate_limits").deleteMany({ _id: /^mcp-grant:/ });
   await db.collection("guides").deleteMany({ slug: /^mcp-grant-/ });
 });
+
 afterAll(async () => {
   await mongoose.disconnect();
   global.mongooseConnection = undefined;
@@ -72,8 +121,12 @@ describe("internal MCP access grant lifecycle (fake admin consent, isolated Mong
   });
 
   it.each([
-    { scopes: [] }, { scopes: ["guide.publish"] }, { scopes: ["guide.read", "guide.read"] },
-    { scopes: ["guide.read", "guide.delete"] }, { scopes: ["guide.read", "config.manage"] }, { scopes: ["guide.read", "assistant.use"] },
+    { scopes: [] },
+    { scopes: ["guide.publish"] },
+    { scopes: ["guide.read", "guide.read"] },
+    { scopes: ["guide.read", "guide.delete"] },
+    { scopes: ["guide.read", "config.manage"] },
+    { scopes: ["guide.read", "assistant.use"] },
   ])("rejects invalid scopes %j", async (input) => {
     await expect(issueMcpAccessGrant(admin, { clientId: "fake-registered-client", ...input })).rejects.toMatchObject({ name: "ZodError" });
   });
@@ -134,27 +187,35 @@ describe("internal MCP access grant lifecycle (fake admin consent, isolated Mong
   });
 
   it("enforces read-only scopes in discovery and invocation, not just role", async () => {
-    const grant = await issue(["guide.read"]);
+    const grant = await oauthIssue(["guide.read"]);
     const actor = await authenticateMcpAccessToken(`Bearer ${grant.accessToken}`, grant.resource);
-    expect(listGuideTools(actor).map((tool) => tool.name)).toEqual(["list_guides", "get_guide"]);
+    const list = await mcpPost(grant.accessToken, "tools/list");
+    expect(list.response.status).toBe(200);
+    expect(((list.body.result as { tools: Array<{ name: string }> }).tools).map((tool) => tool.name)).toEqual(["list_guides", "get_guide"]);
     for (const [name, input] of [["create_guide", draft], ["update_guide", {}], ["publish_guide", {}]] as const) {
-      await expect(callGuideTool(actor, name, input)).rejects.toMatchObject({ status: 403 });
+      expect(guideToolScopes(name, input)).toContain(`guide.${name.split("_")[0]}`);
+      const res = await mcpPost(grant.accessToken, "tools/call", { name, arguments: input });
+      expect(res.response.status).toBe(403);
+      expect(res.response.headers.get("www-authenticate")).toContain(`scope="guide.read guide.${name.split("_")[0]}"`);
     }
     expect(await ownedDb().collection("guides").countDocuments({ slug: draft.slug })).toBe(0);
-    for (const capability of ["guide.delete", "guide.unpublish", "image.upload", "attachment.upload", "assistant.use", "config.manage"] as const) {
+    for (const capability of ["guide.create", "guide.update", "guide.publish", "guide.delete", "guide.unpublish", "image.upload", "attachment.upload", "assistant.use", "config.manage"] as const) {
       expect(() => assertCapability(actor, capability)).toThrow(expect.objectContaining({ status: 403 }));
     }
   });
 
   it("requires publish scope for credential-backed direct publication", async () => {
-    const limited = await issue(["guide.read", "guide.create"]);
-    const limitedActor = await authenticateMcpAccessToken(`Bearer ${limited.accessToken}`, limited.resource);
+    const limited = await oauthIssue(["guide.read", "guide.create"]);
     for (const publication of [{ publish: true }, { status: "published" }]) {
-      await expect(callGuideTool(limitedActor, "create_guide", { ...draft, ...publication })).rejects.toMatchObject({ status: 403 });
+      const res = await mcpPost(limited.accessToken, "tools/call", { name: "create_guide", arguments: { ...draft, ...publication } });
+      expect(res.response.status).toBe(403);
+      expect(res.response.headers.get("www-authenticate")).toContain("guide.publish");
     }
-    const full = await issue();
-    const actor = await authenticateMcpAccessToken(`Bearer ${full.accessToken}`, full.resource);
-    const created = await callGuideTool(actor, "create_guide", { ...draft, publish: true });
-    expect(created.structuredContent.guide).toMatchObject({ revision: 1, status: "published" });
+    expect(await ownedDb().collection("guides").countDocuments({ slug: draft.slug })).toBe(0);
+
+    const full = await oauthIssue();
+    const created = await mcpPost(full.accessToken, "tools/call", { name: "create_guide", arguments: { ...draft, publish: true } });
+    expect(created.response.status).toBe(200);
+    expect((created.body.result as { structuredContent: { guide: unknown } }).structuredContent.guide).toMatchObject({ revision: 1, status: "published" });
   });
 });

@@ -1,33 +1,28 @@
-# AGENTS.md
+# Travel Cards 工作约定
 
-## Project boundary
+仅操作本项目，不顺带修改 Hermes skills、runtime、cron、memory、Wiki 或其他项目。[SPEC.md](./SPEC.md) 定义产品和安全契约；[README.md](./README.md) 记录实际运行状态；[PRODUCT.md](./PRODUCT.md) 记录产品定位。已批准但未实施的方案不是线上能力。公开页面沿用 [现有视觉系统](./docs/frontend.md)。
 
-本目录只承载 Travel Cards 应用。不得顺带修改 Hermes active skills、runtime、cron、memory、Wiki 或其他项目。
+## 长任务：一次授权，连续实施
 
-## Source of truth
+- 用户要求**实施**某个目标后，可自主拆解并连续完成仓库内的代码、直接受影响的调用方、测试、依赖锁文件和文档；可安装方案明确需要的依赖、构建本地候选镜像、使用隔离测试库、修复回归并复测。完成一个阶段不必等用户说“继续”。审查、诊断保持只读；文档任务不隐含实施授权。
+- 先读通相关流程，检查 `git status` 和已有改动。保留用户工作；可删除本次批准替换且已迁走调用方的旧实现，不因长任务顺带清理其他代码。允许在本地试错，失败后按证据改方案；同一失败无新线索时停止重跑，报告阻塞和需要的决定。
+- 对主要多阶段任务或 `/long-task`，在 `.pi/tasks/<task-id>.md` 留一个简短检查点：目标及授权边界、已完成事项、验证结果、下一步。阶段完成或中断前更新；恢复时对照当前分支、diff 和测试输入核实，只补未完成或已失效的步骤。检查点不放凭证，也不作为发布记录提交。
+- **何时停下来问：** 需要扩大范围、改变未获批准的外部契约、覆盖他人工作，或涉及生产、凭证、不可逆数据操作、外发项目材料或付费服务。提交、push、部署按 README 分别授权；可在任务开始一次明确各项范围（例如“允许本地分段提交，不 push、不部署”），已获准的动作不重复请示。仅授权编码不等于授权 Git 发布或真实 Gemini/R2 调用。
 
-1. `SPEC.md` 定义产品与安全契约。
-2. `README.md` 定义阶段和项目入口；`PRODUCT.md` 记录已确认产品定位，不得将待实现能力写成现有能力。
-3. `docs/frontend.md` 记录现有 UI 实现事实；公开页面沿用现有视觉系统，不擅自重做品牌或组件体系。
-4. 若实现需要改变行为，先更新并确认 spec，不得让代码静默偏离。
+## MCP：实施已批准的替换，不兼容旧接口
 
-## Implementation rules
+- 以 [SPEC §3.3.3](./SPEC.md) 和[迁移方案](./docs/roadmaps/mcp-sdk-migration.md) 为准。源码已切换到官方 `@modelcontextprotocol/server@2.4.0`（仅支持 `2026-07-28`，已终止旧握手，无回退开关）；生产现网尚运行双协议，待授权部署切换。旧 Gemini 双端验收不代表新接口已验收。
+- 七个工具用 SDK 原生注册，只有一份 schema 和执行函数；删除被替代的协议分流、二次派发、旧导出及对应成功断言。不写兼容壳，也不删掉旧路径曾覆盖的授权、限流、上传、冲突或撤销测试：将这些行为移到现代入口验证。此决定不扩展到管理 REST、OAuth 注册／换码、已有令牌、数据库及独立探针 `/api/mcp-probe`。
+- SDK 负责协议，应用负责授权与副作用。保留读 body 前的 Origin/OAuth 检查、2 MiB 有界读取、逐请求 resource/scopes/撤销校验、OAuth 挑战及 CORS、持久限流和 `Retry-After`、revision 冲突保护与审计。隐藏工具不等于鉴权。
 
-- 先读完整相关流程，再做最小实现；优先使用 Next.js、Web API、MongoDB 和现有依赖能力。
-- “旅行卡片”是攻略的公开展示形态；首版不得另建语义重复的 Card 集合。
-- 应用内 Gemini 助手只生成待采纳草稿、建议和问答，不得自行发布、删除或写数据库。已批准的外部 AI 接入可以通过受限应用接口创建、修改和直接发布，但不得删除或管理配置；MCP/OAuth 受限身份及图片上传已实现，Gemini 网页/手机双端验收已由用户确认完成（记录见 docs/roadmaps/ai-client-integration.md），不据此推定各专项测试均已通过；图片需 image.upload 权限，直接替换封面还需 guide.update。现有管理员等价 API Token 不可当作受限 AI 凭证。
-- Gemini、Auth.js、API Token、R2 凭证只能来自环境变量，绝不进入仓库、浏览器 bundle、日志或模型提示词。
-- 所有管理端写操作都必须在服务端校验身份及对应能力；现有接口校验管理员 session 或有效 API Token，新增受限 AI 接口须落实 SPEC.md 3.3 的能力边界。隐藏按钮或不展示 MCP 工具不算鉴权。
-- 所有外部输入在服务端校验；富文本首版使用结构化字段或 Markdown，输出时防止 XSS。
-- 不添加 Agent 框架；先用一个服务端 orchestration seam 调用 Gemini 内建工具。只有出现经验证的多模型、多代理或持久任务需求才重新评估。
-- 不新增收藏、点赞、多用户发布、地图规划、支付或通知，除非 spec 另行批准（轻量搜索功能已由 SPEC.md 4.4 批准）。
+## 产品与安全底线
 
-## Checks and deployment
+- 优先使用 Next.js、Web API、MongoDB 和已有能力。旅行卡片是攻略的公开展示，不另建 Card 集合。不新增收藏、点赞、多用户发布、地图规划、支付或通知，除非 SPEC 另行批准。应用内 Gemini 使用服务端调用，不引入 Agent 框架。
+- 应用内 Gemini 只生成待采纳草稿、建议或问答，不自行写库、发布或删除。受限外部 AI 可按实际 scopes 创建、修改、发布；不可删除、撤回或管理配置。图片与附件分别要求 `image.upload`、`attachment.upload`；直接关联攻略还需 `guide.update` 和 `expectedRevision`。管理员等价 API Token 不得用作 AI 凭证。
+- 所有外部输入在服务端校验；管理写入逐项校验身份和能力，结构化富文本／Markdown 输出防 XSS。Gemini、Auth.js、API Token、R2 凭证仅从环境变量读取，不入仓库、浏览器 bundle、日志或模型提示词。
 
-按改动范围选最小检查，同一提交通过后不再重跑：
+## 验证与交付
 
-- 代码改动：`npm test`、`npm run lint`；涉及 AI、鉴权或上传时加对应的最小集成测试（无真实凭证用依赖注入的 fake transport，不伪造真实外部调用成功）。
-- 依赖、构建或容器配置改动：再加 `npm run build`、`docker compose config`。
-- 纯文档或测试改动：不构建、不部署。
-
-部署经授权后执行一次 `npm run deploy -- <commit> --skip-tests`（该提交已通过上述检查时），以脚本自带健康检查为准，另加至多一次公网请求。不新增发布记录、来源清单或审查原文文件；README「当前状态」只保留一行当前版本，覆盖旧行而不是追加。
+- 纯文档改动检查差异与链接；仅改测试时跑对应测试，不构建、不部署。代码改动跑 `npm test`、`npm run lint`；涉及 AI、鉴权或上传时加最小集成测试，使用隔离 MongoDB 或 fake transport，不声称真实客户端已通过。依赖、构建或容器改动另跑 `npm run build`、`docker compose config`。
+- **MCP 迁移**最终跑 `npm run verify` 和针对候选镜像的 `npm run test:oauth`。`verify` 已覆盖的检查不重复跑；测试输入改变才重验相应结果。不另设性能基线，真实 Gemini 可用性按实际结果记录。
+- 获授权且目标提交已通过门禁时，执行一次 `npm run deploy -- <commit> --skip-tests`；以脚本健康检查为准，另加至多一次公网请求。需人工回退时按授权恢复上一正常镜像，不重放写请求。不新增发布记录、来源清单或审查原文文件；README 的生产版本行覆盖更新，不追加历史。

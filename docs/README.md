@@ -12,6 +12,7 @@
 | [backup-restore.md](./backup-restore.md) | 数据／图片恢复边界与共享 MongoDB 所有权 |
 | [decisions/](./decisions/) | 项目根目录、MCP/OAuth 认证、2026 协议迁移等决定 |
 | [roadmaps/ai-client-integration.md](./roadmaps/ai-client-integration.md) | 外部 AI 接入的边界、Gemini 限制与下一步 |
+| [roadmaps/mcp-sdk-migration.md](./roadmaps/mcp-sdk-migration.md) | 正式 `/mcp` 迁移官方 SDK 的方案、验收门槛与回退条件（源码已实施，待授权发布） |
 | [gemini-oauth-troubleshooting.md](./gemini-oauth-troubleshooting.md) | Gemini 添加 MCP 时的 OAuth/CORS 排障记录 |
 
 历史发布记录、审查原文与清理记录已于 2026-10-29 从工作树移除，需要时用 `git log -- docs/deployments docs/reviews docs/maintenance` 查找。
@@ -23,7 +24,7 @@
 | `src/app/` | 页面与 Route Handlers；`/api/*` 为 REST，`/mcp` 为正式 MCP 入口 |
 | `src/components/` | 公开卡片、搜索、攻略编辑器等共享 UI |
 | `src/lib/guides/` | schema / repository / service；`src/lib/guides.ts` 为统一导出 |
-| `src/lib/mcp/` | 工具、HTTP 适配、OAuth 客户端、授权码及令牌 |
+| `src/lib/mcp/` | 工具注册（`guide-tools.ts`）、OAuth 客户端、授权码及令牌（`/mcp` 协议由官方 SDK 承担） |
 | `src/lib/ai/`、`src/lib/storage/` | Gemini 候选助手；图片与附件上传、下载、响应式 WebP |
 | `tests/`、`scripts/` | 测试、隔离 MongoDB、HTTP smoke、恢复演练、发布与运维脚本 |
 | `public/` | 静态资源；无 import 引用不代表可删（如 `travel-hero.webp` 仍有外部访问） |

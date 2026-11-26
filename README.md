@@ -6,8 +6,8 @@
 
 - 生产：<https://travel.keyi.win>，运行 `735db9e`（2026-11-11 实用卡片富文本排版与健壮性加固），OAuth 启用。回退：`npm run deploy -- b4fac7a --skip-tests`，本机保留旧镜像 `travel-cards:git-<提交>`。
 - 已实现：Next.js 16、Auth.js、MongoDB；攻略 CRUD／发布／撤回；R2 封面及 GPX/KML/PDF 附件；应用内 Gemini + Google Search 候选助手（只生成待采纳草稿）。
-- MCP：正式入口 `/mcp`，七个工具（list/get/create/update/publish、`upload_image`、`upload_attachment`），支持 2026 协议与标准 MCP 兼容模式；OAuth/DCR/PKCE 与管理员同意／撤销；受限令牌不可删除或管理配置，每令牌 120 次/分钟。
-- 待做：2026 协议下真实 Gemini 网页／手机端重新验收；非敏感配置后台。
+- MCP：正式入口 `/mcp`，七个工具（list/get/create/update/publish、`upload_image`、`upload_attachment`），OAuth/DCR/PKCE 与管理员同意／撤销，受限令牌不可删除或管理配置，每令牌 120 次/分钟；源码已切换为 `@modelcontextprotocol/server` 仅支持 `2026-07-28` 现代协议，生产 `735db9e` 仍运行旧双协议版本。
+- 待做：按授权发布官方 SDK 迁移版本（切换后只会旧握手的客户端将不能使用）；真实 Gemini 网页／手机端可用性复验；非敏感配置后台。
 
 文档：[SPEC](./SPEC.md)（权威契约）、[PRODUCT](./PRODUCT.md)、[AGENTS](./AGENTS.md)、[docs 导航](./docs/README.md)。
 
@@ -37,7 +37,7 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 
 - `/api/*`：REST 与 OAuth 端点；`/api/mcp-probe` 为旧协议固定数据探针。
 - `/mcp`：唯一正式 MCP 入口，资源元数据 `/.well-known/oauth-protected-resource/mcp`。
-- 2026 模式每次请求携带 `MCP-Protocol-Version`、`Mcp-Method`（调用工具时加 `Mcp-Name`）及 `params._meta`；标准客户端（如 Gemini）走 `initialize` 握手。仅 JSON 响应，无 SSE／会话。
+- 源码已通过官方 `@modelcontextprotocol/server` 切换为仅支持 `2026-07-28` 现代协议（仅 JSON 响应，无 SSE／会话；每次请求携带 `MCP-Protocol-Version`、`Mcp-Method`、调用工具时加 `Mcp-Name` 及 `params._meta`，不再支持 `initialize` / `ping`）；生产 `735db9e` 尚未切换，仍兼容旧握手。
 
 ```http
 POST /mcp HTTP/1.1
@@ -50,7 +50,7 @@ Mcp-Method: server/discover
 {"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}
 ```
 
-协议细节见 [MCP 协议决定](./docs/decisions/2026-10-21-mcp-2026-migration.md) 与 SPEC 3.3；Gemini 接入限制与排障见 [接入路线图](./docs/roadmaps/ai-client-integration.md)、[OAuth 排障](./docs/gemini-oauth-troubleshooting.md)。
+协议细节见 [MCP 协议决定](./docs/decisions/2026-10-21-mcp-2026-migration.md)、[SDK 迁移方案](./docs/roadmaps/mcp-sdk-migration.md) 与 SPEC 3.3；Gemini 接入限制与排障见 [接入路线图](./docs/roadmaps/ai-client-integration.md)、[OAuth 排障](./docs/gemini-oauth-troubleshooting.md)。
 
 ## 部署
 
@@ -89,7 +89,7 @@ docker compose down            # 不会停止共用 MongoDB
 
 - `src/app/`：页面与 Route Handlers
 - `src/lib/capabilities.ts`、`src/auth.ts`：能力矩阵与 `requireCapability`
-- `src/lib/mcp/`：工具定义（`guide-tools.ts`）、HTTP 适配、OAuth 客户端、授权码与令牌（`access-grants.ts`）
+- `src/lib/mcp/`：工具注册（`guide-tools.ts`）、CORS、持久限流、OAuth 客户端、授权码与令牌（`/mcp` 由 `src/app/mcp/route.ts` 接入官方 SDK）（`access-grants.ts`）
 - `src/lib/guides/`：schema / repository / service；`src/lib/guides.ts` 为统一导出
 - `src/lib/storage/`：R2 上传、附件、公网图片／附件下载（逐跳 DNS 校验）
 - `scripts/`：发布、隔离测试、HTTP smoke、恢复演练、孤立文件清理、密码生成

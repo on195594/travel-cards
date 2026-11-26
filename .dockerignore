@@ -9,3 +9,4 @@ backups/
 *.log
 tmp/
 .playwright-mcp/
+.pi/
