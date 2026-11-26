@@ -12,7 +12,7 @@
 | [backup-restore.md](./backup-restore.md) | 数据／图片恢复边界与共享 MongoDB 所有权 |
 | [decisions/](./decisions/) | 项目根目录、MCP/OAuth 认证、2026 协议迁移等决定 |
 | [roadmaps/ai-client-integration.md](./roadmaps/ai-client-integration.md) | 外部 AI 接入的边界、Gemini 限制与下一步 |
-| [roadmaps/mcp-sdk-migration.md](./roadmaps/mcp-sdk-migration.md) | 正式 `/mcp` 迁移官方 SDK 的方案、验收门槛与回退条件（源码已实施，待授权发布） |
+| [roadmaps/mcp-sdk-migration.md](./roadmaps/mcp-sdk-migration.md) | 正式 `/mcp` 迁移官方 SDK 的方案、验收门槛与回退条件（已实施并上线） |
 | [gemini-oauth-troubleshooting.md](./gemini-oauth-troubleshooting.md) | Gemini 添加 MCP 时的 OAuth/CORS 排障记录 |
 
 历史发布记录、审查原文与清理记录已于 2026-10-29 从工作树移除，需要时用 `git log -- docs/deployments docs/reviews docs/maintenance` 查找。

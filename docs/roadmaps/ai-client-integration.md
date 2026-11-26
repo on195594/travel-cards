@@ -14,7 +14,7 @@
 | 能力 | 状态 |
 | --- | --- |
 | 管理 API 权限 | 显式能力检查；受限凭证不能调用管理员 REST，既有 Token 不能给 AI |
-| MCP 工具 | 七个工具；`list_guides` 可选 limit、写工具可选 summary。源码已按[官方 SDK 方案](./mcp-sdk-migration.md)切换为仅支持 `2026-07-28` 现代协议（待授权部署）；生产 `735db9e` 仍运行双协议适配器 |
+| MCP 工具 | 七个工具；`list_guides` 可选 limit、写工具可选 summary。已按[官方 SDK 方案](./mcp-sdk-migration.md)切换上线，仅支持 `2026-07-28` 现代协议 |
 | 受限访问令牌 | 授权码换取，100 × 365 天，精确 resource/scopes，逐次检查客户端撤销；无 refresh token |
 | OAuth/DCR | 注册限额、S256 PKCE、一次性码、管理员同意与撤销；生产已启用，新环境默认关闭 |
 | 连接探针 | `/api/mcp-probe` 固定数据，无认证与业务能力 |

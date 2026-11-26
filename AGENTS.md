@@ -11,7 +11,7 @@
 
 ## MCP：实施已批准的替换，不兼容旧接口
 
-- 以 [SPEC §3.3.3](./SPEC.md) 和[迁移方案](./docs/roadmaps/mcp-sdk-migration.md) 为准。源码已切换到官方 `@modelcontextprotocol/server@2.4.0`（仅支持 `2026-07-28`，已终止旧握手，无回退开关）；生产现网尚运行双协议，待授权部署切换。旧 Gemini 双端验收不代表新接口已验收。
+- 以 [SPEC §3.3.3](./SPEC.md) 和[迁移方案](./docs/roadmaps/mcp-sdk-migration.md) 为准。正式 `/mcp` 已切换并上线官方 `@modelcontextprotocol/server@2.4.0`（仅支持 `2026-07-28`，已终止旧握手，无回退开关）。旧 Gemini 双端验收不代表新接口已验收。
 - 七个工具用 SDK 原生注册，只有一份 schema 和执行函数；删除被替代的协议分流、二次派发、旧导出及对应成功断言。不写兼容壳，也不删掉旧路径曾覆盖的授权、限流、上传、冲突或撤销测试：将这些行为移到现代入口验证。此决定不扩展到管理 REST、OAuth 注册／换码、已有令牌、数据库及独立探针 `/api/mcp-probe`。
 - SDK 负责协议，应用负责授权与副作用。保留读 body 前的 Origin/OAuth 检查、2 MiB 有界读取、逐请求 resource/scopes/撤销校验、OAuth 挑战及 CORS、持久限流和 `Retry-After`、revision 冲突保护与审计。隐藏工具不等于鉴权。
 

@@ -1,6 +1,6 @@
 # Travel Cards MVP Specification
 
-- **状态**：核心应用、MCP 工具／令牌与 OAuth/DCR/PKCE 已实现并上线；正式 `/mcp` 源码已切换为官方 MCP SDK（仅支持 `2026-07-28`，待授权部署），当前生产 `735db9e` 仍运行切换前双协议版本（见 3.3.3）。部署版本见 [README](./README.md#当前状态)
+- **状态**：核心应用、MCP 工具／令牌与 OAuth/DCR/PKCE 已实现并上线；正式 `/mcp` 已切换为官方 MCP SDK 并上线（仅支持 `2026-07-28`，见 3.3.3）。部署版本见 [README](./README.md#当前状态)
 - **更新日期**：2026-11-26
 - **项目根目录**：`/home/lin/travel-cards`
 - **产品语言**：首版中文界面与中文内容
@@ -86,9 +86,9 @@
 
 #### 3.3.3 正式 `/mcp` 协议契约
 
-**当前源码契约（官方 SDK，待授权部署）：** 切换到官方 SDK 时，`/mcp` 只提供 `2026-07-28` 现代协议，不再协商旧版，显式关闭 SDK 默认的无状态旧协议回退、SSE 升级、`subscriptions/listen` 订阅流与 `tools.listChanged` 广播，不保证旧握手、无现代元数据的工具调用或手写版的旧 JSON-RPC 错误细节。同步结果与协议／入参校验错误按 SDK 原生现代行为返回（工具只声明 `inputSchema` 并返回 `{ structuredContent }`，409／404 等业务执行期失败保留 `structuredContent.error` 与 `isError: true`；入参 schema 失败返回文本 `isError: true`、未知工具返回 HTTP `200` / `-32602`、无法确定请求 `id` 返回 `id: null`、无 `id` 通知返回 `202` 丢弃且无写副作用）。仅支持旧握手的客户端届时无法使用。外层继续承担 `MCP_OAUTH_ENABLED` 开关、CORS `OPTIONS` 预检、Origin 与 OAuth 挑战、非 POST `405`、`Accept` 拒绝 JSON 的 `406`、2 MiB 有界读取、已知工具在进入 SDK 回调前的组合权限 `403` 最小 step-up 挑战、120 次/分钟持久限流（`429 Retry-After` 及存储故障 `500 / -32603`）以及全响应 `no-store`／CORS 头。七个工具及既有授权不因换协议而改变；实施和切换条件见[迁移方案](./docs/roadmaps/mcp-sdk-migration.md)。
+**当前正式契约（官方 SDK，已上线）：** 切换到官方 SDK 时，`/mcp` 只提供 `2026-07-28` 现代协议，不再协商旧版，显式关闭 SDK 默认的无状态旧协议回退、SSE 升级、`subscriptions/listen` 订阅流与 `tools.listChanged` 广播，不保证旧握手、无现代元数据的工具调用或手写版的旧 JSON-RPC 错误细节。同步结果与协议／入参校验错误按 SDK 原生现代行为返回（工具只声明 `inputSchema` 并返回 `{ structuredContent }`，409／404 等业务执行期失败保留 `structuredContent.error` 与 `isError: true`；入参 schema 失败返回文本 `isError: true`、未知工具返回 HTTP `200` / `-32602`、无法确定请求 `id` 返回 `id: null`、无 `id` 通知返回 `202` 丢弃且无写副作用）。仅支持旧握手的客户端届时无法使用。外层继续承担 `MCP_OAUTH_ENABLED` 开关、CORS `OPTIONS` 预检、Origin 与 OAuth 挑战、非 POST `405`、`Accept` 拒绝 JSON 的 `406`、2 MiB 有界读取、已知工具在进入 SDK 回调前的组合权限 `403` 最小 step-up 挑战、120 次/分钟持久限流（`429 Retry-After` 及存储故障 `500 / -32603`）以及全响应 `no-store`／CORS 头。七个工具及既有授权不因换协议而改变；实施和切换条件见[迁移方案](./docs/roadmaps/mcp-sdk-migration.md)。
 
-**切换前线上仍在运行的双协议契约（735db9e，2026-10-22）：** 以下是生产尚未切换前的旧实现记录，仓库源码已移除双协议分发器。
+**历史双协议契约归档（735db9e 及之前，2026-10-22）：** 以下为切换官方 SDK 前的旧实现记录，源码与生产均已移除双协议分发器。
 
 - 正式 `/mcp` 采用双协议支持：既支持 `2026-07-28` 现代协议，又向后兼容以 Google Gemini Apps 为代表的标准 MCP 客户端规范（`initialize`、`notifications/*`、`ping`）。
 - **共享契约与边界**：

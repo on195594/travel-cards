@@ -4,10 +4,10 @@
 
 ## 当前状态
 
-- 生产：<https://travel.keyi.win>，运行 `735db9e`（2026-11-11 实用卡片富文本排版与健壮性加固），OAuth 启用。回退：`npm run deploy -- b4fac7a --skip-tests`，本机保留旧镜像 `travel-cards:git-<提交>`。
+- 生产：<https://travel.keyi.win>，运行 `b81a9e9`（2026-11-26 正式 `/mcp` 切换至官方 MCP SDK，仅支持 `2026-07-28`），OAuth 启用。回退：`npm run deploy -- 735db9e --skip-tests`，本机保留旧镜像 `travel-cards:git-<提交>`。
 - 已实现：Next.js 16、Auth.js、MongoDB；攻略 CRUD／发布／撤回；R2 封面及 GPX/KML/PDF 附件；应用内 Gemini + Google Search 候选助手（只生成待采纳草稿）。
-- MCP：正式入口 `/mcp`，七个工具（list/get/create/update/publish、`upload_image`、`upload_attachment`），OAuth/DCR/PKCE 与管理员同意／撤销，受限令牌不可删除或管理配置，每令牌 120 次/分钟；源码已切换为 `@modelcontextprotocol/server` 仅支持 `2026-07-28` 现代协议，生产 `735db9e` 仍运行旧双协议版本。
-- 待做：按授权发布官方 SDK 迁移版本（切换后只会旧握手的客户端将不能使用）；真实 Gemini 网页／手机端可用性复验；非敏感配置后台。
+- MCP：正式入口 `/mcp`，七个工具（list/get/create/update/publish、`upload_image`、`upload_attachment`），OAuth/DCR/PKCE 与管理员同意／撤销，受限令牌不可删除或管理配置，每令牌 120 次/分钟；已通过 `@modelcontextprotocol/server` 切换为仅支持 `2026-07-28` 现代协议（不再兼容旧握手）。
+- 待做：`2026-07-28` 现代协议下真实 Gemini 网页／手机端可用性复验；非敏感配置后台。
 
 文档：[SPEC](./SPEC.md)（权威契约）、[PRODUCT](./PRODUCT.md)、[AGENTS](./AGENTS.md)、[docs 导航](./docs/README.md)。
 
@@ -37,7 +37,7 @@ printf '%s' '你的管理员密码' | node scripts/hash-admin-password.mjs
 
 - `/api/*`：REST 与 OAuth 端点；`/api/mcp-probe` 为旧协议固定数据探针。
 - `/mcp`：唯一正式 MCP 入口，资源元数据 `/.well-known/oauth-protected-resource/mcp`。
-- 源码已通过官方 `@modelcontextprotocol/server` 切换为仅支持 `2026-07-28` 现代协议（仅 JSON 响应，无 SSE／会话；每次请求携带 `MCP-Protocol-Version`、`Mcp-Method`、调用工具时加 `Mcp-Name` 及 `params._meta`，不再支持 `initialize` / `ping`）；生产 `735db9e` 尚未切换，仍兼容旧握手。
+- 正式 `/mcp` 通过官方 `@modelcontextprotocol/server` 仅提供 `2026-07-28` 现代协议（仅 JSON 响应，无 SSE／会话；每次请求携带 `MCP-Protocol-Version`、`Mcp-Method`、调用工具时加 `Mcp-Name` 及 `params._meta`，不再支持 `initialize` / `ping`）。
 
 ```http
 POST /mcp HTTP/1.1
