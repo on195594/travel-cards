@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-- 生产：<https://travel.keyi.win>，运行 `3aa0cdd`（2026-11-26 升级至 Next.js 16.4.6 安全补丁），OAuth 启用。回退：`MCP_OAUTH_ENABLED=true npm run deploy -- b81a9e9 --skip-tests`，本机保留旧镜像 `travel-cards:git-<提交>`。
+- 生产：<https://travel.keyi.win>，运行 `67f123d`（2026-11-26 修复 Mongoose 和 minimatch 的依赖安全告警），OAuth 启用。回退：`MCP_OAUTH_ENABLED=true npm run deploy -- 3aa0cdd --skip-tests`，本机保留旧镜像 `travel-cards:git-<提交>`。
 - 已实现：Next.js 16、Auth.js、MongoDB；攻略 CRUD／发布／撤回；R2 封面及 GPX/KML/PDF 附件；应用内 Gemini + Google Search 候选助手（只生成待采纳草稿）。
 - MCP：正式入口 `/mcp`，七个工具（list/get/create/update/publish、`upload_image`、`upload_attachment`），OAuth/DCR/PKCE 与管理员同意／撤销，受限令牌不可删除或管理配置，每令牌 120 次/分钟；已通过 `@modelcontextprotocol/server` 切换为仅支持 `2026-07-28` 现代协议（不再兼容旧握手）。
 - 待做：`2026-07-28` 现代协议下真实 Gemini 网页／手机端可用性复验；非敏感配置后台。
